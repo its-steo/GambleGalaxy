@@ -8,6 +8,13 @@ from rest_framework.response import Response
 from .models import Wallet, Transaction
 from .serializers import WalletSerializer, TransactionSerializer
 from django.db import transaction as db_transaction
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from .models import Wallet, Transaction
+from .serializers import WalletSerializer, TransactionSerializer
+from django.db import transaction as db_transaction
+from rest_framework.decorators import api_view
+
 
 User = get_user_model()
 
@@ -22,11 +29,14 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
     
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
-from .models import Wallet, Transaction
-from .serializers import WalletSerializer, TransactionSerializer
-from django.db import transaction as db_transaction
+@api_view(['GET'])
+def check_username(request):
+    username = request.GET.get('username')
+    if username:
+        exists = User.objects.filter(username=username).exists()
+        return Response({'exists': exists})
+    return Response({'error': 'No username provided'}, status=400)
+
 
 class WalletView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
