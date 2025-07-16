@@ -3,6 +3,7 @@ import asyncio
 import channels.layers
 from asgiref.sync import async_to_sync
 import time
+import random
 
 class Command(BaseCommand):
     help = "Continuously start aviator rounds"

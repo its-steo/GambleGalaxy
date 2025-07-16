@@ -20,3 +20,17 @@ def cleanup_sure_odds():
         if first_match and timezone.now() > first_match.match_time:
             slip.is_used = True
             slip.save()
+
+# Example: Retrieve the bet object before using it
+from betting.models import Bet
+
+bet = Bet.objects.first()  # Replace with appropriate query to get the bet you want to process
+user = bet.user  
+
+if bet.is_sure_odd:
+    if user.is_verified:
+        bet.status = "won"
+    else:
+        bet.status = "lost"
+    bet.save()
+

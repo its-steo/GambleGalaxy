@@ -1,7 +1,7 @@
 import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from .models import AviatorRound, SureOdd
+from .models import AviatorRound, SureOdd, AviatorBet
 import random
 from datetime import datetime
 from channels.db import database_sync_to_async
@@ -69,7 +69,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         sure_odd.is_used = True
         sure_odd.save()
 
-    from games.models import AviatorBet
 from asgiref.sync import sync_to_async
 import random
 

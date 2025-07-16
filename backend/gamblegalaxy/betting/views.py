@@ -53,6 +53,9 @@ class MyBetHistoryView(generics.ListAPIView):
         return Bet.objects.filter(user=self.request.user).order_by('-placed_at')
 
 
+def get_prediction_for_match(match):
+    # Replace this logic with your actual prediction retrieval
+    return match.prediction if hasattr(match, 'prediction') else None
 
 class SureOddsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -61,47 +64,46 @@ class SureOddsView(APIView):
         user = request.user
         now = timezone.now()
 
-        slip = SureOddSlip.objects.filter(user=user, is_used=False).order_by('-created_at').first()
+        slip = SureOddSlip.objects.filter(user=user, is_used=False).order_by('-shown_to_user_at').first()
         if not slip:
-            return Response({'detail': 'No sure odds slip created. Pay to generate.'}, status=404)
+            return Response({'detail': 'No Sure Odds slip found. Please pay to unlock one.'}, status=404)
 
-        # Check time to game
-        upcoming_matches = slip.matches.order_by('match_time')
-        if not upcoming_matches.exists():
-            return Response({'detail': 'No matches attached.'}, status=404)
+        matches = slip.matches.order_by('match_time')
+        if not matches.exists():
+            return Response({'detail': 'Slip has no matches assigned.'}, status=404)
 
-        first_game_time = upcoming_matches.first().match_time
-        time_diff = first_game_time - now
-
-        show_prediction = False
+        time_to_first_game = matches.first().match_time - now
         allow_payment = False
+        show_predictions = False
         dismiss = False
 
-        if time_diff <= timedelta(minutes=30) and not slip.has_paid:
-            allow_payment = True  # show pay prompt
+        if time_to_first_game <= timedelta(minutes=30) and not slip.has_paid:
+            allow_payment = True
+
         if slip.has_paid:
-            show_prediction = True  # show prediction
-        if time_diff.total_seconds() <= 0:
-            dismiss = True  # game already started
+            show_predictions = True
+            slip.revealed_predictions = True
+            slip.save()
 
-        data = {
-            'matches': [
-                {
-                    'home_team': m.home_team,
-                    'away_team': m.away_team,
-                    'match_time': m.match_time,
-                    'odds_home_win': m.odds_home_win,
-                    'odds_draw': m.odds_draw,
-                    'odds_away_win': m.odds_away_win
-                } for m in upcoming_matches
-            ],
+        if time_to_first_game.total_seconds() <= 0:
+            dismiss = True
+            slip.is_used = True
+            slip.save()
+
+        return Response({
+            'code': str(slip.code),
+            'matches': [{
+                'home_team': m.home_team,
+                'away_team': m.away_team,
+                'match_time': m.match_time,
+                'prediction': get_prediction_for_match(m) if show_predictions else None
+            } for m in matches],
             'paid': slip.has_paid,
-            'show_prediction': show_prediction,
             'allow_payment': allow_payment,
+            'show_predictions': show_predictions,
             'dismiss': dismiss
-        }
+        })
 
-        return Response(data)
 
 class SureOddsPaymentView(APIView):
     permission_classes = [IsAuthenticated]

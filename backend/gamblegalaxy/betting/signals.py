@@ -20,3 +20,5 @@ def payout_on_win(sender, instance, **kwargs):
             amount=winnings,
             transaction_type='deposit'
         )
+
+
