@@ -3,25 +3,38 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Input } from "../../../components/ui/input"
-import { Button } from "../../../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card"
-import { useToast } from "../../../hooks/use-toast"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import useAuth from "@/lib/auth"
+import { useToast } from "@/hooks/use-toast"
+import { Eye, EyeOff, UserPlus } from "lucide-react"
 
 export default function RegisterPage() {
-  const [username, setUsername] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+  })
 
+  const [showPassword, setShowPassword] = useState(false)
+  const { register, isLoading } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Password mismatch",
         description: "Passwords do not match.",
@@ -30,36 +43,25 @@ export default function RegisterPage() {
       return
     }
 
-    setLoading(true)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/user/register/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
-      })
+    const success = await register(
+      formData.username,
+      formData.email,
+      formData.password,
+      formData.phone  // ✅ send phone
+    )
 
-      if (res.ok) {
-        toast({
-          title: "Account created",
-          description: "You can now log in.",
-        })
-        router.push("/auth/login")
-      } else {
-        const error = await res.json()
-        toast({
-          title: "Registration failed",
-          description: error?.message || "Please check your input.",
-          variant: "destructive",
-        })
-      }
-    } catch (err) {
+    if (success) {
       toast({
-        title: "Error",
-        description: "Something went wrong. Try again.",
+        title: "Account created!",
+        description: "Please log in with your new account.",
+      })
+      router.push("/auth/login")
+    } else {
+      toast({
+        title: "Registration failed",
+        description: "Please check your information and try again.",
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -67,64 +69,103 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-gray-800 border-gray-700">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">Create Account</CardTitle>
-          <p className="text-gray-400">Join Gamble Galaxy today</p>
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <UserPlus className="w-8 h-8 text-white" />
+          </div>
+          <CardTitle className="text-2xl font-bold text-white">Join Gamble Galaxy</CardTitle>
+          <p className="text-gray-400">Create your account and start winning</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Username *</label>
               <Input
                 type="text"
-                value={username}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
                 className="bg-gray-700 border-gray-600 text-white"
+                placeholder="Choose a username"
                 required
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Email *</label>
               <Input
                 type="email"
-                value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 className="bg-gray-700 border-gray-600 text-white"
+                placeholder="Enter your email"
                 required
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Phone</label>
+              <Input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="bg-gray-700 border-gray-600 text-white"
+                placeholder="Enter your phone number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Password *</label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="bg-gray-700 border-gray-600 text-white pr-10"
+                  placeholder="Create a password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password *</label>
               <Input
                 type="password"
-                value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
                 className="bg-gray-700 border-gray-600 text-white"
+                placeholder="Confirm your password"
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-                className="bg-gray-700 border-gray-600 text-white"
-                required
-              />
-            </div>
+
             <Button
               type="submit"
-              disabled={loading}
+              disabled={isLoading}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
             >
-              {loading ? "Creating account..." : "Register"}
+              {isLoading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
-          <div className="mt-6 text-center text-gray-400">
-            Already have an account?{" "}
-            <Link href="/auth/login" className="text-purple-400 hover:text-purple-300">
-              Sign in
-            </Link>
+
+          <div className="mt-6 text-center">
+            <p className="text-gray-400">
+              Already have an account?{" "}
+              <Link href="/auth/login" className="text-purple-400 hover:text-purple-300">
+                Sign in
+              </Link>
+            </p>
           </div>
         </CardContent>
       </Card>
