@@ -10,6 +10,7 @@ from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
 
+
 class MatchListView(generics.ListAPIView):
     queryset = Match.objects.all()
     serializer_class = MatchSerializer
@@ -18,44 +19,49 @@ class MatchListView(generics.ListAPIView):
 
 class PlaceBetView(generics.CreateAPIView):
     serializer_class = BetSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         user = self.request.user
-        wallet = Wallet.objects.get(user=user)
-        amount = serializer.validated_data['amount']
         match = serializer.validated_data['match']
-        option = serializer.validated_data['selected_option']
+        selected_option = serializer.validated_data['selected_option']
+        amount = serializer.validated_data['amount']
 
-        # Fetch odds based on selected option
-        if option == 'home_win':
-            odds = match.odds_home_win
-        elif option == 'draw':
-            odds = match.odds_draw
-        else:
-            odds = match.odds_away_win
+        wallet = Wallet.objects.get(user=user)
 
         if wallet.balance < amount:
             raise serializers.ValidationError("Insufficient balance.")
 
-        # Deduct balance
+        # Get odds based on selected option
+        if selected_option == 'home_win':
+            odds = match.odds_home_win
+        elif selected_option == 'draw':
+            odds = match.odds_draw
+        elif selected_option == 'away_win':
+            odds = match.odds_away_win
+        else:
+            raise serializers.ValidationError("Invalid betting option.")
+
+        expected_payout = amount * odds
+
+        # Deduct from wallet and save bet
         wallet.balance -= amount
         wallet.save()
 
-        # Save bet
-        serializer.save(user=user, odds=odds)
+        serializer.save(user=user, odds=odds, expected_payout=expected_payout)
+
 
 class MyBetHistoryView(generics.ListAPIView):
     serializer_class = BetSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Bet.objects.filter(user=self.request.user).order_by('-placed_at')
 
 
 def get_prediction_for_match(match):
-    # Replace this logic with your actual prediction retrieval
     return match.prediction if hasattr(match, 'prediction') else None
+
 
 class SureOddsView(APIView):
     permission_classes = [IsAuthenticated]

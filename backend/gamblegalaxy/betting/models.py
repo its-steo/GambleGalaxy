@@ -48,6 +48,7 @@ class Bet(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     total_odds = models.DecimalField(max_digits=6, decimal_places=2, default=1.00)
+    expected_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     status = models.CharField(
         max_length=20,
