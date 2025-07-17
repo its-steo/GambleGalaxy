@@ -1,13 +1,16 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import useAuth from "@/lib/auth"
-import { useToast } from "@/hooks/use-toast"
+import { Button } from "../../../components/ui/button"
+import { Input } from "../../../components/ui/input"
+import { Card } from "@/components/ui/card"
+import { useAuth } from "@/lib/auth"
+// Update the toast import
+import { toast } from "sonner"
 import { Eye, EyeOff, UserPlus } from "lucide-react"
 
 export default function RegisterPage() {
@@ -18,10 +21,8 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
   })
-
   const [showPassword, setShowPassword] = useState(false)
   const { register, isLoading } = useAuth()
-  const { toast } = useToast()
   const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,32 +36,27 @@ export default function RegisterPage() {
     e.preventDefault()
 
     if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Password mismatch",
+      toast.error("Password mismatch", {
         description: "Passwords do not match.",
-        variant: "destructive",
       })
       return
     }
 
-    const success = await register(
-      formData.username,
-      formData.email,
-      formData.password,
-      formData.phone  // ✅ send phone
-    )
+    const success = await register({
+      username: formData.username,
+      email: formData.email,
+      phone: formData.phone || undefined,
+      password: formData.password,
+    })
 
     if (success) {
-      toast({
-        title: "Account created!",
+      toast.success("Account created!", {
         description: "Please log in with your new account.",
       })
       router.push("/auth/login")
     } else {
-      toast({
-        title: "Registration failed",
+      toast.error("Registration failed", {
         description: "Please check your information and try again.",
-        variant: "destructive",
       })
     }
   }
@@ -68,14 +64,14 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-gray-800 border-gray-700">
-        <CardHeader className="text-center">
+        <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <UserPlus className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-white">Join Gamble Galaxy</CardTitle>
+          <h2 className="text-2xl font-bold text-white">Join Gamble Galaxy</h2>
           <p className="text-gray-400">Create your account and start winning</p>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Username *</label>
@@ -104,7 +100,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Phone</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Phone (Optional)</label>
               <Input
                 type="tel"
                 name="phone"
@@ -167,7 +163,7 @@ export default function RegisterPage() {
               </Link>
             </p>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   )

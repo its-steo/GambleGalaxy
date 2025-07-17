@@ -7,9 +7,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import useAuth from "@/lib/auth"
-import { useToast } from "@/hooks/use-toast"
+import { Card } from "@/components/ui/card"
+import { useAuth } from "@/lib/auth"
+import { toast } from "sonner"
 import { Eye, EyeOff, LogIn } from "lucide-react"
 
 export default function LoginPage() {
@@ -17,7 +17,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const { login, isLoading } = useAuth()
-  const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || "/"
@@ -28,16 +27,15 @@ export default function LoginPage() {
     const success = await login(username, password)
 
     if (success) {
-      toast({
-        title: "Welcome back!",
+  
+      toast.success("Welcome back!", {
         description: "You have successfully logged in.",
       })
       router.push(redirect)
     } else {
-      toast({
-        title: "Login failed",
+  
+      toast.error("Login failed", {
         description: "Invalid username or password.",
-        variant: "destructive",
       })
     }
   }
@@ -45,14 +43,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-gray-800 border-gray-700">
-        <CardHeader className="text-center">
+        <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <LogIn className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-white">Welcome Back</CardTitle>
+          <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
           <p className="text-gray-400">Sign in to your Gamble Galaxy account</p>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
@@ -104,7 +102,7 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   )
