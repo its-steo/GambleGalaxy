@@ -22,40 +22,76 @@ interface ApiResponse<T> {
 }
 
 class ApiClient {
-  private getAuthHeaders(): Record<string, string> {
-    if (typeof window === "undefined") return {}
-    const token = localStorage.getItem("access_token")
-    return token ? { Authorization: `Bearer ${token}` } : {}
+  private async getAccessToken(): Promise<string | null> {
+    return localStorage.getItem("access_token")
   }
 
-  async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  private getRefreshToken(): string | null {
+    return localStorage.getItem("refresh_token")
+  }
+
+  private async refreshAccessToken(): Promise<string | null> {
+    const refresh = this.getRefreshToken()
+    if (!refresh) return null
+
     try {
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        ...this.getAuthHeaders(),
-        ...(options.headers ? (options.headers as Record<string, string>) : {}),
-      }
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers,
-        ...options,
+      const res = await fetch(`${API_BASE_URL}/accounts/token/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
       })
-
-      const data = await response.json()
-
-      return {
-        data: response.ok ? data : undefined,
-        error: !response.ok ? data.detail || data.message || "An error occurred" : undefined,
-        status: response.status,
+      const data = await res.json()
+      if (res.ok && data.access) {
+        localStorage.setItem("access_token", data.access)
+        return data.access
+      } else {
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
+        return null
       }
-    } catch (error) {
-      return {
-        error: "Network error",
-        status: 0,
-      }
+    } catch {
+      return null
     }
   }
 
-  // Auth endpoints
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const token = await this.getAccessToken()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  }
+
+  async request<T>(endpoint: string, options: RequestInit = {}, retry = true): Promise<ApiResponse<T>> {
+    try {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+        ...(await this.getAuthHeaders()),
+      }
+
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      })
+
+      const data = await res.json()
+
+      if (res.status === 401 && retry) {
+        const newAccess = await this.refreshAccessToken()
+        if (newAccess) {
+          return this.request<T>(endpoint, options, false) // retry once
+        }
+      }
+
+      return {
+        data: res.ok ? data : undefined,
+        error: !res.ok ? data?.detail || data?.message || "An error occurred" : undefined,
+        status: res.status,
+      }
+    } catch {
+      return { error: "Network error", status: 0 }
+    }
+  }
+
+  // ✅ Auth
   async login(username: string, password: string) {
     return this.request<LoginResponse>("/accounts/login/", {
       method: "POST",
@@ -78,7 +114,7 @@ class ApiClient {
     return this.request<{ exists: boolean }>(`/accounts/check-username/?username=${username}`)
   }
 
-  // Wallet endpoints
+  // ✅ Wallet
   async getWallet() {
     return this.request<Wallet>("/wallet/")
   }
@@ -101,7 +137,7 @@ class ApiClient {
     return this.request<Transaction[]>("/wallet/transactions/")
   }
 
-  // Betting endpoints
+  // ✅ Betting
   async getMatches() {
     return this.request<Match[]>("/betting/matches/")
   }
@@ -127,7 +163,7 @@ class ApiClient {
     })
   }
 
-  // Aviator endpoints
+  // ✅ Aviator
   async startAviatorRound() {
     return this.request<AviatorRound>("/games/aviator/start/", {
       method: "POST",
@@ -150,7 +186,7 @@ class ApiClient {
 
   async getPastCrashes() {
     return this.request<Array<{ id: number; multiplier: number; color: string; timestamp: string }>>(
-      "/games/api/aviator/past-crashes/",
+      "/games/api/aviator/past-crashes/"
     )
   }
 

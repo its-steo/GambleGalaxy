@@ -127,4 +127,15 @@ export interface WebSocketMessage {
   crash_multiplier?: number
   message?: string
   error?: string
+  wallet_update?: number
+  balance?: number
+  live_players?: Array<{ username: string; avatar?: string }>
+  recent_cashouts?: Array<{ username: string; amount: string; cashed_out_at: number }>
+  players?: Array<{ username: string; avatar?: string }>
+  new_bet?: {
+    id: number
+    user: number
+    amount: string
+    total_odds: string
+  }
 }

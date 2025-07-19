@@ -10,6 +10,9 @@ interface WebSocketState {
   currentRoundId: number | null
   isRoundActive: boolean
   lastCrashMultiplier: number
+  walletBalance: number
+  livePlayers: any[]
+  recentCashouts: any[]
   connect: () => void
   disconnect: () => void
   startRound: () => void
@@ -23,13 +26,16 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
   currentRoundId: null,
   isRoundActive: false,
   lastCrashMultiplier: 1.0,
+  walletBalance: 0.0,
+  livePlayers: [],
+  recentCashouts: [],
 
   connect: () => {
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws/aviator/"
     const socket = new WebSocket(wsUrl)
 
     socket.onopen = () => {
-      console.log("🚀 WebSocket connected to Aviator game")
+      console.log("🟢 Connected to WebSocket")
       set({ socket, isConnected: true })
     }
 
@@ -44,22 +50,48 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
             isRoundActive: true,
           })
           break
+
         case "crash":
           set({
             isRoundActive: false,
             lastCrashMultiplier: data.crash_multiplier || 1.0,
             currentMultiplier: data.crash_multiplier || 1.0,
           })
+          playSound("crash")
           // Auto-start next round after 5 seconds
-          setTimeout(() => {
-            get().startRound()
-          }, 5000)
+          setTimeout(() => get().startRound(), 5000)
           break
+
         case "manual_cashout_success":
           console.log("✅ Cashout successful:", data.message)
+          playSound("cashout")
           break
+
         case "manual_cashout_error":
           console.error("❌ Cashout error:", data.error)
+          break
+
+        case "balance_update":
+          if (typeof data.balance === "number") {
+            set({ walletBalance: data.balance })
+          }
+          break
+
+        case "live_players":
+          set({ livePlayers: data.players || [] })
+          break
+
+        case "recent_cashouts":
+          set({ recentCashouts: data.cashouts || [] })
+          break
+
+        case "new_bet":
+          console.log("🆕 New Bet Placed", data.bet)
+          // Optionally update live players or wallet here
+          break
+
+        default:
+          console.warn("⚠️ Unknown WebSocket message type:", data.type)
           break
       }
     }
@@ -67,10 +99,7 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
     socket.onclose = () => {
       console.log("🔌 WebSocket disconnected")
       set({ socket: null, isConnected: false })
-      // Auto-reconnect after 3 seconds
-      setTimeout(() => {
-        get().connect()
-      }, 3000)
+      setTimeout(() => get().connect(), 3000)
     }
 
     socket.onerror = (error) => {
@@ -102,8 +131,19 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
           action: "manual_cashout",
           user_id: userId,
           multiplier: multiplier,
-        }),
+        })
       )
     }
   },
 }))
+
+// 🔊 Optional sound function (replace with real audio effects)
+function playSound(type: "cashout" | "crash") {
+  const soundMap: Record<string, string> = {
+    crash: "/sounds/crash.mp3",
+    cashout: "/sounds/cashout.mp3",
+  }
+
+  const audio = new Audio(soundMap[type])
+  audio.play().catch((err) => console.error("Sound play failed:", err))
+}

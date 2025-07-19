@@ -1,20 +1,17 @@
 "use client"
-import { useEffect, useState } from "react"
-import axios from "axios"
 
-export default function WalletOverview() {
-  const [balance, setBalance] = useState(0)
+import React from "react"
+import { WalletBalance } from "./wallet-balance"
+import { Wallet } from "lucide-react"
 
-  useEffect(() => {
-    axios.get("/api/wallet/")
-      .then((res) => setBalance(res.data.balance))
-      .catch((err) => console.error("Error loading wallet", err))
-  }, [])
-
+export default function WalletCard() {
   return (
-    <div className="bg-white p-4 rounded shadow mb-4">
-      <h2 className="text-lg font-semibold mb-2">Wallet Balance</h2>
-      <p className="text-2xl font-bold text-green-600">Ksh {balance.toFixed(2)}</p>
+    <div className="backdrop-blur-sm bg-white/10 border border-white/20 rounded-2xl shadow-lg p-6 flex items-center justify-between">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-100 mb-1">Wallet Balance</h2>
+        <WalletBalance />
+      </div>
+      <Wallet className="w-8 h-8 text-green-400" />
     </div>
   )
 }
