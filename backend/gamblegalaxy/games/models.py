@@ -2,8 +2,8 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 import random
+from django.conf import settings
 
-User = get_user_model()
 
 class AviatorRound(models.Model):
     start_time = models.DateTimeField(default=timezone.now)
@@ -30,14 +30,14 @@ class AviatorRound(models.Model):
         else:
             return "purple"
 
+
 class AviatorBet(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='aviator_bets')
     round = models.ForeignKey(AviatorRound, on_delete=models.CASCADE, related_name='bets')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     cash_out_multiplier = models.FloatField(null=True, blank=True)  # None = did not cash out
     final_multiplier = models.FloatField(null=True, blank=True)     # Same as cash_out or crash
     time_placed = models.DateTimeField(default=timezone.now)
-
     is_winner = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -63,8 +63,9 @@ class AviatorBet(models.Model):
             is_winner=True
         ).order_by('-win_amount')[:10]
 
+
 class SureOdd(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sure_odds')
     odd = models.DecimalField(max_digits=5, decimal_places=2)
     is_used = models.BooleanField(default=False)
     verified_by_admin = models.BooleanField(default=False)
@@ -73,8 +74,9 @@ class SureOdd(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.odd} - Verified: {self.verified_by_admin}"
 
+
 class TransactionLog(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transaction_logs')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     reason = models.CharField(max_length=255)  # 'bet', 'win', 'refund', etc.
     balance_after = models.DecimalField(max_digits=10, decimal_places=2)

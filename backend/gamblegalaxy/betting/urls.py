@@ -11,7 +11,7 @@ urlpatterns = [
     path('sure-odds/pay/', views.SureOddsPaymentView.as_view(), name='sure-odds-pay'),
     
 
-    
+
 
 
 ]

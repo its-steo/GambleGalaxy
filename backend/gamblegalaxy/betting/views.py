@@ -1,74 +1,37 @@
 from urllib import request
 from django.shortcuts import render
-from rest_framework import generics, permissions, status, serializers
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from .models import Match, Bet, SureOddSlip
 from .serializers import MatchSerializer, BetSerializer
 from wallet.models import Wallet
-from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
 
 
+# -------------------------
+# MATCH LIST
+# -------------------------
 class MatchListView(generics.ListAPIView):
     queryset = Match.objects.all()
     serializer_class = MatchSerializer
     permission_classes = [permissions.AllowAny]
 
 
+# -------------------------
+# PLACE BET (uses serializer logic)
+# -------------------------
 class PlaceBetView(generics.CreateAPIView):
     serializer_class = BetSerializer
     permission_classes = [IsAuthenticated]
-
-    def perform_create(self, serializer):
-        user = self.request.user
-        selections_data = serializer.validated_data.pop('selections', [])
-
-        if not selections_data:
-            raise serializers.ValidationError("At least one selection is required.")
-
-        selection = selections_data[0]  # Handle only one selection for now
-        match = selection['match']
-        selected_option = selection['selected_option']
-        amount = serializer.validated_data['amount']
-
-        # Get user's wallet
-        wallet = Wallet.objects.get(user=user)
-
-        if wallet.balance < amount:
-            raise serializers.ValidationError("Insufficient balance.")
-
-        # Determine odds
-        if selected_option == 'home_win':
-            odds = match.odds_home_win
-        elif selected_option == 'draw':
-            odds = match.odds_draw
-        elif selected_option == 'away_win':
-            odds = match.odds_away_win
-        else:
-            raise serializers.ValidationError("Invalid betting option.")
-
-        expected_payout = amount * odds
-
-        # Deduct balance
-        wallet.balance -= amount
-        wallet.save()
-
-        # Save the Bet
-        bet = serializer.save(user=user, odds=odds, expected_payout=expected_payout)
-
-        # Save the BetSelection
-        from .models import BetSelection
-        BetSelection.objects.create(
-            bet=bet,
-            match=match,
-            selected_option=selected_option,
-            odds=odds
-        )
+    # No perform_create override needed
 
 
+# -------------------------
+# BET HISTORY
+# -------------------------
 class MyBetHistoryView(generics.ListAPIView):
     serializer_class = BetSerializer
     permission_classes = [IsAuthenticated]
@@ -77,6 +40,9 @@ class MyBetHistoryView(generics.ListAPIView):
         return Bet.objects.filter(user=self.request.user).order_by('-placed_at')
 
 
+# -------------------------
+# SURE ODDS VIEW
+# -------------------------
 def get_prediction_for_match(match):
     return match.prediction if hasattr(match, 'prediction') else None
 
@@ -129,6 +95,9 @@ class SureOddsView(APIView):
         })
 
 
+# -------------------------
+# SURE ODDS PAYMENT
+# -------------------------
 class SureOddsPaymentView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -150,6 +119,10 @@ class SureOddsPaymentView(APIView):
         slip.save()
 
         return Response({'detail': 'Payment successful. Predictions unlocked!'})
-    
+
+
+# -------------------------
+# FRONTEND INDEX PAGE
+# -------------------------
 def index_page(request):
     return render(request, 'frontend/index.html')

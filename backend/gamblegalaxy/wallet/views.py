@@ -32,10 +32,11 @@ class WithdrawView(generics.CreateAPIView):
     def perform_create(self, serializer):
         amount = serializer.validated_data['amount']
         wallet, _ = Wallet.objects.get_or_create(user=self.request.user)
-        if wallet.withdraw(amount):  # ⬅️ only save if successful
+        if wallet.withdraw(amount):
             serializer.save(user=self.request.user, transaction_type='withdraw')
-            raise ValidationError("Insufficient funds.")
-            raise serializers.ValidationError("Insufficient funds.")
+        else:
+             raise ValidationError("Insufficient funds.")
+    
 
 
 class TransactionHistoryView(generics.ListAPIView):

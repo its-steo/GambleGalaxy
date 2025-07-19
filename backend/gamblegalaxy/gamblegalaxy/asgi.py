@@ -6,7 +6,7 @@ from channels.auth import AuthMiddlewareStack
 from django.core.asgi import get_asgi_application
 import games.routing
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'gamblegalaxy.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gamblegalaxy.settings")
 django.setup()
 
 application = ProtocolTypeRouter({
