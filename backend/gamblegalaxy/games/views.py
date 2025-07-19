@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import random
 from django.utils import timezone
 
@@ -34,8 +34,11 @@ def place_aviator_bet(request):
     """
     Place a bet if the round is active and user has enough wallet balance.
     """
-    round_id = request.data.get('round_id')
-    amount = request.data.get('amount')
+    user = request.user
+    data = request.data
+
+    round_id = data.get('round_id')
+    amount = data.get('amount')
 
     if not round_id or not amount:
         return Response({'error': 'Round ID and amount are required.'}, status=400)
@@ -46,35 +49,38 @@ def place_aviator_bet(request):
         return Response({'error': 'Invalid or inactive round.'}, status=400)
 
     try:
-        amount_decimal = Decimal(amount)
-    except:
+        amount_decimal = Decimal(str(amount))
+        if amount_decimal <= 0:
+            raise ValueError
+    except (InvalidOperation, ValueError):
         return Response({'error': 'Invalid amount format.'}, status=400)
 
-    wallet, _ = Wallet.objects.get_or_create(user=request.user)
+    wallet, _ = Wallet.objects.get_or_create(user=user)
 
     if wallet.balance < amount_decimal:
         return Response({'error': 'Insufficient wallet balance.'}, status=400)
 
-    # Deduct amount
+    # Deduct from wallet
     wallet.balance -= amount_decimal
     wallet.save()
 
+    # Record transaction
     Transaction.objects.create(
-        user=request.user,
+        user=user,
         amount=amount_decimal,
         transaction_type='withdrawal',
-        description='Placed Aviator Bet'
+        description='Aviator bet placed'
     )
 
+    # Save bet
     bet = AviatorBet.objects.create(
-        user=request.user,
+        user=user,
         round=aviator_round,
         amount=amount_decimal
     )
 
     serializer = AviatorBetSerializer(bet)
     return Response(serializer.data, status=201)
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

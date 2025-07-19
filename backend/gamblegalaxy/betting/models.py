@@ -49,6 +49,7 @@ class Bet(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     total_odds = models.DecimalField(max_digits=6, decimal_places=2, default=1.00)
     expected_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    match = models.ForeignKey(Match, on_delete=models.CASCADE, null=True, blank=True)
 
     status = models.CharField(
         max_length=20,
@@ -75,6 +76,8 @@ class BetSelection(models.Model):
     bet = models.ForeignKey(Bet, related_name='selections', on_delete=models.CASCADE)
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
     selected_option = models.CharField(max_length=10, choices=BET_CHOICES)
+    odds = models.FloatField(null=True, blank=True)
+
 
     is_correct = models.BooleanField(
         null=True, blank=True,

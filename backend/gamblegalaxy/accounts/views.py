@@ -98,4 +98,16 @@ class TransactionHistoryView(generics.ListAPIView):
     def get_queryset(self):
         return Transaction.objects.filter(user=self.request.user).order_by('-timestamp')
 
+# Render Login Page
+def login_page(request):
+    return render(request, 'frontend/login.html')
+
+# Render Register Page
+def register_page(request):
+    return render(request, 'frontend/register.html')
+
+# Optional: Profile page
+def profile_page(request):
+    return render(request, 'frontend/profile.html')
+
 

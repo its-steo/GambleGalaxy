@@ -1,3 +1,4 @@
+from urllib import request
 from django.shortcuts import render
 from rest_framework import generics, permissions, status, serializers
 from rest_framework.response import Response
@@ -23,16 +24,23 @@ class PlaceBetView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = self.request.user
-        match = serializer.validated_data['match']
-        selected_option = serializer.validated_data['selected_option']
+        selections_data = serializer.validated_data.pop('selections', [])
+
+        if not selections_data:
+            raise serializers.ValidationError("At least one selection is required.")
+
+        selection = selections_data[0]  # Handle only one selection for now
+        match = selection['match']
+        selected_option = selection['selected_option']
         amount = serializer.validated_data['amount']
 
+        # Get user's wallet
         wallet = Wallet.objects.get(user=user)
 
         if wallet.balance < amount:
             raise serializers.ValidationError("Insufficient balance.")
 
-        # Get odds based on selected option
+        # Determine odds
         if selected_option == 'home_win':
             odds = match.odds_home_win
         elif selected_option == 'draw':
@@ -44,11 +52,21 @@ class PlaceBetView(generics.CreateAPIView):
 
         expected_payout = amount * odds
 
-        # Deduct from wallet and save bet
+        # Deduct balance
         wallet.balance -= amount
         wallet.save()
 
-        serializer.save(user=user, odds=odds, expected_payout=expected_payout)
+        # Save the Bet
+        bet = serializer.save(user=user, odds=odds, expected_payout=expected_payout)
+
+        # Save the BetSelection
+        from .models import BetSelection
+        BetSelection.objects.create(
+            bet=bet,
+            match=match,
+            selected_option=selected_option,
+            odds=odds
+        )
 
 
 class MyBetHistoryView(generics.ListAPIView):
@@ -132,3 +150,6 @@ class SureOddsPaymentView(APIView):
         slip.save()
 
         return Response({'detail': 'Payment successful. Predictions unlocked!'})
+    
+def index_page(request):
+    return render(request, 'frontend/index.html')

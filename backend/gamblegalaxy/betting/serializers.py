@@ -1,6 +1,8 @@
 from rest_framework import serializers
+from decimal import Decimal, ROUND_HALF_UP
 from .models import Match, Bet, BetSelection, SureOddSlip
-from wallet.models import Wallet
+from wallet.models import Wallet  # ✅ Correct import
+
 
 # -----------------------
 # MATCH SERIALIZER
@@ -41,19 +43,23 @@ class BetSerializer(serializers.ModelSerializer):
             'id', 'user', 'amount', 'total_odds',
             'status', 'placed_at', 'selections', 'expected_payout'
         ]
-        read_only_fields = ['id', 'user', 'status', 'placed_at', 'total_odds', 'expected_payout']
+        read_only_fields = [
+            'id', 'user', 'status', 'placed_at',
+            'total_odds', 'expected_payout'
+        ]
 
     def get_expected_payout(self, obj):
-        if obj.status == 'pending':
-            return round(obj.amount * obj.total_odds, 2)
-        return None
+        if obj.status == 'pending' and obj.amount and obj.total_odds:
+            payout = Decimal(str(obj.amount)) * Decimal(str(obj.total_odds))
+            return payout.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return Decimal("0.00")
 
     def create(self, validated_data):
         user = self.context['request'].user
         selections_data = validated_data.pop('selections')
         amount = validated_data.get('amount')
 
-        # Wallet check
+        # Validate wallet
         wallet = Wallet.objects.filter(user=user).first()
         if not wallet:
             raise serializers.ValidationError("Wallet not found for the user.")
@@ -64,9 +70,9 @@ class BetSerializer(serializers.ModelSerializer):
         wallet.balance -= amount
         wallet.save()
 
-        # Create bet
+        # Create Bet object
         bet = Bet.objects.create(user=user, amount=amount)
-        total_odds = 1.0
+        total_odds = Decimal('1.0')
 
         for selection_data in selections_data:
             match = selection_data['match']
@@ -75,6 +81,7 @@ class BetSerializer(serializers.ModelSerializer):
             if match.status != 'upcoming':
                 raise serializers.ValidationError(f"Match '{match}' is not open for betting.")
 
+            # Determine odds based on option
             if option == 'home_win':
                 odds = match.odds_home_win
             elif option == 'draw':
@@ -87,15 +94,17 @@ class BetSerializer(serializers.ModelSerializer):
             if odds is None:
                 raise serializers.ValidationError(f"No odds available for {option} on match {match}.")
 
-            total_odds *= float(odds)
+            total_odds *= Decimal(str(odds))
 
+            # Create selection
             BetSelection.objects.create(
                 bet=bet,
                 match=match,
-                selected_option=option
+                selected_option=option,
+                odds=odds
             )
 
-        bet.total_odds = round(total_odds, 2)
+        bet.total_odds = total_odds.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         bet.save()
         return bet
 
@@ -116,8 +125,14 @@ class SureOddSlipSerializer(serializers.ModelSerializer):
         ]
 
     def get_expected_payout(self, obj):
-        total_odds = 1.0
-        for match in obj.matches.all():
-            if match.odds_home_win:  # You may extend logic to include draw or away_win
-                total_odds *= float(match.odds_home_win)
-        return round(obj.amount_paid * total_odds, 2) if obj.amount_paid else 0.0
+        if obj.amount_paid and obj.matches.exists():
+            odds = Decimal("1.0")
+            for match in obj.matches.all():
+                # Use average odds as fallback calculation
+                odds_list = [match.odds_home_win, match.odds_draw, match.odds_away_win]
+                valid_odds = [Decimal(str(o)) for o in odds_list if o]
+                if valid_odds:
+                    odds *= sum(valid_odds) / len(valid_odds)
+            payout = Decimal(str(obj.amount_paid)) * odds
+            return payout.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return Decimal("0.00")
