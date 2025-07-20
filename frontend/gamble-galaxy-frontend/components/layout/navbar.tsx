@@ -2,17 +2,13 @@
 
 import { useState } from "react"
 import Link from "next/link"
-// Update the import path if Button is located elsewhere, for example:
 import { Button } from "../ui/button"
-// Or, if using absolute imports, ensure tsconfig.json has "paths" configured for "@"
-// If the file does not exist, create 'components/ui/button.tsx' or 'components/ui/button/index.tsx' with the Button component.
 import { useAuth } from "@/lib/auth"
-import { LogOut, Menu, X, Wallet, Gamepad2, Trophy } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { WalletBalance } from "@/components/wallet/wallet-balance"
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
     <nav className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 backdrop-blur-sm bg-gray-900/95">
@@ -26,33 +22,8 @@ export function Navbar() {
             <span className="text-white font-bold text-xl">Gamble Galaxy</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/games/aviator"
-              className="text-gray-300 hover:text-white transition-colors flex items-center space-x-2"
-            >
-              <Gamepad2 className="w-4 h-4" />
-              <span>Aviator</span>
-            </Link>
-            <Link
-              href="/betting"
-              className="text-gray-300 hover:text-white transition-colors flex items-center space-x-2"
-            >
-              <Trophy className="w-4 h-4" />
-              <span>Sports Betting</span>
-            </Link>
-            <Link
-              href="/wallet"
-              className="text-gray-300 hover:text-white transition-colors flex items-center space-x-2"
-            >
-              <Wallet className="w-4 h-4" />
-              <span>Wallet</span>
-            </Link>
-          </div>
-
           {/* User Section */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
                 <WalletBalance />
@@ -86,64 +57,7 @@ export function Navbar() {
               </div>
             )}
           </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <Button variant="ghost" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
-          </div>
         </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-gray-800">
-            <div className="flex flex-col space-y-4">
-              <Link href="/games/aviator" className="text-gray-300 hover:text-white flex items-center space-x-2">
-                <Gamepad2 className="w-4 h-4" />
-                <span>Aviator</span>
-              </Link>
-              <Link href="/betting" className="text-gray-300 hover:text-white flex items-center space-x-2">
-                <Trophy className="w-4 h-4" />
-                <span>Sports Betting</span>
-              </Link>
-              <Link href="/wallet" className="text-gray-300 hover:text-white flex items-center space-x-2">
-                <Wallet className="w-4 h-4" />
-                <span>Wallet</span>
-              </Link>
-
-              {isAuthenticated ? (
-                <div className="pt-4 border-t border-gray-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-white">{user?.username}</span>
-                      {user?.is_verified && <div className="w-2 h-2 bg-green-400 rounded-full" />}
-                    </div>
-                    <Button variant="ghost" onClick={logout}>
-                      Logout
-                    </Button>
-                  </div>
-                  <div className="mt-2">
-                    <WalletBalance />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex space-x-2 pt-4 border-t border-gray-800">
-                  <Link href="/auth/login">
-                    <Button variant="ghost">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button className="bg-gradient-to-r from-purple-500 to-pink-500">
-                      Sign Up
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </nav>
   )

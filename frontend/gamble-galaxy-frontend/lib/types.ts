@@ -1,3 +1,5 @@
+import { ReactNode } from "react"
+
 // User & Auth Types
 export interface User {
   id: number
@@ -57,6 +59,9 @@ export interface BetSelection {
 }
 
 export interface Bet {
+  odds: ReactNode
+  selected_option: any
+  match: any
   id: number
   user: number
   amount: string

@@ -1,28 +1,27 @@
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { AuthProvider } from "@/components/providers/auth-provider"
-import { LayoutShell } from "@/components/layout/layout-shell"
+"use client";
 
-const inter = Inter({ subsets: ["latin"] })
+import { usePathname } from "next/navigation";
+import { Navbar } from "@/components/layout/navbar";
+import { WalletProvider } from "@/context/WalletContext";
+import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Gamble Galaxy - Next Generation Betting Platform",
-  description: "Experience the thrill of Aviator game and sports betting on Gamble Galaxy",
-}
+const excludeNavbarRoutes = ["/login", "/register"]; // Add your routes to exclude Navbar here
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-900 text-white`}>
-        <AuthProvider>
-          <LayoutShell>{children}</LayoutShell>
-        </AuthProvider>
+      <body className="bg-gray-900 text-white">
+        <WalletProvider>
+          {!excludeNavbarRoutes.includes(pathname) && <Navbar />}
+          <main>{children}</main>
+        </WalletProvider>
       </body>
     </html>
-  )
+  );
 }
