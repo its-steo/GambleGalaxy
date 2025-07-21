@@ -24,7 +24,7 @@ export default function TransactionHistory() {
       setLoading(true)
       setError(null)
       try {
-        const res = await axios.get("/api/wallet/transactions/", { headers: getAuthHeader() })
+        const res = await axios.get( "http://127.0.0.1:8000/api/wallet/transactions/", { headers: getAuthHeader() })
         setTransactions(res.data)
       } catch (err) {
         console.error("Failed to fetch transactions:", err)
@@ -75,18 +75,20 @@ export default function TransactionHistory() {
                 transactions.map((tx) => (
                   <tr key={tx.id} className="border-b border-white/5 hover:bg-white/5 transition-colors duration-200">
                     <td className="p-3 sm:p-4 capitalize text-gray-200">{tx.transaction_type}</td>
-                    <td
-                      className={`p-3 sm:p-4 font-medium ${
-                        tx.transaction_type === "deposit" ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
-                      KES {Number.parseFloat(String(tx.amount)).toFixed(2)}
-                    </td>
-                    <td className="p-3 sm:p-4 text-gray-400 text-xs sm:text-sm">
-                      {new Date(tx.timestamp).toLocaleString()}
-                    </td>
-                    <td className="p-3 sm:p-4 text-gray-300 text-xs sm:text-sm">{tx.description || "-"}</td>
-                  </tr>
+                   <td
+                     className={`p-3 sm:p-4 font-medium ${
+                       ["deposit", "winning"].includes(tx.transaction_type)
+                         ? "text-green-400"
+                         : "text-red-400"
+                     }`}
+                   >
+                     KES {Number.parseFloat(String(tx.amount)).toFixed(2)}
+                   </td>
+                   <td className="p-3 sm:p-4 text-gray-400 text-xs sm:text-sm">
+                     {new Date(tx.timestamp).toLocaleString()}
+                   </td>
+                   <td className="p-3 sm:p-4 text-gray-300 text-xs sm:text-sm">{tx.description || "-"}</td>
+                 </tr>
                 ))
               ) : (
                 <tr>

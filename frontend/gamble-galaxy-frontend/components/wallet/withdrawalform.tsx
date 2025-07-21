@@ -4,17 +4,17 @@ import type React from "react"
 import { useState } from "react"
 import axios from "axios"
 import { getAuthHeader } from "@/lib/auth"
-import { Banknote, Minus, Plus, Sparkles, Loader2 } from "lucide-react" // Added Minus, Plus, Sparkles, Loader2
+import { Banknote, Minus, Plus, Sparkles, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useWallet } from "@/context/WalletContext"
-import { toast } from "sonner" // Using sonner for toasts
+import { toast } from "sonner"
 
 export default function WithdrawForm() {
   const [amount, setAmount] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { refreshBalance } = useWallet()
-  const quickAmounts = [500, 1000, 2000, 5000, 10000] // Quick amounts for withdrawal
+  const quickAmounts = [500, 1000, 2000, 5000, 10000]
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +31,7 @@ export default function WithdrawForm() {
     setIsLoading(true)
     try {
       const res = await axios.post(
-        "/api/wallet/withdraw/",
+        "http://127.0.0.1:8000/api/wallet/withdraw/",
         {
           amount: parsedAmount,
           transaction_type: "withdraw",
@@ -39,8 +39,9 @@ export default function WithdrawForm() {
         },
         {
           headers: getAuthHeader(),
-        },
+        }
       )
+
       if (res.status === 201 || res.status === 200) {
         toast.success("Withdrawal Successful!", {
           description: `✅ KES ${parsedAmount.toLocaleString()} has been processed.`,
@@ -49,15 +50,15 @@ export default function WithdrawForm() {
         setAmount("")
         await refreshBalance()
       } else {
-        const data = res.data // Assuming error details are in res.data
         toast.error("Withdrawal Failed", {
-          description: data.detail || res.statusText || "Please try again later.",
+          description: res.data?.detail || res.statusText || "Please try again later.",
           className: "bg-red-500/90 text-white border-red-400",
         })
       }
     } catch (err: any) {
       console.error("Withdraw error:", err)
-      const errorMessage = err?.response?.data?.detail || err?.message || "Withdrawal failed"
+      const errorMessage =
+        err?.response?.data?.detail || err?.message || "Withdrawal failed"
       toast.error("Network Error", {
         description: errorMessage,
         className: "bg-red-500/90 text-white border-red-400",

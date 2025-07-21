@@ -30,7 +30,7 @@ export function DepositForm() {
 
     setIsLoading(true)
     try {
-      const res = await fetch("/api/wallet/deposit/", {
+      const res = await fetch("http://127.0.0.1:8000/api/wallet/deposit/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

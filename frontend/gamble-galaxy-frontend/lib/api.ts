@@ -134,7 +134,7 @@ class ApiClient {
   }
 
   async getTransactions() {
-    return this.request<Transaction[]>("/wallet/transactions/")
+    return this.request<Transaction[]>("/transactions/")
   }
 
   // ✅ Betting
@@ -170,12 +170,13 @@ class ApiClient {
     })
   }
 
-  async placeAviatorBet(amount: number, round_id?: number) {
-    return this.request<AviatorBet>("/games/aviator/bet/", {
-      method: "POST",
-      body: JSON.stringify({ amount, round_id }),
-    })
-  }
+
+async placeAviatorBet(payload: { amount: number; user_id: number; auto_cashout?: number; round_id?: number }) {
+  return this.request<AviatorBet>("/games/aviator/bet/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
 
   async cashoutAviator(bet_id: number, multiplier: number) {
     return this.request<{ message: string; win_amount?: number }>("/games/aviator/cashout/", {
@@ -186,21 +187,23 @@ class ApiClient {
 
   async getPastCrashes() {
     return this.request<Array<{ id: number; multiplier: number; color: string; timestamp: string }>>(
-      "/games/api/aviator/past-crashes/"
+      "/games/aviator/past-crashes/"
     )
   }
 
   async getTopWinners() {
-    return this.request<TopWinner[]>("/games/api/aviator/top-winners/")
+    return this.request<TopWinner[]>("/games/aviator/top-winners/")
   }
 
   async getUserSureOdds() {
-    return this.request<SureOdd[]>("/games/api/aviator/sure-odds/")
+    return this.request<SureOdd[]>("/games/aviator/sure-odds/")
   }
 
   async getMyAviatorBets() {
-    return this.request<AviatorBet[]>("/games/api/aviator/my-bets/")
+    return this.request<AviatorBet[]>("/games/aviator/my-bets/")
   }
 }
 
 export const api = new ApiClient()
+
+

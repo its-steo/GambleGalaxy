@@ -1,3 +1,4 @@
+// @/lib/websocket.ts
 "use client"
 
 import { create } from "zustand"
@@ -58,7 +59,6 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
             currentMultiplier: data.crash_multiplier || 1.0,
           })
           playSound("crash")
-          // Auto-start next round after 5 seconds
           setTimeout(() => get().startRound(), 5000)
           break
 
@@ -87,11 +87,10 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
 
         case "new_bet":
           console.log("🆕 New Bet Placed", data.bet)
-          // Optionally update live players or wallet here
           break
 
         default:
-          console.warn("⚠️ Unknown WebSocket message type:", data.type)
+          console.warn("⚠️ Unknown WebSocket message type:", (data as { type?: string }).type)
           break
       }
     }
@@ -137,13 +136,21 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
   },
 }))
 
-// 🔊 Optional sound function (replace with real audio effects)
-function playSound(type: "cashout" | "crash") {
+async function playSound(type: "cashout" | "crash") {
   const soundMap: Record<string, string> = {
     crash: "/sounds/crash.mp3",
     cashout: "/sounds/cashout.mp3",
   }
-
-  const audio = new Audio(soundMap[type])
-  audio.play().catch((err) => console.error("Sound play failed:", err))
+  try {
+    // Check if file exists before playing
+    const response = await fetch(soundMap[type], { method: "HEAD" })
+    if (!response.ok) {
+      console.warn(`Sound file ${soundMap[type]} not found`)
+      return
+    }
+    const audio = new Audio(soundMap[type])
+    await audio.play()
+  } catch (err) {
+    console.warn(`Failed to play ${type} sound:`, err)
+  }
 }

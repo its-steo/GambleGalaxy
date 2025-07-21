@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import WalletCard from "@/components/wallet/walletcard"
 import { DepositForm } from "@/components/wallet/depositform"
 import WithdrawForm from "@/components/wallet/withdrawalform"
@@ -13,7 +13,8 @@ import { toast } from "sonner"
 
 export default function WalletPage() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-  const [quickActions, setQuickActions] = useState([
+  const [particles, setParticles] = useState<React.ReactElement[]>([])
+  const [quickActions] = useState([
     { id: 1, name: "Deposit", icon: ArrowUpCircle, action: () => toast.info("Deposit action triggered!") },
     { id: 2, name: "Withdraw", icon: ArrowDownCircle, action: () => toast.info("Withdraw action triggered!") },
     { id: 3, name: "Transactions", icon: History, action: () => toast.info("View history action triggered!") },
@@ -26,6 +27,24 @@ export default function WalletPage() {
     }
     window.addEventListener("mousemove", handleMouseMove)
     return () => window.removeEventListener("mousemove", handleMouseMove)
+  }, [])
+
+  useEffect(() => {
+    const generatedParticles = Array.from({ length: 15 }).map((_, i) => {
+      const left = `${Math.random() * 100}%`
+      const top = `${Math.random() * 100}%`
+      const delay = `${Math.random() * 3}s`
+      const duration = `${2 + Math.random() * 3}s`
+
+      return (
+        <div
+          key={i}
+          className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
+          style={{ left, top, animationDelay: delay, animationDuration: duration }}
+        />
+      )
+    })
+    setParticles(generatedParticles)
   }, [])
 
   return (
@@ -42,22 +61,7 @@ export default function WalletPage() {
         />
         <div className="absolute top-1/4 left-1/4 w-36 h-36 sm:w-48 sm:h-48 lg:w-72 lg:h-72 bg-pink-500/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
-      </div>
-
-      {/* Floating Particles */}
-      <div className="fixed inset-0 z-0">
-        {[...Array(15)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 3}s`,
-            }}
-          />
-        ))}
+        {particles}
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

@@ -24,7 +24,7 @@ interface BetSlipItem {
 
 export default function BettingPage() {
   const router = useRouter()
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [matches, setMatches] = useState<Match[]>([])
   const [betHistory, setBetHistory] = useState<Bet[]>([])
   const [betSlip, setBetSlip] = useState<BetSlipItem[]>([])

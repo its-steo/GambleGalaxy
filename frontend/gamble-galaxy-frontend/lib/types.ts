@@ -2,6 +2,7 @@ import { ReactNode } from "react"
 
 // User & Auth Types
 export interface User {
+  balance: number
   id: number
   username: string
   email: string
@@ -72,6 +73,7 @@ export interface Bet {
 }
 
 export interface SureOddSlip {
+  odd: SureOddSlip | undefined
   code: string
   matches: Array<{
     home_team: string
@@ -125,22 +127,12 @@ export interface SureOdd {
 }
 
 // WebSocket Message Types
-export interface WebSocketMessage {
-  type: "multiplier" | "crash" | "manual_cashout_success" | "manual_cashout_error"
-  round_id?: number
-  multiplier?: number
-  crash_multiplier?: number
-  message?: string
-  error?: string
-  wallet_update?: number
-  balance?: number
-  live_players?: Array<{ username: string; avatar?: string }>
-  recent_cashouts?: Array<{ username: string; amount: string; cashed_out_at: number }>
-  players?: Array<{ username: string; avatar?: string }>
-  new_bet?: {
-    id: number
-    user: number
-    amount: string
-    total_odds: string
-  }
-}
+export type WebSocketMessage =
+  | { type: "multiplier"; multiplier: number; round_id: number }
+  | { type: "crash"; crash_multiplier: number }
+  | { type: "manual_cashout_success"; message: string }
+  | { type: "manual_cashout_error"; error: string }
+  | { type: "balance_update"; balance: number }
+  | { type: "live_players"; players: any[] }
+  | { type: "recent_cashouts"; cashouts: any[] }
+  | { type: "new_bet"; bet: any }
