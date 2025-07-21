@@ -20,9 +20,22 @@ from wallet.models import Wallet, Transaction
 @permission_classes([IsAuthenticated])
 def start_aviator_round(request):
     """
-    Starts a new Aviator round with a random crash multiplier.
+    Starts a new Aviator round with a weighted random crash multiplier.
     """
-    crash = round(random.uniform(1.00, 50.00), 2)
+    # Define the ranges and their weights
+    ranges = [
+        (1.00, 3.00),    # Most frequent
+        (3.01, 10.00),   # Less frequent
+        (10.01, 30.00),  # Rare
+        (30.01, 1000.00) # Very rare
+    ]
+    weights = [60, 25, 10, 5]  # Corresponding weights (can be adjusted)
+
+  
+    selected_range = random.choices(ranges, weights=weights, k=1)[0]
+
+    
+    crash = round(random.uniform(*selected_range), 2)
     aviator_round = AviatorRound.objects.create(crash_multiplier=crash)
     serializer = AviatorRoundSerializer(aviator_round)
     return Response(serializer.data, status=status.HTTP_201_CREATED)

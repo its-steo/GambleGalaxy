@@ -38,55 +38,115 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.cashout_bet(data)
 
     async def send_to_group(self, event):
+        event_type = event.get("type_override")
+        if event_type:
+            event["type"] = event_type
         await self.send(text_data=json.dumps(event))
+
 
     async def run_aviator_game(self):
         while True:
-            crash_multiplier = round(random.uniform(1.00, 50.00), 2)
-
+            # 1. Generate crash multiplier
+            ranges = [
+                (1.00, 3.00),
+                (3.01, 10.00),
+                (10.01, 30.00),
+                (30.01, 1000.00)
+            ]
+            weights = [60, 25, 10, 5]
+            selected_range = random.choices(ranges, weights=weights, k=1)[0]
+            crash_multiplier = round(random.uniform(*selected_range), 2)
+    
+            # 2. Override if sure_odd exists
             sure_odd = await self.get_verified_sure_odd()
             if sure_odd:
                 crash_multiplier = float(sure_odd)
-
-            aviator_round = await database_sync_to_async(AviatorRound.objects.create)(crash_multiplier=crash_multiplier)
+    
+            # 3. Save to DB
+            aviator_round = await database_sync_to_async(AviatorRound.objects.create)(
+                crash_multiplier=crash_multiplier
+            )
+    
+            # 4. Start sending multiplier updates
+            multiplier = 1.00
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'send_to_group',
-                    'event': 'round_started',
+                    'type_override': 'multiplier',
+                    'multiplier': multiplier,
                     'round_id': aviator_round.id,
-                    'crash_multiplier': crash_multiplier,
-                    'timestamp': timezone.now().strftime('%H:%M:%S')
                 }
             )
-
-            # Simulate flight progress
-            multiplier = 1.00
+    
+            # 5. Determine speed settings
+            if crash_multiplier > 30:
+                delay = 0.07        # faster
+                step = 0.1          # bigger jump per tick
+            else:
+                delay = 0.1        # normal speed
+                step = 0.1          # normal increment
+    
+            # 6. Loop to simulate multiplier growth
             while multiplier < crash_multiplier:
-                await asyncio.sleep(1)
-                multiplier = round(multiplier + 0.5, 2)
+                await asyncio.sleep(delay)
+                multiplier = round(multiplier + step, 2)
+    
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         'type': 'send_to_group',
-                        'event': 'progress',
-                        'multiplier': multiplier
+                        'type_override': 'multiplier',
+                        'multiplier': multiplier,
+                        'round_id': aviator_round.id,
                     }
                 )
+    
+            # 7. Final crash send
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'send_to_group',
+                    'type_override': 'crash',
+                    'multiplier': crash_multiplier,
+                    'round_id': aviator_round.id,
+                }
+            )
+    
+            # 8. Short pause before next round
+            await asyncio.sleep(5)
 
+
+    
+            # Simulate flight progress
+            while multiplier < crash_multiplier:
+                await asyncio.sleep(0.2)  # smoother animation
+                multiplier = round(multiplier + 0.1, 2)
+    
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'send_to_group',
+                        'type_override': 'multiplier',
+                        'multiplier': multiplier,
+                        'round_id': aviator_round.id,
+                    }
+                )
+    
             # Crash event
             await self.end_round(aviator_round.id)
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'send_to_group',
-                    'event': 'crashed',
-                    'multiplier': crash_multiplier,
+                    'type_override': 'crash',
+                    'crash_multiplier': crash_multiplier,
                     'round_id': aviator_round.id
                 }
             )
-
+    
             await asyncio.sleep(5)
+
 
     @database_sync_to_async
     def end_round(self, round_id):

@@ -7,13 +7,23 @@ from django.conf import settings
 
 class AviatorRound(models.Model):
     start_time = models.DateTimeField(default=timezone.now)
-    crash_multiplier = models.FloatField(default=0.0)
+    crash_multiplier = models.FloatField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         if not self.crash_multiplier:
-            self.crash_multiplier = round(random.uniform(1.00, 50.00), 2)
+            ranges = [
+                (1.00, 3.00),     # Most frequent
+                (3.01, 10.00),    # Less frequent
+                (10.01, 30.00),   # Rare
+                (30.01, 1000.00)  # Very rare
+            ]
+            weights = [60, 25, 10, 5]
+            selected_range = random.choices(ranges, weights=weights, k=1)[0]
+            self.crash_multiplier = round(random.uniform(*selected_range), 2)
+    
         super().save(*args, **kwargs)
+    
 
     def __str__(self):
         return f"Round {self.id} - Crash at {self.crash_multiplier}x"

@@ -19,9 +19,6 @@ class DepositView(generics.CreateAPIView):
     serializer_class = TransactionSerializer
 
     def perform_create(self, serializer):
-        amount = serializer.validated_data['amount']
-        wallet, _ = Wallet.objects.get_or_create(user=self.request.user)
-        wallet.deposit(amount)  # ⬅️ update wallet balance
         serializer.save(user=self.request.user, transaction_type='deposit')
 
 
@@ -30,12 +27,7 @@ class WithdrawView(generics.CreateAPIView):
     serializer_class = TransactionSerializer
 
     def perform_create(self, serializer):
-        amount = serializer.validated_data['amount']
-        wallet, _ = Wallet.objects.get_or_create(user=self.request.user)
-        if wallet.withdraw(amount):
-            serializer.save(user=self.request.user, transaction_type='withdraw')
-        else:
-             raise ValidationError("Insufficient funds.")
+        serializer.save(user=self.request.user, transaction_type='withdraw')
     
 
 
