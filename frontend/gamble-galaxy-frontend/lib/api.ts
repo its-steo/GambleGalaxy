@@ -22,6 +22,9 @@ interface ApiResponse<T> {
 }
 
 class ApiClient {
+  purchaseSureOdds() {
+    throw new Error("Method not implemented.")
+  }
   private async getAccessToken(): Promise<string | null> {
     return localStorage.getItem("access_token")
   }

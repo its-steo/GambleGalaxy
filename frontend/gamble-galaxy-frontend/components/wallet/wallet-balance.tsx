@@ -5,10 +5,13 @@ import { Wallet } from "lucide-react"
 import { useWallet } from "@/context/WalletContext"
 import { cn } from "@/lib/utils"
 
-interface WalletBalanceProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface WalletBalanceProps extends React.HTMLAttributes<HTMLDivElement> {
+  balance?: number // Optional balance prop to override context
+}
 
-export function WalletBalance({ className, ...props }: WalletBalanceProps) {
-  const { balance } = useWallet()
+export function WalletBalance({ balance, className, ...props }: WalletBalanceProps) {
+  const { balance: contextBalance } = useWallet()
+  const displayBalance = balance !== undefined ? balance : contextBalance
 
   return (
     <div
@@ -22,7 +25,7 @@ export function WalletBalance({ className, ...props }: WalletBalanceProps) {
         <Wallet className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 text-white" />
       </div>
       <span className="text-sm xs:text-base sm:text-lg font-bold text-white">
-        KES {Number.parseFloat(balance.toString()).toFixed(2)}
+        KES {Number.parseFloat(displayBalance.toString()).toFixed(2)}
       </span>
     </div>
   )

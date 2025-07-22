@@ -1,36 +1,26 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth"
-import { AviatorGame } from "@/components/games/aviator-game" // Assuming this component will be provided later
+import { useEffect, useState } from "react";
+import { AviatorGame } from "@/components/games/aviator-game";
+import { useAuth } from "@/lib/auth";
 
 export default function AviatorPage() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const router = useRouter()
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // Mouse tracking for interactive background
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
-    }
-    window.addEventListener("mousemove", handleMouseMove)
-    return () => window.removeEventListener("mousemove", handleMouseMove)
-  }, [])
-
-  // Authentication check and redirection
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push("/auth/login?redirect=/games/aviator")
-    }
-  }, [isAuthenticated, authLoading, router])
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   // Show loading while authentication is being checked
   if (authLoading) {
     return (
       <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center px-4">
-        {/* Animated Background */}
         <div className="fixed inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
           <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
@@ -46,18 +36,17 @@ export default function AviatorPage() {
           <p className="text-gray-400 text-sm sm:text-base">Please wait a moment</p>
         </div>
       </div>
-    )
+    );
   }
 
-  // Don't render anything if not authenticated (will redirect)
+  // Don't render anything if not authenticated (will redirect via layout.tsx)
   if (!isAuthenticated) {
-    return null
+    return null;
   }
 
   // Main content once authenticated
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* Animated Background */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
         <div
@@ -71,7 +60,6 @@ export default function AviatorPage() {
         <div className="absolute bottom-1/4 right-1/4 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
-      {/* Floating Particles */}
       <div className="fixed inset-0 z-0">
         {[...Array(15)].map((_, i) => (
           <div
@@ -88,9 +76,8 @@ export default function AviatorPage() {
       </div>
 
       <div className="relative z-10 flex items-center justify-center min-h-screen p-4 sm:p-6 lg:p-8">
-        {/* This is where your AviatorGame component will be rendered */}
         <AviatorGame />
       </div>
     </div>
-  )
+  );
 }

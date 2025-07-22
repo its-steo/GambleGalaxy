@@ -1,11 +1,8 @@
 "use client"
-
-import { useState } from "react"
 import Link from "next/link"
 import { Button } from "../ui/button"
 import { useAuth } from "@/lib/auth"
 import { LogOut } from "lucide-react"
-import { WalletBalance } from "@/components/wallet/wallet-balance"
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
@@ -26,7 +23,6 @@ export function Navbar() {
           <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                <WalletBalance />
                 <div className="flex items-center space-x-2">
                   {user?.avatar ? (
                     <img src={user.avatar || "/placeholder.svg"} alt={user.username} className="w-8 h-8 rounded-full" />
