@@ -76,8 +76,15 @@ REST_FRAMEWORK = {
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
+# Django settings.py
+SESSION_COOKIE_SECURE = True  # or False in local dev
+SESSION_COOKIE_SAMESITE = "Lax"  # Or "None" if cross-site cookies are needed
+SESSION_COOKIE_HTTPONLY = True
+CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_HTTPONLY = False  # if you're using CSRF
 
-CORS_ALLOW_ALL_ORIGINS = True 
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'gamblegalaxy.urls'
 

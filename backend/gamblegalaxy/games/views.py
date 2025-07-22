@@ -24,12 +24,12 @@ def start_aviator_round(request):
     """
     # Define the ranges and their weights
     ranges = [
-        (1.00, 3.00),    # Most frequent
+        (1.00, 2.00),    # Most frequent
         (3.01, 10.00),   # Less frequent
         (10.01, 30.00),  # Rare
         (30.01, 1000.00) # Very rare
     ]
-    weights = [60, 25, 10, 5]  # Corresponding weights (can be adjusted)
+    weights = [80, 12, 7, 1]  # Corresponding weights (can be adjusted)
 
   
     selected_range = random.choices(ranges, weights=weights, k=1)[0]
@@ -41,59 +41,66 @@ def start_aviator_round(request):
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+from decimal import Decimal, InvalidOperation
+import logging
+
+logger = logging.getLogger(__name__)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def place_aviator_bet(request):
-    """
-    Place a bet if the round is active and user has enough wallet balance.
-    """
-    user = request.user
-    data = request.data
-
-    round_id = data.get('round_id')
-    amount = data.get('amount')
-
-    if not round_id or not amount:
-        return Response({'error': 'Round ID and amount are required.'}, status=400)
-
     try:
-        aviator_round = AviatorRound.objects.get(id=round_id, is_active=True)
-    except AviatorRound.DoesNotExist:
-        return Response({'error': 'Invalid or inactive round.'}, status=400)
+        user = request.user
+        data = request.data
 
-    try:
-        amount_decimal = Decimal(str(amount))
-        if amount_decimal <= 0:
-            raise ValueError
-    except (InvalidOperation, ValueError):
-        return Response({'error': 'Invalid amount format.'}, status=400)
+        round_id = data.get('round_id')
+        amount = data.get('amount')
 
-    wallet, _ = Wallet.objects.get_or_create(user=user)
+        if not round_id or not amount:
+            return Response({'error': 'Round ID and amount are required.'}, status=400)
 
-    if wallet.balance < amount_decimal:
-        return Response({'error': 'Insufficient wallet balance.'}, status=400)
+        try:
+            aviator_round = AviatorRound.objects.get(id=round_id, is_active=True)
+        except AviatorRound.DoesNotExist:
+            return Response({'error': 'Invalid or inactive round.'}, status=400)
 
-    # Deduct from wallet
-    wallet.balance -= amount_decimal
-    wallet.save()
+        try:
+            amount_decimal = Decimal(str(amount))
+            if amount_decimal <= 0:
+                raise ValueError
+        except (InvalidOperation, ValueError):
+            return Response({'error': 'Invalid amount format.'}, status=400)
 
-    # Record transaction
-    Transaction.objects.create(
-        user=user,
-        amount=amount_decimal,
-        transaction_type='withdrawal',
-        description='Aviator bet placed'
-    )
+        wallet, _ = Wallet.objects.get_or_create(user=user)
 
-    # Save bet
-    bet = AviatorBet.objects.create(
-        user=user,
-        round=aviator_round,
-        amount=amount_decimal
-    )
+        if wallet.balance < amount_decimal:
+            return Response({'error': 'Insufficient wallet balance.'}, status=400)
 
-    serializer = AviatorBetSerializer(bet)
-    return Response(serializer.data, status=201)
+        # Deduct from wallet
+        wallet.balance -= amount_decimal
+        wallet.save()
+
+        # Record transaction
+        Transaction.objects.create(
+            user=user,
+            amount=amount_decimal,
+            transaction_type='withdrawal',
+            description='Aviator bet placed'
+        )
+
+        # Save bet
+        bet = AviatorBet.objects.create(
+            user=user,
+            round=aviator_round,
+            amount=amount_decimal
+        )
+
+        serializer = AviatorBetSerializer(bet)
+        return Response(serializer.data, status=201)
+
+    except Exception as e:
+        logger.exception("Error placing Aviator bet")
+        return Response({'error': str(e)}, status=500)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

@@ -13,12 +13,12 @@ class AviatorRound(models.Model):
     def save(self, *args, **kwargs):
         if not self.crash_multiplier:
             ranges = [
-                (1.00, 3.00),     # Most frequent
+                (1.00, 2.00),     # Most frequent
                 (3.01, 10.00),    # Less frequent
                 (10.01, 30.00),   # Rare
                 (30.01, 1000.00)  # Very rare
             ]
-            weights = [60, 25, 10, 5]
+            weights = [80, 12, 7, 1]
             selected_range = random.choices(ranges, weights=weights, k=1)[0]
             self.crash_multiplier = round(random.uniform(*selected_range), 2)
     

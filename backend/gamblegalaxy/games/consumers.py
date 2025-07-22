@@ -53,7 +53,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                 (10.01, 30.00),
                 (30.01, 1000.00)
             ]
-            weights = [60, 25, 10, 5]
+            weights = [80, 12, 7, 1]
             selected_range = random.choices(ranges, weights=weights, k=1)[0]
             crash_multiplier = round(random.uniform(*selected_range), 2)
     
