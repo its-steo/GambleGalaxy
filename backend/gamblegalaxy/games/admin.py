@@ -1,10 +1,8 @@
 from django.contrib import admin
 from .models import AviatorRound, AviatorBet
-from .models import SureOdd
+from .models import SureOdd, SureOddPurchase
 
-@admin.register(AviatorRound)
-class AviatorRoundAdmin(admin.ModelAdmin):
-    list_display = ['id', 'start_time', 'crash_multiplier', 'is_active']
+
 
 @admin.register(AviatorBet)
 class AviatorBetAdmin(admin.ModelAdmin):
@@ -14,4 +12,15 @@ class AviatorBetAdmin(admin.ModelAdmin):
 class SureOddAdmin(admin.ModelAdmin):
     list_display = ['user', 'odd', 'verified_by_admin', 'is_used', 'created_at']
     list_filter = ['verified_by_admin', 'is_used']
+
+
+@admin.register(SureOddPurchase)
+class SureOddPurchaseAdmin(admin.ModelAdmin):
+    list_display = ['user', 'odd_value', 'status_display', 'created_at']
+    list_filter = ['is_active', 'used']
+
+    @admin.display(description='Status')
+    def status_display(self, obj):
+        return obj.status()
+
 

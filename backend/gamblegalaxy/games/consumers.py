@@ -46,50 +46,76 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
     async def run_aviator_game(self):
         while True:
-            # 1. Generate crash multiplier
+            # 📢 1. Pre-Round Phase (Betting Window)
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'send_to_group',
+                    'type_override': 'betting_open',
+                    'message': 'Place your bets now!',
+                    'countdown': 5  # Match Betika's short betting window
+                }
+            )
+            await asyncio.sleep(5)  # 5-second betting phase, as per Betika[](https://coactproject.eu/games/how-to-play-aviator-on-betika/)
+    
+            # 🔥 2. Generate crash multiplier
             ranges = [
-                (1.00, 3.00),
-                (3.01, 10.00),
-                (10.01, 30.00),
-                (30.01, 1000.00)
+                (1.00, 2.00),   # Frequent low crashes (80%)
+                (2.01, 5.00),   # Moderate multipliers (12%)
+                (5.01, 20.00),  # High multipliers (7%)
+                (20.01, 1000.00)  # Rare extreme multipliers (1%)
             ]
             weights = [80, 12, 7, 1]
             selected_range = random.choices(ranges, weights=weights, k=1)[0]
             crash_multiplier = round(random.uniform(*selected_range), 2)
     
-            # 2. Override if sure_odd exists
             sure_odd = await self.get_verified_sure_odd()
             if sure_odd:
                 crash_multiplier = float(sure_odd)
     
-            # 3. Save to DB
+            # 💾 3. Save to DB
             aviator_round = await database_sync_to_async(AviatorRound.objects.create)(
                 crash_multiplier=crash_multiplier
             )
     
-            # 4. Start sending multiplier updates
             multiplier = 1.00
+            step = 0.05  # Start with smaller step for smoother initial increase
+            delay = 0.1  # Initial delay for early phase
+    
+            # ✈️ 4. Start of Flight
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'send_to_group',
-                    'type_override': 'multiplier',
+                    'type_override': 'round_started',
                     'multiplier': multiplier,
                     'round_id': aviator_round.id,
                 }
             )
     
-            # 5. Determine speed settings
-            if crash_multiplier > 30:
-                delay = 0.07        # faster
-                step = 0.1          # bigger jump per tick
-            else:
-                delay = 0.1        # normal speed
-                step = 0.1          # normal increment
-    
-            # 6. Loop to simulate multiplier growth
+            # 🚀 5. Animate flight until crash
+            time_elapsed = 0
             while multiplier < crash_multiplier:
                 await asyncio.sleep(delay)
+                time_elapsed += delay
+    
+                # Dynamically adjust step and delay based on multiplier
+                if multiplier < 2:
+                    step = 0.05  # Slow initial increase
+                    delay = 0.1
+                elif multiplier < 5:
+                    step = 0.08  # Slightly faster
+                    delay = 0.08
+                elif multiplier < 20:
+                    step = 0.12  # Accelerate for mid-range
+                    delay = 0.06
+                else:
+                    step = 0.2  # Rapid increase for high multipliers
+                    delay = 0.04  # Mimic Betika's urgency for high multipliers
+
+                # Apply slight randomization to step for less predictable feel
+                step *= random.uniform(0.95, 1.05)
+    
                 multiplier = round(multiplier + step, 2)
     
                 await self.channel_layer.group_send(
@@ -102,7 +128,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     }
                 )
     
-            # 7. Final crash send
+            # 💥 6. Crash
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -113,12 +139,24 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                 }
             )
     
-            # 8. Short pause before next round
-            await asyncio.sleep(5)
-
-
+            # 🧾 7. Close the round
+            await self.end_round(aviator_round.id)
     
-            # Simulate flight progress
+            # 🕒 8. Short Pause / Results Display
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'send_to_group',
+                    'type_override': 'round_summary',
+                    'message': 'Round complete. Preparing next...',
+                }
+            )
+            await asyncio.sleep(3)  # 3-second pause, as per B
+        
+        
+    
+        
+                # Simulate flight progress
             while multiplier < crash_multiplier:
                 await asyncio.sleep(0.2)  # smoother animation
                 multiplier = round(multiplier + 0.1, 2)
@@ -146,7 +184,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             )
     
             await asyncio.sleep(5)
-
 
     @database_sync_to_async
     def end_round(self, round_id):
@@ -218,7 +255,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         await database_sync_to_async(Transaction.objects.create)(
             user=user,
             amount=amount,
-            transaction_type='withdraw',
+            transaction_type=Transaction.TransactionType.WITHDRAW,
             description='Aviator bet placed'
         )
 

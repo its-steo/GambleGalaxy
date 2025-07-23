@@ -9,4 +9,8 @@ urlpatterns = [
     path('aviator/past-crashes/', views.past_crashes, name='past_crashes'),
     path('aviator/sure-odds/', views.user_sure_odds, name='user_sure_odds'),
     path('aviator/top-winners/', top_winners_today, name='top_winners_today'),
+    path('aviator/sure-odds/purchase/', views.purchase_sure_odd, name='purchase_sure_odd'),
+    path('aviator/sure-odds/get/', views.get_sure_odd, name='get_sure_odd'),
+    path('aviator/sure-odds/status/', views.sure_odd_status, name='sure_odd_status'),
+    path('aviator/sure-odds/history/', views.sure_odd_history, name='sure_odd_history'),
 ]

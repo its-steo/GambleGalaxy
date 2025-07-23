@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 import random
 from django.utils import timezone
 
-from .models import AviatorRound, AviatorBet, SureOdd
+from .models import AviatorRound, AviatorBet, SureOdd, SureOddPurchase
 from .serializers import (
     AviatorRoundSerializer,
     AviatorBetSerializer,
@@ -221,3 +221,52 @@ def top_winners_today(request):
     ]
 
     return Response(leaderboard)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def purchase_sure_odd(request):
+    user = request.user
+    amount = 10000  # KES
+
+    try:
+        wallet = Wallet.objects.get(user=user)
+        if wallet.balance < amount:
+            return Response({'detail': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Deduct
+        wallet.balance -= amount
+        wallet.save()
+
+        # Create purchase
+        SureOddPurchase.objects.create(user=user)
+        return Response({'detail': 'Sure Odd purchase successful'}, status=status.HTTP_200_OK)
+
+    except Wallet.DoesNotExist:
+        return Response({'detail': 'Wallet not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_sure_odd(request):
+    user = request.user
+    try:
+        purchase = SureOddPurchase.objects.filter(user=user, odd_value__isnull=False, used=False, is_active=True).latest('created_at')
+        return Response({'odd_value': purchase.odd_value}, status=200)
+    except SureOddPurchase.DoesNotExist:
+        return Response({'odd_value': None}, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def sure_odd_status(request):
+    user = request.user
+    active = SureOddPurchase.objects.filter(user=user, is_active=True, used=False).exists()
+    return Response({'has_pending': active})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def sure_odd_history(request):
+    user = request.user
+    history = SureOddPurchase.objects.filter(user=user).order_by('-created_at').values('odd_value', 'created_at', 'used')
+    return Response({'history': list(history)})
