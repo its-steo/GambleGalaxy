@@ -22,9 +22,6 @@ interface ApiResponse<T> {
 }
 
 class ApiClient {
-  purchaseSureOdds() {
-    throw new Error("Method not implemented.")
-  }
   private async getAccessToken(): Promise<string | null> {
     return localStorage.getItem("access_token")
   }
@@ -44,6 +41,7 @@ class ApiClient {
         body: JSON.stringify({ refresh }),
       })
       const data = await res.json()
+
       if (res.ok && data.access) {
         localStorage.setItem("access_token", data.access)
         return data.access
@@ -173,13 +171,12 @@ class ApiClient {
     })
   }
 
-
-async placeAviatorBet(payload: { amount: number; user_id: number; auto_cashout?: number; round_id?: number }) {
-  return this.request<AviatorBet>("/games/aviator/bet/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  })
-}
+  async placeAviatorBet(payload: { amount: number; user_id: number; auto_cashout?: number; round_id?: number }) {
+    return this.request<AviatorBet>("/games/aviator/bet/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
+  }
 
   async cashoutAviator(bet_id: number, multiplier: number) {
     return this.request<{ message: string; win_amount?: number }>("/games/aviator/cashout/", {
@@ -190,7 +187,7 @@ async placeAviatorBet(payload: { amount: number; user_id: number; auto_cashout?:
 
   async getPastCrashes() {
     return this.request<Array<{ id: number; multiplier: number; color: string; timestamp: string }>>(
-      "/games/aviator/past-crashes/"
+      "/games/aviator/past-crashes/",
     )
   }
 
@@ -205,8 +202,35 @@ async placeAviatorBet(payload: { amount: number; user_id: number; auto_cashout?:
   async getMyAviatorBets() {
     return this.request<AviatorBet[]>("/games/aviator/my-bets/")
   }
+
+  // ✅ Premium Sure Odds - Updated to match your backend
+  async purchaseSureOdd() {
+    return this.request<{ detail: string }>("/games/aviator/sure-odds/purchase/", {
+      method: "POST",
+    })
+  }
+
+  async getSureOdd() {
+    return this.request<{
+      odd_value: number | null
+    }>("/games/aviator/sure-odds/get/")
+  }
+
+  async getSureOddStatus() {
+    return this.request<{
+      has_pending: boolean
+    }>("/games/aviator/sure-odds/status/")
+  }
+
+  async getSureOddHistory() {
+    return this.request<{
+      history: Array<{
+        odd_value: number | null
+        created_at: string
+        used: boolean
+      }>
+    }>("/games/aviator/sure-odds/history/")
+  }
 }
 
 export const api = new ApiClient()
-
-

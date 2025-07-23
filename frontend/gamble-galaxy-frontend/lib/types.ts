@@ -136,3 +136,38 @@ export type WebSocketMessage =
   | { type: "live_players"; players: any[] }
   | { type: "recent_cashouts"; cashouts: any[] }
   | { type: "new_bet"; bet: any }
+
+  // Add these new types to your existing types file
+
+export interface PremiumSureOddPurchase {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: 'pending' | 'assigned' | 'expired';
+  purchased_at: string;
+  assigned_at?: string;
+  odd?: number;
+  expires_at: string;
+}
+
+export interface PremiumSureOddResponse {
+  id: string;
+  odd: number;
+  assigned_at: string;
+  expires_at: string;
+  status: 'active' | 'used' | 'expired';
+}
+
+export interface PendingPremiumOddsResponse {
+  has_pending: boolean;
+  pending_purchases: PremiumSureOddPurchase[];
+  active_odds: PremiumSureOddResponse[];
+}
+
+export interface PremiumSureOddPurchaseResponse {
+  id: string;
+  message: string;
+  purchase_id: string;
+  amount: number;
+  status: string;
+}

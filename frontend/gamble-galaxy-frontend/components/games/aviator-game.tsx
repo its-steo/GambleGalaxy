@@ -49,6 +49,7 @@ export function AviatorGame() {
     currentRoundId,
     isRoundActive,
     cashOut,
+    placeBet,
     walletBalance: wsBalance,
     livePlayers,
     recentCashouts,
@@ -67,13 +68,15 @@ export function AviatorGame() {
   const [isBettingPhase, setIsBettingPhase] = useState(true)
   const [roundCountdown, setRoundCountdown] = useState(5)
   const [showSidebar, setShowSidebar] = useState(false)
-
-  // Lazer Signal States - Updated logic
+  const [isInitialized, setIsInitialized] = useState(false)
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
   const [showLazerSignal, setShowLazerSignal] = useState(false)
-  const [lazerSignalTimer, setLazerSignalTimer] = useState<NodeJS.Timeout | null>(null)
   const [isLoadingPremiumOdds, setIsLoadingPremiumOdds] = useState(false)
   const [premiumSureOdd, setPremiumSureOdd] = useState<number | null>(null)
   const [hasPurchasedPremium, setHasPurchasedPremium] = useState(false)
+  // New states for crash screen control
+  const [showCrashScreen, setShowCrashScreen] = useState(false)
+  const [lastCrashRoundId, setLastCrashRoundId] = useState<string | null>(null)
 
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const prevRoundActiveRef = useRef<boolean>(isRoundActive)
@@ -82,15 +85,27 @@ export function AviatorGame() {
   const planePositionRef = useRef({ x: 80, y: 300 })
   const lastMultiplierRef = useRef<number>(1.0)
   const trailPointsRef = useRef<Array<{ x: number; y: number; opacity: number; size: number }>>([])
-  const particlesRef = useRef<Array<{ x: number; y: number; vx: number; vy: number; life: number; maxLife: number }>>(
-    [],
-  )
+  const particlesRef = useRef<Array<{ x: number; y: number; vx: number; vy: number; life: number; maxLife: number }>>([])
   const starsRef = useRef<Array<{ x: number; y: number; size: number; opacity: number; twinkle: number }>>([])
   const velocityRef = useRef({ x: 0, y: 0 })
   const smoothMultiplierRef = useRef<number>(1.0)
+  const lazerSignalTimer = useRef<NodeJS.Timeout | null>(null)
 
+  // Initialize game on mount
   useEffect(() => {
-    console.log("Connecting WebSocket and loading initial data")
+    console.log("🎮 Initializing Aviator Game")
+
+    setIsInitialized(false)
+    setIsFirstLoad(true)
+    setIsBettingPhase(true)
+    setRoundCountdown(5)
+    setHasBet1(false)
+    setHasBet2(false)
+    setShowCrashScreen(false)
+    setLastCrashRoundId(null)
+    lastMultiplierRef.current = 1.0
+    smoothMultiplierRef.current = 1.0
+
     connect()
     loadGameData()
     fetchWalletBalance()
@@ -98,146 +113,71 @@ export function AviatorGame() {
     initializeStars()
     startLazerSignalTimer()
 
+    if (user) {
+      checkExistingPremiumOdds()
+    }
+
+    const initTimer = setTimeout(() => {
+      console.log("✅ Game initialized")
+      setIsInitialized(true)
+    }, 2000)
+
     return () => {
-      console.log("Disconnecting WebSocket")
+      console.log("🧹 Cleaning up Aviator Game")
+      clearTimeout(initTimer)
       disconnect()
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }
-      if (lazerSignalTimer) {
-        clearInterval(lazerSignalTimer)
+      if (lazerSignalTimer.current) {
+        clearInterval(lazerSignalTimer.current)
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current)
       }
     }
-  }, [connect, disconnect])
+  }, [connect, disconnect, user])
 
-  // Updated Lazer Signal Timer System - appears every 5 minutes
-  const startLazerSignalTimer = () => {
-    if (lazerSignalTimer) {
-      clearInterval(lazerSignalTimer)
-    }
-
-    const timer = setInterval(
-      () => {
-        // Always show signal every 5 minutes, regardless of previous dismissal
-        if (!showLazerSignal) {
-          setShowLazerSignal(true)
-          console.log("Lazer Signal appeared!")
-        }
-        // If signal is already showing, don't create another one (wait for user interaction)
-      },
-      5 * 60 * 1000,
-    ) // 5 minutes
-
-    setLazerSignalTimer(timer)
-  }
-
-  const handleDismissLazerSignal = () => {
-    setShowLazerSignal(false)
-    // No need to set dismissed state - timer continues normally
-  }
-
-  const handlePayForPremiumOdds = async () => {
-    if (!user) {
-      toast.error("Login Required", { description: "Please log in to purchase premium odds." })
-      return
-    }
-
-    if (walletBalance < 10000) {
-      toast.error("Insufficient Balance", {
-        description: "You need KES 10,000 to purchase premium sure odds.",
-      })
-      return
-    }
-
-    setIsLoadingPremiumOdds(true)
-
-    try {
-      // Call API to purchase premium sure odds
-      const response = await api.purchaseSureOdds()
-
-      // If the API returns void, just proceed to next steps
-      if (response !== undefined && (response as any).data && (response as any).status === 200) {
-        // Deduct money from wallet
-        await fetchWalletBalance()
-
-        // Start polling for admin to add the sure odd
-        pollForPremiumOdd()
-
-        toast.success("Payment Successful!", {
-          description: "Waiting for premium sure odd to be assigned...",
-        })
-      } else if (response !== undefined && (response as any).error) {
-        throw new Error((response as any).error || "Payment failed")
-      } else {
-        // If response is void, assume success and continue
-        await fetchWalletBalance()
-        pollForPremiumOdd()
-        toast.success("Payment Successful!", {
-          description: "Waiting for premium sure odd to be assigned...",
-        })
-      }
-    } catch (error: any) {
-      console.error("Error purchasing premium odds:", error)
-      toast.error("Payment Failed", {
-        description: error.message || "Could not process payment. Please try again.",
-      })
-      setIsLoadingPremiumOdds(false)
-    }
-  }
-
-  const pollForPremiumOdd = () => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await api.getUserSureOdds()
-
-        if (response.data && response.data.length > 0 && response.data[0].odd) {
-          setPremiumSureOdd(Number(response.data[0].odd))
-          setHasPurchasedPremium(true)
-          setIsLoadingPremiumOdds(false)
-          setShowLazerSignal(false)
-          clearInterval(pollInterval)
-
-          toast.success("Premium Sure Odd Received!", {
-            description: `Your premium sure odd is ${Number(response.data[0].odd).toFixed(2)}x`,
-          })
-        }
-      } catch (error) {
-        console.error("Error polling for premium odd:", error)
-      }
-    }, 3000) // Poll every 3 seconds
-
-    // Stop polling after 10 minutes if no response
-    setTimeout(
-      () => {
-        clearInterval(pollInterval)
-        if (isLoadingPremiumOdds) {
-          setIsLoadingPremiumOdds(false)
-          toast.error("Timeout", {
-            description: "Premium sure odd assignment timed out. Contact support.",
-          })
-        }
-      },
-      10 * 60 * 1000,
-    )
-  }
-
+  // Sync WebSocket wallet balance
   useEffect(() => {
-    if (wsBalance !== walletBalance) {
-      console.log("Updating wallet balance:", wsBalance)
+    if (wsBalance !== walletBalance && wsBalance > 0) {
+      console.log("💰 Updating wallet balance from WebSocket:", wsBalance)
       setWalletBalance(wsBalance)
     }
   }, [wsBalance])
 
+  // Debug state transitions
   useEffect(() => {
-    console.log("Round active state changed:", isRoundActive)
-    if (!isRoundActive && prevRoundActiveRef.current) {
-      console.log("Round ended, updating crash history")
+    console.log("🔄 State Update:", {
+      isRoundActive,
+      isBettingPhase,
+      showCrashScreen,
+      currentRoundId,
+      currentMultiplier,
+      roundCountdown,
+    })
+  }, [isRoundActive, isBettingPhase, showCrashScreen, currentRoundId, currentMultiplier, roundCountdown])
+
+  // Handle round state changes
+  useEffect(() => {
+    console.log("🔄 Round active state changed:", isRoundActive, "Initialized:", isInitialized)
+
+    if (isFirstLoad) {
+      console.log("⏳ Skipping first load round handling")
+      setIsFirstLoad(false)
+      return
+    }
+
+    if (!isRoundActive && prevRoundActiveRef.current && isInitialized && lastCrashRoundId !== currentRoundId) {
+      console.log("🏁 Round ended, updating crash history")
       handleRoundEnd()
       setIsBettingPhase(true)
       setRoundCountdown(5)
-      // Reset multiplier to 1.00 when round ends
+      setHasBet1(false)
+      setHasBet2(false)
       lastMultiplierRef.current = 1.0
       smoothMultiplierRef.current = 1.0
+
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
       countdownIntervalRef.current = setInterval(() => {
         setRoundCountdown((prev) => {
@@ -250,489 +190,117 @@ export function AviatorGame() {
           return prev - 1
         })
       }, 1000)
-    } else if (isRoundActive) {
+    } else if (isRoundActive && isInitialized) {
+      console.log("🚀 Round started, initializing canvas")
       setIsBettingPhase(false)
-      // Reset multiplier to 1.00 when new round starts
+      setShowCrashScreen(false)
       lastMultiplierRef.current = 1.0
       smoothMultiplierRef.current = 1.0
       velocityRef.current = { x: 0, y: 0 }
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
       initCanvas()
     }
+
     prevRoundActiveRef.current = isRoundActive
-  }, [isRoundActive])
+  }, [isRoundActive, isInitialized, currentRoundId])
 
+  // Reset multiplier at round start
   useEffect(() => {
-    if (isRoundActive) {
-      // Smooth multiplier interpolation
-      const targetMultiplier = currentMultiplier
-      const smoothingFactor = 0.15
-      smoothMultiplierRef.current += (targetMultiplier - smoothMultiplierRef.current) * smoothingFactor
-      lastMultiplierRef.current = smoothMultiplierRef.current
+    if (isRoundActive && isInitialized) {
+      console.log("🚀 Round started, resetting multiplier")
+      lastMultiplierRef.current = 1.0
+      smoothMultiplierRef.current = 1.0
+    }
+  }, [isRoundActive, isInitialized])
 
-      if (hasBet1 && autoCashout1) {
-        const parsedAutoCashout = Number.parseFloat(autoCashout1)
-        if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
-          handleCashOut(1)
-        }
-      }
-      if (hasBet2 && autoCashout2) {
-        const parsedAutoCashout = Number.parseFloat(autoCashout2)
-        if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
-          handleCashOut(2)
-        }
+  // Handle auto cashout
+useEffect(() => {
+  if (isRoundActive) {
+    const targetMultiplier = Number.isFinite(currentMultiplier) ? currentMultiplier : 1.0;
+    const smoothingFactor = 0.15;
+    smoothMultiplierRef.current += (targetMultiplier - smoothMultiplierRef.current) * smoothingFactor;
+    lastMultiplierRef.current = smoothMultiplierRef.current;
+
+    console.log("🔄 Updating multiplier:", {
+      currentMultiplier,
+      smoothMultiplier: smoothMultiplierRef.current,
+      isRoundActive,
+    });
+
+    if (hasBet1 && autoCashout1) {
+      const parsedAutoCashout = Number.parseFloat(autoCashout1);
+      if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
+        handleCashOut(1);
       }
     }
-  }, [currentMultiplier, hasBet1, hasBet2, autoCashout1, autoCashout2, isRoundActive])
-
-  useEffect(() => {
-    if (isBettingPhase) {
-      // Smooth multiplier interpolation
-      const targetMultiplier = currentMultiplier
-      const smoothingFactor = 0.15
-      smoothMultiplierRef.current += (targetMultiplier - smoothMultiplierRef.current) * smoothingFactor
-      lastMultiplierRef.current = smoothMultiplierRef.current
-
-      if (hasBet1 && autoCashout1) {
-        const parsedAutoCashout = Number.parseFloat(autoCashout1)
-        if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
-          handleCashOut(1)
-        }
-      }
-      if (hasBet2 && autoCashout2) {
-        const parsedAutoCashout = Number.parseFloat(autoCashout2)
-        if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
-          handleCashOut(2)
-        }
+    if (hasBet2 && autoCashout2) {
+      const parsedAutoCashout = Number.parseFloat(autoCashout2);
+      if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
+        handleCashOut(2);
       }
     }
-  }, [currentMultiplier, hasBet1, hasBet2, autoCashout1, autoCashout2, isBettingPhase])
+  }
+}, [currentMultiplier, hasBet1, hasBet2, autoCashout1, autoCashout2, isRoundActive])
 
+  // Initialize canvas when betting phase ends
   useEffect(() => {
-    if (!isBettingPhase && !animationRef.current) {
+    if (!isBettingPhase && !animationRef.current && isInitialized && isRoundActive) {
+      console.log("🎨 Initializing canvas for active round")
       initCanvas()
     }
-  }, [isBettingPhase])
+  }, [isBettingPhase, isInitialized, isRoundActive])
 
-  const initializeStars = () => {
-    const stars = []
-    for (let i = 0; i < 80; i++) {
-      stars.push({
-        x: Math.random() * 800,
-        y: Math.random() * 300,
-        size: Math.random() * 1.5 + 0.5,
-        opacity: Math.random() * 0.6 + 0.2,
-        twinkle: Math.random() * Math.PI * 2,
-      })
+  const fetchWalletBalance = async () => {
+    if (user) {
+      try {
+        console.log("💰 Fetching wallet balance for user:", user.id)
+        const res = await api.getWallet()
+        console.log("💰 Wallet balance API response:", res)
+        if (res.data && res.data.balance !== undefined) {
+          const newBalance = Number(res.data.balance)
+          console.log("💰 Setting wallet balance to:", newBalance)
+          setWalletBalance(newBalance)
+        } else {
+          console.warn("⚠️ Invalid wallet balance response:", res)
+        }
+      } catch (error) {
+        console.error("❌ Error fetching wallet balance:", error)
+        toast.error("Failed to load wallet balance", { description: "Please check your connection." })
+      }
     }
-    starsRef.current = stars
-  }
-
-  const initCanvas = () => {
-    if (!canvasRef.current) return
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Reset everything for new round
-    planePositionRef.current = { x: 80, y: canvas.height - 80 }
-    trailPointsRef.current = []
-    particlesRef.current = []
-    lastMultiplierRef.current = 1.0
-    smoothMultiplierRef.current = 1.0
-    velocityRef.current = { x: 0, y: 0 }
-
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current)
-    }
-
-    const drawGame = () => {
-      if (!ctx || !canvas) return
-
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      // Draw animated background gradient
-      const time = Date.now() * 0.0008
-      const gradient = ctx.createRadialGradient(
-        canvas.width / 2,
-        canvas.height / 2,
-        0,
-        canvas.width / 2,
-        canvas.height / 2,
-        canvas.width,
-      )
-      gradient.addColorStop(0, `hsl(${240 + Math.sin(time) * 8}, 65%, ${10 + Math.sin(time * 0.5) * 2}%)`)
-      gradient.addColorStop(0.4, `hsl(${250 + Math.cos(time * 0.7) * 12}, 55%, ${14 + Math.cos(time * 0.3) * 3}%)`)
-      gradient.addColorStop(0.8, `hsl(${260 + Math.sin(time * 0.5) * 15}, 45%, ${8 + Math.sin(time * 0.8) * 2}%)`)
-      gradient.addColorStop(1, `hsl(${270 + Math.cos(time * 0.3) * 8}, 35%, ${5 + Math.cos(time) * 1}%)`)
-      ctx.fillStyle = gradient
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      // Draw twinkling stars
-      starsRef.current.forEach((star) => {
-        star.twinkle += 0.03
-        const twinkleOpacity = star.opacity * (0.4 + 0.6 * Math.sin(star.twinkle))
-        ctx.fillStyle = `rgba(255, 255, 255, ${twinkleOpacity})`
-        ctx.beginPath()
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2)
-        ctx.fill()
-      })
-
-      // Draw subtle grid
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.03)"
-      ctx.lineWidth = 1
-      const gridSize = 50
-      for (let x = 0; x <= canvas.width; x += gridSize) {
-        ctx.beginPath()
-        ctx.moveTo(x, 0)
-        ctx.lineTo(x, canvas.height)
-        ctx.stroke()
-      }
-      for (let y = 0; y <= canvas.height; y += gridSize) {
-        ctx.beginPath()
-        ctx.moveTo(0, y)
-        ctx.lineTo(canvas.width, y)
-        ctx.stroke()
-      }
-
-      // Update plane position with smooth physics
-      if (isRoundActive) {
-        const targetSpeed = 2.2 + smoothMultiplierRef.current * 0.12
-        const acceleration = 0.08
-        velocityRef.current.x += (targetSpeed - velocityRef.current.x) * acceleration
-
-        planePositionRef.current.x += velocityRef.current.x
-
-        // Smooth exponential curve
-        const baseY = canvas.height - 80
-        const multiplierFactor = Math.log(Math.max(1, smoothMultiplierRef.current)) * 65
-        const targetY = Math.max(50, baseY - multiplierFactor)
-
-        // Smooth Y movement with physics
-        const yDiff = targetY - planePositionRef.current.y
-        velocityRef.current.y += yDiff * 0.02
-        velocityRef.current.y *= 0.85 // Damping
-        planePositionRef.current.y += velocityRef.current.y
-
-        if (planePositionRef.current.x > canvas.width - 100) {
-          planePositionRef.current.x = canvas.width - 100
-        }
-
-        // Add engine particles with smooth emission
-        if (Math.random() < 0.4) {
-          const angle = Math.atan2(velocityRef.current.y, velocityRef.current.x)
-          particlesRef.current.push({
-            x: planePositionRef.current.x - 35 + Math.cos(angle + Math.PI) * 20,
-            y: planePositionRef.current.y + Math.sin(angle + Math.PI) * 20 + (Math.random() - 0.5) * 8,
-            vx: -3 - Math.random() * 2 + Math.cos(angle + Math.PI) * 2,
-            vy: (Math.random() - 0.5) * 3 + Math.sin(angle + Math.PI) * 2,
-            life: 35,
-            maxLife: 35,
-          })
-        }
-      }
-
-      // Update and draw particles
-      particlesRef.current = particlesRef.current.filter((particle) => {
-        particle.x += particle.vx
-        particle.y += particle.vy
-        particle.vx *= 0.98
-        particle.vy *= 0.98
-        particle.life--
-
-        const alpha = (particle.life / particle.maxLife) * 0.9
-        const size = (particle.life / particle.maxLife) * 3
-
-        // Gradient particle
-        const particleGradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, size * 2)
-        particleGradient.addColorStop(0, `rgba(255, ${120 + alpha * 135}, ${60 + alpha * 60}, ${alpha})`)
-        particleGradient.addColorStop(0.7, `rgba(255, ${80 + alpha * 100}, ${40 + alpha * 40}, ${alpha * 0.6})`)
-        particleGradient.addColorStop(1, `rgba(255, 60, 20, 0)`)
-
-        ctx.fillStyle = particleGradient
-        ctx.beginPath()
-        ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2)
-        ctx.fill()
-
-        return particle.life > 0
-      })
-
-      // Add smooth trail points
-      if (isRoundActive) {
-        trailPointsRef.current.push({
-          x: planePositionRef.current.x,
-          y: planePositionRef.current.y,
-          opacity: 1,
-          size: 2 + smoothMultiplierRef.current * 0.3,
-        })
-
-        if (trailPointsRef.current.length > 100) {
-          trailPointsRef.current.shift()
-        }
-
-        trailPointsRef.current.forEach((point, index) => {
-          point.opacity = (index / trailPointsRef.current.length) * 0.95
-        })
-      }
-
-      // Draw enhanced flight trail with smooth curves
-      if (trailPointsRef.current.length > 2) {
-        const trailColor = getMultiplierColor(smoothMultiplierRef.current)
-
-        // Draw outer glow
-        ctx.lineWidth = 12
-        ctx.lineCap = "round"
-        ctx.lineJoin = "round"
-        ctx.shadowColor = trailColor
-        ctx.shadowBlur = 25
-        ctx.globalAlpha = 0.2
-
-        ctx.strokeStyle = trailColor
-        ctx.beginPath()
-        ctx.moveTo(trailPointsRef.current[0].x, trailPointsRef.current[0].y)
-
-        // Smooth curve through points
-        for (let i = 1; i < trailPointsRef.current.length - 1; i++) {
-          const current = trailPointsRef.current[i]
-          const next = trailPointsRef.current[i + 1]
-          const cpx = (current.x + next.x) / 2
-          const cpy = (current.y + next.y) / 2
-          ctx.quadraticCurveTo(current.x, current.y, cpx, cpy)
-        }
-        ctx.stroke()
-
-        // Draw middle trail
-        ctx.lineWidth = 6
-        ctx.shadowBlur = 15
-        ctx.globalAlpha = 0.6
-        ctx.stroke()
-
-        // Draw core trail
-        ctx.lineWidth = 3
-        ctx.shadowBlur = 8
-        ctx.globalAlpha = 1
-        ctx.strokeStyle = `rgba(255, 255, 255, 0.95)`
-        ctx.stroke()
-
-        ctx.shadowBlur = 0
-        ctx.globalAlpha = 1
-      }
-
-      // Draw enhanced airplane with smooth rotation
-      const planeSize = 60
-      ctx.save()
-      ctx.translate(planePositionRef.current.x, planePositionRef.current.y)
-
-      // Calculate smooth rotation based on velocity
-      const angle = Math.atan2(velocityRef.current.y, velocityRef.current.x) * 0.3
-      ctx.rotate(angle)
-
-      // Draw plane shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
-      ctx.shadowColor = "rgba(0, 0, 0, 0.4)"
-      ctx.shadowBlur = 12
-      ctx.shadowOffsetX = 6
-      ctx.shadowOffsetY = 6
-      ctx.fillRect(-planeSize / 2, -12, planeSize, 24)
-      ctx.shadowBlur = 0
-      ctx.shadowOffsetX = 0
-      ctx.shadowOffsetY = 0
-
-      // Draw main plane body with enhanced gradient
-      const planeGradient = ctx.createLinearGradient(-planeSize / 2, -12, -planeSize / 2, 12)
-      planeGradient.addColorStop(0, "#ff6b6b")
-      planeGradient.addColorStop(0.3, "#ff5252")
-      planeGradient.addColorStop(0.7, "#f44336")
-      planeGradient.addColorStop(1, "#d32f2f")
-      ctx.fillStyle = planeGradient
-      ctx.fillRect(-planeSize / 2, -12, planeSize, 24)
-
-      // Draw plane highlights
-      ctx.fillStyle = "rgba(255, 255, 255, 0.4)"
-      ctx.fillRect(-planeSize / 2, -10, planeSize, 6)
-      ctx.fillStyle = "rgba(255, 255, 255, 0.2)"
-      ctx.fillRect(-planeSize / 2, -6, planeSize, 2)
-
-      // Draw enhanced nose with metallic look
-      const noseGradient = ctx.createLinearGradient(planeSize / 2, -6, planeSize / 2 + 20, 0)
-      noseGradient.addColorStop(0, "#e53935")
-      noseGradient.addColorStop(0.5, "#c62828")
-      noseGradient.addColorStop(1, "#b71c1c")
-      ctx.fillStyle = noseGradient
-      ctx.beginPath()
-      ctx.moveTo(planeSize / 2, 0)
-      ctx.lineTo(planeSize / 2 + 20, -5)
-      ctx.lineTo(planeSize / 2 + 20, 5)
-      ctx.closePath()
-      ctx.fill()
-
-      // Draw wings with depth
-      const wingGradient = ctx.createLinearGradient(-planeSize / 4, -30, -planeSize / 4, 30)
-      wingGradient.addColorStop(0, "#d32f2f")
-      wingGradient.addColorStop(0.3, "#c62828")
-      wingGradient.addColorStop(0.7, "#b71c1c")
-      wingGradient.addColorStop(1, "#a00000")
-      ctx.fillStyle = wingGradient
-      ctx.fillRect(-planeSize / 4, -30, planeSize / 2, 60)
-
-      // Wing highlights
-      ctx.fillStyle = "rgba(255, 255, 255, 0.25)"
-      ctx.fillRect(-planeSize / 4, -28, planeSize / 2, 8)
-
-      // Draw enhanced tail
-      ctx.fillStyle = "#a00000"
-      ctx.beginPath()
-      ctx.moveTo(-planeSize / 2, -12)
-      ctx.lineTo(-planeSize / 2 - 18, -20)
-      ctx.lineTo(-planeSize / 2 - 12, -12)
-      ctx.lineTo(-planeSize / 2 - 18, 20)
-      ctx.lineTo(-planeSize / 2, 12)
-      ctx.closePath()
-      ctx.fill()
-
-      // Draw pulsating engine glow with smooth animation
-      if (isRoundActive) {
-        const glowIntensity = 0.5 + 0.3 * Math.sin(Date.now() * 0.008)
-        const glowSize = 15 + 6 * Math.sin(Date.now() * 0.012)
-
-        const engineGradient = ctx.createRadialGradient(-planeSize / 2 - 10, 0, 0, -planeSize / 2 - 10, 0, glowSize)
-        engineGradient.addColorStop(0, `rgba(255, 140, 140, ${glowIntensity})`)
-        engineGradient.addColorStop(0.5, `rgba(255, 100, 100, ${glowIntensity * 0.7})`)
-        engineGradient.addColorStop(1, `rgba(255, 60, 60, 0)`)
-
-        ctx.fillStyle = engineGradient
-        ctx.beginPath()
-        ctx.arc(-planeSize / 2 - 10, 0, glowSize, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      ctx.restore()
-
-      // Draw enhanced multiplier display
-      const multiplierText = `${smoothMultiplierRef.current.toFixed(2)}x`
-      const fontSize = Math.min(80, 50 + smoothMultiplierRef.current * 1.5)
-      ctx.font = `bold ${fontSize}px 'Inter', 'Arial', sans-serif`
-
-      // Create dynamic text gradient
-      const textGradient = ctx.createLinearGradient(0, 50, 0, 120)
-      const color = getMultiplierColor(smoothMultiplierRef.current)
-      textGradient.addColorStop(0, color)
-      textGradient.addColorStop(1, adjustColorBrightness(color, -40))
-
-      ctx.fillStyle = textGradient
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.9)"
-      ctx.lineWidth = 5
-      ctx.textAlign = "center"
-
-      // Enhanced glow effect
-      ctx.shadowColor = color
-      ctx.shadowBlur = 40
-      ctx.strokeText(multiplierText, canvas.width / 2, 90)
-      ctx.fillText(multiplierText, canvas.width / 2, 90)
-
-      // Extra glow layer
-      ctx.shadowBlur = 60
-      ctx.globalAlpha = 0.4
-      ctx.fillText(multiplierText, canvas.width / 2, 90)
-      ctx.globalAlpha = 1
-      ctx.shadowBlur = 0
-
-      // Draw animated status text
-      ctx.font = "bold 18px 'Inter', 'Arial', sans-serif"
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
-      ctx.shadowColor = "rgba(0, 0, 0, 0.6)"
-      ctx.shadowBlur = 8
-      const statusText = isRoundActive ? "🚀 FLYING..." : "💥 CRASHED!"
-      const statusOpacity = 0.7 + 0.3 * Math.sin(Date.now() * 0.004)
-      ctx.globalAlpha = statusOpacity
-      ctx.fillText(statusText, canvas.width / 2, 115)
-      ctx.globalAlpha = 1
-      ctx.shadowBlur = 0
-
-      animationRef.current = requestAnimationFrame(drawGame)
-    }
-
-    drawGame()
-  }
-
-  const adjustColorBrightness = (color: string, amount: number) => {
-    const hex = color.replace("#", "")
-    const r = Math.max(0, Math.min(255, Number.parseInt(hex.substr(0, 2), 16) + amount))
-    const g = Math.max(0, Math.min(255, Number.parseInt(hex.substr(2, 2), 16) + amount))
-    const b = Math.max(0, Math.min(255, Number.parseInt(hex.substr(4, 2), 16) + amount))
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
   }
 
   const loadGameData = async () => {
     try {
       const [winnersRes, crashesRes] = await Promise.all([api.getTopWinners(), api.getPastCrashes()])
-      console.log("Loaded game data:", { winners: winnersRes.data, crashes: crashesRes.data })
+      console.log("📊 Loaded game data:", { winners: winnersRes.data, crashes: crashesRes.data })
       if (winnersRes.data) setTopWinners(winnersRes.data)
       if (crashesRes.data) setPastCrashes(crashesRes.data.map((round: any) => round.multiplier))
     } catch (error) {
-      console.error("Error loading game data:", error)
+      console.error("❌ Error loading game data:", error)
       toast.error("Failed to load game data", { description: "Could not fetch game data." })
-    }
-  }
-
-  const fetchWalletBalance = async () => {
-    if (user) {
-      try {
-        const res = await api.getWallet()
-        console.log("Wallet balance fetched:", res.data)
-        if (res.data) setWalletBalance(Number(res.data.balance))
-      } catch (error) {
-        console.error("Error fetching wallet balance:", error)
-        toast.error("Failed to load wallet balance", { description: "Please check your connection." })
-      }
     }
   }
 
   const fetchSureOdds = async () => {
     try {
       const res = await api.getUserSureOdds()
-      console.log("Sure odds fetched:", res.data)
+      console.log("🎯 Sure odds fetched:", res.data)
       if (res.data && res.data.length > 0 && typeof res.data[0].odd === "string") {
         setSureOdds(Number.parseFloat(res.data[0].odd))
       }
     } catch (error) {
-      console.warn("Error fetching sure odds:", error)
-    }
-  }
-
-  const handleRoundEnd = async () => {
-    try {
-      console.log("Handling round end, current multiplier:", currentMultiplier)
-      setPastCrashes((prev) => [currentMultiplier, ...prev].slice(0, 12))
-      const crashesRes = await api.getPastCrashes()
-      if (crashesRes.data) {
-        console.log("Synced crash history:", crashesRes.data)
-        setPastCrashes(crashesRes.data.map((round: any) => round.multiplier).slice(0, 12))
-      }
-      try {
-        const response = await fetch("/sounds/crash.mp3", { method: "HEAD" })
-        if (response.ok) {
-          const audio = new Audio("/sounds/crash.mp3")
-          await audio.play()
-          console.log("Crash sound played")
-        }
-      } catch (err) {
-        console.warn("Crash sound not available:", err)
-      }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-        animationRef.current = 0
-      }
-    } catch (error) {
-      console.error("Error in handleRoundEnd:", error)
-      toast.error("Failed to update crash history", { description: "Could not fetch latest crashes." })
+      console.warn("⚠️ Error fetching sure odds:", error)
     }
   }
 
   const handlePlaceBet = async (betNumber: 1 | 2) => {
     if (!user) {
       toast.error("Login Required", { description: "Please log in to place bets." })
+      return
+    }
+    if (!isConnected) {
+      toast.error("Connection Error", { description: "Not connected to game server." })
       return
     }
     if (betNumber === 1 ? hasBet1 : hasBet2) {
@@ -759,34 +327,20 @@ export function AviatorGame() {
       toast.error("Invalid Auto Cashout", { description: "Auto cashout must be at least 1.01x." })
       return
     }
-
     try {
       const payload = {
         amount: parsedBetAmount,
         user_id: user.id,
         auto_cashout: parsedAutoCashout,
-        round_id: currentRoundId || undefined,
       }
-      console.log("Placing bet:", payload)
-      const response = await api.placeAviatorBet(payload)
-      console.log("API Response:", response)
-
-      if (response.data && response.status === 201) {
-        if (betNumber === 1) setHasBet1(true)
-        else setHasBet2(true)
-        await fetchWalletBalance()
-        toast.success("Bet Placed!", {
-          description: `KES ${parsedBetAmount.toFixed(2)}${
-            parsedAutoCashout ? ` with auto cashout at ${parsedAutoCashout.toFixed(2)}x` : ""
-          } placed successfully.`,
-        })
-      } else {
-        toast.error("Failed to Place Bet", {
-          description: response.error || "Unknown error. Please try again.",
-        })
-      }
+      console.log("🎲 Placing bet via WebSocket:", payload)
+      await placeBet(payload)
+      if (betNumber === 1) setHasBet1(true)
+      else setHasBet2(true)
+      setWalletBalance((prev) => prev - parsedBetAmount)
+      console.log("✅ Bet placed successfully")
     } catch (error: any) {
-      console.error("Error in handlePlaceBet:", error)
+      console.error("❌ Error placing bet:", error)
       toast.error("Error Placing Bet", {
         description: error.message || "Network error or server issue. Please try again.",
       })
@@ -802,27 +356,439 @@ export function AviatorGame() {
       toast.error("Round Ended", { description: "The round has already crashed." })
       return
     }
-
     try {
+      console.log("💰 Cashing out at:", currentMultiplier)
       await cashOut(user.id, currentMultiplier)
       if (betNumber === 1) setHasBet1(false)
       else setHasBet2(false)
-      await fetchWalletBalance()
-      toast.success("Cashed Out!", { description: `You cashed out at ${currentMultiplier.toFixed(2)}x.` })
-      try {
-        const response = await fetch("/sounds/cashout.mp3", { method: "HEAD" })
-        if (response.ok) {
-          const audio = new Audio("/sounds/cashout.mp3")
-          await audio.play()
-          console.log("Cashout sound played")
-        }
-      } catch (err) {
-        console.warn("Cashout sound not available:", err)
-      }
+      console.log("✅ Cashout successful")
     } catch (error: any) {
-      console.error("Error in handleCashOut:", error)
+      console.error("❌ Error cashing out:", error)
       toast.error("Error Cashing Out", { description: error.message || "Failed to cash out. Please try again." })
     }
+  }
+
+  const handlePayForPremiumOdds = async () => {
+    if (!user) {
+      toast.error("Login Required", { description: "Please log in to purchase premium odds." })
+      return
+    }
+    if (walletBalance < 10000) {
+      toast.error("Insufficient Balance", {
+        description: "You need KES 10,000 to purchase premium sure odds.",
+      })
+      return
+    }
+    setIsLoadingPremiumOdds(true)
+    try {
+      console.log("💎 Starting premium sure odds purchase for user:", user.id)
+      const response = await api.purchaseSureOdd()
+      console.log("💎 Purchase API response:", response)
+      if (response.data && (response.status === 200 || response.status === 201)) {
+        await fetchWalletBalance()
+        setWalletBalance((prev) => prev - 10000)
+        pollForPremiumOdd()
+        toast.success("Payment Successful!", {
+          description: "KES 10,000 deducted. Waiting for premium sure odd assignment...",
+        })
+      } else {
+        throw new Error(response.error || "Payment failed")
+      }
+    } catch (error: any) {
+      console.error("❌ Error purchasing premium odds:", error)
+      toast.error("Payment Failed", {
+        description: error.message || "Could not process payment. Please try again.",
+      })
+      setIsLoadingPremiumOdds(false)
+    }
+  }
+
+  const pollForPremiumOdd = () => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await api.getSureOdd()
+        if (response.data && response.data.odd_value) {
+          setPremiumSureOdd(response.data.odd_value)
+          setHasPurchasedPremium(true)
+          setIsLoadingPremiumOdds(false)
+          setShowLazerSignal(false)
+          clearInterval(pollInterval)
+          toast.success("Premium Sure Odd Received!", {
+            description: `Your premium sure odd is ${response.data.odd_value.toFixed(2)}x`,
+          })
+        }
+      } catch (error) {
+        console.error("❌ Error polling for premium odd:", error)
+      }
+    }, 3000)
+    setTimeout(() => {
+      clearInterval(pollInterval)
+      if (isLoadingPremiumOdds) {
+        setIsLoadingPremiumOdds(false)
+        toast.error("Timeout", {
+          description: "Premium sure odd assignment timed out. Contact support.",
+        })
+      }
+    }, 10 * 60 * 1000)
+  }
+
+  const checkExistingPremiumOdds = async () => {
+    try {
+      const response = await api.getSureOddStatus()
+      if (response.data) {
+        const { has_pending } = response.data
+        const sureOddResponse = await api.getSureOdd()
+        if (sureOddResponse.data && sureOddResponse.data.odd_value) {
+          setPremiumSureOdd(sureOddResponse.data.odd_value)
+          setHasPurchasedPremium(true)
+        }
+        if (has_pending && !sureOddResponse.data?.odd_value) {
+          setIsLoadingPremiumOdds(true)
+          pollForPremiumOdd()
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error checking existing premium odds:", error)
+    }
+  }
+
+  const startLazerSignalTimer = () => {
+    if (lazerSignalTimer.current) {
+      clearInterval(lazerSignalTimer.current)
+    }
+    const timer = setInterval(() => {
+      if (!showLazerSignal) {
+        setShowLazerSignal(true)
+        console.log("⚡ Lazer Signal appeared!")
+      }
+    }, 5 * 60 * 1000)
+    lazerSignalTimer.current = timer
+  }
+
+  const handleDismissLazerSignal = () => {
+    setShowLazerSignal(false)
+  }
+
+  const handleRoundEnd = async () => {
+    try {
+      console.log("🏁 Handling round end, current multiplier:", currentMultiplier)
+      setPastCrashes((prev) => [currentMultiplier, ...prev].slice(0, 12))
+      setShowCrashScreen(true)
+      setLastCrashRoundId(currentRoundId !== null ? String(currentRoundId) : null)
+
+      const crashesRes = await api.getPastCrashes()
+      if (crashesRes.data) {
+        setPastCrashes(crashesRes.data.map((round: any) => round.multiplier).slice(0, 12))
+      }
+
+      try {
+        const response = await fetch("/sounds/crash.mp3", { method: "HEAD" })
+        if (response.ok) {
+          const audio = new Audio("/sounds/crash.mp3")
+          await audio.play()
+        }
+      } catch (err) {
+        console.warn("🔇 Crash sound not available:", err)
+      }
+
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+        animationRef.current = 0
+      }
+
+      setTimeout(() => {
+        setShowCrashScreen(false)
+      }, 3000)
+    } catch (error) {
+      console.error("❌ Error in handleRoundEnd:", error)
+    }
+  }
+
+  const initializeStars = () => {
+    const stars = []
+    for (let i = 0; i < 80; i++) {
+      stars.push({
+        x: Math.random() * 800,
+        y: Math.random() * 300,
+        size: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.6 + 0.2,
+        twinkle: Math.random() * Math.PI * 2,
+      })
+    }
+    starsRef.current = stars
+  }
+
+  const initCanvas = () => {
+    if (!canvasRef.current) return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    planePositionRef.current = { x: 80, y: canvas.height - 80 }
+    trailPointsRef.current = []
+    particlesRef.current = []
+    lastMultiplierRef.current = 1.0
+    smoothMultiplierRef.current = 1.0
+    velocityRef.current = { x: 0, y: 0 }
+
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current)
+    }
+
+    const drawGame = () => {
+      if (!ctx || !canvas) return
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      const time = Date.now() * 0.0008
+      const gradient = ctx.createRadialGradient(
+        canvas.width / 2,
+        canvas.height / 2,
+        0,
+        canvas.width / 2,
+        canvas.height / 2,
+        canvas.width,
+      )
+      gradient.addColorStop(0, `hsl(${240 + Math.sin(time) * 8}, 65%, ${10 + Math.sin(time * 0.5) * 2}%)`)
+      gradient.addColorStop(0.4, `hsl(${250 + Math.cos(time * 0.7) * 12}, 55%, ${14 + Math.cos(time * 0.3) * 3}%)`)
+      gradient.addColorStop(0.8, `hsl(${260 + Math.sin(time * 0.5) * 15}, 45%, ${8 + Math.sin(time * 0.8) * 2}%)`)
+      gradient.addColorStop(1, `hsl(${270 + Math.cos(time * 0.3) * 8}, 35%, ${5 + Math.cos(time) * 1}%)`)
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      starsRef.current.forEach((star) => {
+        star.twinkle += 0.03
+        const twinkleOpacity = star.opacity * (0.4 + 0.6 * Math.sin(star.twinkle))
+        ctx.fillStyle = `rgba(255, 255, 255, ${twinkleOpacity})`
+        ctx.beginPath()
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2)
+        ctx.fill()
+      })
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.03)"
+      ctx.lineWidth = 1
+      const gridSize = 50
+      for (let x = 0; x <= canvas.width; x += gridSize) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, canvas.height)
+        ctx.stroke()
+      }
+      for (let y = 0; y <= canvas.height; y += gridSize) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(canvas.width, y)
+        ctx.stroke()
+      }
+
+      if (isRoundActive) {
+        const targetSpeed = 2.2 + smoothMultiplierRef.current * 0.12
+        const acceleration = 0.08
+        velocityRef.current.x += (targetSpeed - velocityRef.current.x) * acceleration
+        planePositionRef.current.x += velocityRef.current.x
+
+        const baseY = canvas.height - 80
+        const multiplierFactor = Math.log(Math.max(1, smoothMultiplierRef.current)) * 65
+        const targetY = Math.max(50, baseY - multiplierFactor)
+        const yDiff = targetY - planePositionRef.current.y
+        velocityRef.current.y += yDiff * 0.02
+        velocityRef.current.y *= 0.85
+        planePositionRef.current.y += velocityRef.current.y
+
+        if (planePositionRef.current.x > canvas.width - 100) {
+          planePositionRef.current.x = canvas.width - 100
+        }
+
+        if (Math.random() < 0.4) {
+          const angle = Math.atan2(velocityRef.current.y, velocityRef.current.x)
+          particlesRef.current.push({
+            x: planePositionRef.current.x - 35 + Math.cos(angle + Math.PI) * 20,
+            y: planePositionRef.current.y + Math.sin(angle + Math.PI) * 20 + (Math.random() - 0.5) * 8,
+            vx: -3 - Math.random() * 2 + Math.cos(angle + Math.PI) * 2,
+            vy: (Math.random() - 0.5) * 3 + Math.sin(angle + Math.PI) * 2,
+            life: 35,
+            maxLife: 35,
+          })
+        }
+      }
+
+      particlesRef.current = particlesRef.current.filter((particle) => {
+        particle.x += particle.vx
+        particle.y += particle.vy
+        particle.vx *= 0.98
+        particle.vy *= 0.98
+        particle.life--
+
+        const alpha = (particle.life / particle.maxLife) * 0.9
+        const size = (particle.life / particle.maxLife) * 3
+        const particleGradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, size * 2)
+        particleGradient.addColorStop(0, `rgba(255, ${120 + alpha * 135}, ${60 + alpha * 60}, ${alpha})`)
+        particleGradient.addColorStop(0.7, `rgba(255, ${80 + alpha * 100}, ${40 + alpha * 40}, ${alpha * 0.6})`)
+        particleGradient.addColorStop(1, `rgba(255, 60, 20, 0)`)
+        ctx.fillStyle = particleGradient
+        ctx.beginPath()
+        ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2)
+        ctx.fill()
+        return particle.life > 0
+      })
+
+      if (isRoundActive) {
+        trailPointsRef.current.push({
+          x: planePositionRef.current.x,
+          y: planePositionRef.current.y,
+          opacity: 1,
+          size: 2 + smoothMultiplierRef.current * 0.3,
+        })
+        if (trailPointsRef.current.length > 100) {
+          trailPointsRef.current.shift()
+        }
+        trailPointsRef.current.forEach((point, index) => {
+          point.opacity = (index / trailPointsRef.current.length) * 0.95
+        })
+      }
+
+      if (trailPointsRef.current.length > 2) {
+        const trailColor = getMultiplierColor(smoothMultiplierRef.current)
+        ctx.lineWidth = 12
+        ctx.lineCap = "round"
+        ctx.lineJoin = "round"
+        ctx.shadowColor = trailColor
+        ctx.shadowBlur = 25
+        ctx.globalAlpha = 0.2
+        ctx.strokeStyle = trailColor
+        ctx.beginPath()
+        ctx.moveTo(trailPointsRef.current[0].x, trailPointsRef.current[0].y)
+        for (let i = 1; i < trailPointsRef.current.length - 1; i++) {
+          const current = trailPointsRef.current[i]
+          const next = trailPointsRef.current[i + 1]
+          const cpx = (current.x + next.x) / 2
+          const cpy = (current.y + next.y) / 2
+          ctx.quadraticCurveTo(current.x, current.y, cpx, cpy)
+        }
+        ctx.stroke()
+        ctx.lineWidth = 6
+        ctx.shadowBlur = 15
+        ctx.globalAlpha = 0.6
+        ctx.stroke()
+        ctx.lineWidth = 3
+        ctx.shadowBlur = 8
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = `rgba(255, 255, 255, 0.95)`
+        ctx.stroke()
+        ctx.shadowBlur = 0
+        ctx.globalAlpha = 1
+      }
+
+      const planeSize = 60
+      ctx.save()
+      ctx.translate(planePositionRef.current.x, planePositionRef.current.y)
+      const angle = Math.atan2(velocityRef.current.y, velocityRef.current.x) * 0.3
+      ctx.rotate(angle)
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
+      ctx.shadowColor = "rgba(0, 0, 0, 0.4)"
+      ctx.shadowBlur = 12
+      ctx.shadowOffsetX = 6
+      ctx.shadowOffsetY = 6
+      ctx.fillRect(-planeSize / 2, -12, planeSize, 24)
+      ctx.shadowBlur = 0
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 0
+      const planeGradient = ctx.createLinearGradient(-planeSize / 2, -12, -planeSize / 2, 12)
+      planeGradient.addColorStop(0, "#ff6b6b")
+      planeGradient.addColorStop(0.3, "#ff5252")
+      planeGradient.addColorStop(0.7, "#f44336")
+      planeGradient.addColorStop(1, "#d32f2f")
+      ctx.fillStyle = planeGradient
+      ctx.fillRect(-planeSize / 2, -12, planeSize, 24)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.4)"
+      ctx.fillRect(-planeSize / 2, -10, planeSize, 6)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.2)"
+      ctx.fillRect(-planeSize / 2, -6, planeSize, 2)
+      const noseGradient = ctx.createLinearGradient(planeSize / 2, -6, planeSize / 2 + 20, 0)
+      noseGradient.addColorStop(0, "#e53935")
+      noseGradient.addColorStop(0.5, "#c62828")
+      noseGradient.addColorStop(1, "#b71c1c")
+      ctx.fillStyle = noseGradient
+      ctx.beginPath()
+      ctx.moveTo(planeSize / 2, 0)
+      ctx.lineTo(planeSize / 2 + 20, -5)
+      ctx.lineTo(planeSize / 2 + 20, 5)
+      ctx.closePath()
+      ctx.fill()
+      const wingGradient = ctx.createLinearGradient(-planeSize / 4, -30, -planeSize / 4, 30)
+      wingGradient.addColorStop(0, "#d32f2f")
+      wingGradient.addColorStop(0.3, "#c62828")
+      wingGradient.addColorStop(0.7, "#b71c1c")
+      wingGradient.addColorStop(1, "#a00000")
+      ctx.fillStyle = wingGradient
+      ctx.fillRect(-planeSize / 4, -30, planeSize / 2, 60)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.25)"
+      ctx.fillRect(-planeSize / 4, -28, planeSize / 2, 8)
+      ctx.fillStyle = "#a00000"
+      ctx.beginPath()
+      ctx.moveTo(-planeSize / 2, -12)
+      ctx.lineTo(-planeSize / 2 - 18, -20)
+      ctx.lineTo(-planeSize / 2 - 12, -12)
+      ctx.lineTo(-planeSize / 2 - 18, 20)
+      ctx.lineTo(-planeSize / 2, 12)
+      ctx.closePath()
+      ctx.fill()
+      if (isRoundActive) {
+        const glowIntensity = 0.5 + 0.3 * Math.sin(Date.now() * 0.008)
+        const glowSize = 15 + 6 * Math.sin(Date.now() * 0.012)
+        const engineGradient = ctx.createRadialGradient(-planeSize / 2 - 10, 0, 0, -planeSize / 2 - 10, 0, glowSize)
+        engineGradient.addColorStop(0, `rgba(255, 140, 140, ${glowIntensity})`)
+        engineGradient.addColorStop(0.5, `rgba(255, 100, 100, ${glowIntensity * 0.7})`)
+        engineGradient.addColorStop(1, `rgba(255, 60, 60, 0)`)
+        ctx.fillStyle = engineGradient
+        ctx.beginPath()
+        ctx.arc(-planeSize / 2 - 10, 0, glowSize, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
+
+      const multiplierText = `${smoothMultiplierRef.current.toFixed(2)}x`
+      const fontSize = Math.min(80, 50 + smoothMultiplierRef.current * 1.5)
+      ctx.font = `bold ${fontSize}px 'Inter', 'Arial', sans-serif`
+      const textGradient = ctx.createLinearGradient(0, 50, 0, 120)
+      const color = getMultiplierColor(smoothMultiplierRef.current)
+      textGradient.addColorStop(0, color)
+      textGradient.addColorStop(1, adjustColorBrightness(color, -40))
+      ctx.fillStyle = textGradient
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.9)"
+      ctx.lineWidth = 5
+      ctx.textAlign = "center"
+      ctx.shadowColor = color
+      ctx.shadowBlur = 40
+      ctx.strokeText(multiplierText, canvas.width / 2, 90)
+      ctx.fillText(multiplierText, canvas.width / 2, 90)
+      ctx.shadowBlur = 60
+      ctx.globalAlpha = 0.4
+      ctx.fillText(multiplierText, canvas.width / 2, 90)
+      ctx.globalAlpha = 1
+      ctx.shadowBlur = 0
+      ctx.font = "bold 18px 'Inter', 'Arial', sans-serif"
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
+      ctx.shadowColor = "rgba(0, 0, 0, 0.6)"
+      ctx.shadowBlur = 8
+      const statusText = isRoundActive ? "🚀 FLYING..." : "💥 CRASHED!"
+      const statusOpacity = 0.7 + 0.3 * Math.sin(Date.now() * 0.004)
+      ctx.globalAlpha = statusOpacity
+      ctx.fillText(statusText, canvas.width / 2, 115)
+      ctx.globalAlpha = 1
+      ctx.shadowBlur = 0
+
+      animationRef.current = requestAnimationFrame(drawGame)
+    }
+
+    drawGame()
+  }
+
+  const adjustColorBrightness = (color: string, amount: number) => {
+    const hex = color.replace("#", "")
+    const r = Math.max(0, Math.min(255, Number.parseInt(hex.substr(0, 2), 16) + amount))
+    const g = Math.max(0, Math.min(255, Number.parseInt(hex.substr(2, 2), 16) + amount))
+    const b = Math.max(0, Math.min(255, Number.parseInt(hex.substr(4, 2), 16) + amount))
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
   }
 
   const getMultiplierColor = (multiplier: number) => {
@@ -854,22 +820,16 @@ export function AviatorGame() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 text-white relative overflow-hidden">
-      {/* Enhanced animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-500/8 to-purple-500/8 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-red-500/8 to-orange-500/8 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
-      {/* Compact Lazer Signal Floating Notification */}
       {showLazerSignal && (
         <div className="fixed top-20 right-4 z-[100] animate-in slide-in-from-right-5 duration-500">
           <div className="relative max-w-xs w-full">
-            {/* Animated glow effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-xl blur-sm animate-pulse opacity-75"></div>
-
-            {/* Main compact card */}
             <Card className="relative bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 border border-amber-500/50 rounded-xl shadow-2xl backdrop-blur-md">
-              {/* Close button */}
               <Button
                 variant="ghost"
                 onClick={handleDismissLazerSignal}
@@ -877,15 +837,12 @@ export function AviatorGame() {
               >
                 <X className="w-3 h-3" />
               </Button>
-
               <CardContent className="p-4 space-y-3">
-                {/* Compact header */}
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <div className="w-10 h-10 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
                       <Zap className="w-5 h-5 text-white" />
                     </div>
-                    {/* Small floating sparkle */}
                     <div className="absolute -top-1 -right-1 animate-ping">
                       <Star className="w-3 h-3 text-amber-400" />
                     </div>
@@ -897,8 +854,6 @@ export function AviatorGame() {
                     <p className="text-xs text-amber-400/80">Premium Sure Odds</p>
                   </div>
                 </div>
-
-                {/* Content based on state */}
                 {!isLoadingPremiumOdds && !hasPurchasedPremium && (
                   <div className="space-y-3">
                     <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-lg p-3 border border-amber-500/30">
@@ -916,7 +871,6 @@ export function AviatorGame() {
                         <span>99% Accuracy</span>
                       </div>
                     </div>
-
                     {walletBalance < 10000 && (
                       <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-2 flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
@@ -925,7 +879,6 @@ export function AviatorGame() {
                         </div>
                       </div>
                     )}
-
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -945,7 +898,6 @@ export function AviatorGame() {
                     </div>
                   </div>
                 )}
-
                 {isLoadingPremiumOdds && (
                   <div className="space-y-3">
                     <div className="text-center space-y-2">
@@ -957,14 +909,12 @@ export function AviatorGame() {
                         <p className="text-xs text-slate-400">Waiting for premium odd</p>
                       </div>
                     </div>
-
                     <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-2 text-center">
                       <p className="text-xs text-slate-300">Payment successful!</p>
                       <p className="text-xs text-slate-400">KES 10,000 deducted</p>
                     </div>
                   </div>
                 )}
-
                 {hasPurchasedPremium && premiumSureOdd && (
                   <div className="space-y-3">
                     <div className="text-center space-y-2">
@@ -973,14 +923,12 @@ export function AviatorGame() {
                       </div>
                       <p className="text-sm font-medium text-green-400">Premium Odd Ready!</p>
                     </div>
-
                     <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg p-3 border border-green-500/30 text-center">
                       <p className="text-xs text-green-400 mb-1">Your Sure Odd:</p>
                       <div className="text-2xl font-bold text-green-400 animate-pulse">
                         {premiumSureOdd.toFixed(2)}x
                       </div>
                     </div>
-
                     <Button
                       onClick={() => setShowLazerSignal(false)}
                       className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold h-8 text-xs"
@@ -996,7 +944,6 @@ export function AviatorGame() {
         </div>
       )}
 
-      {/* Compact Header */}
       <div className="sticky top-0 z-50 bg-gradient-to-r from-slate-950/95 via-purple-950/30 to-slate-950/95 backdrop-blur-xl border-b border-slate-800/50 shadow-2xl">
         <div className="max-w-7xl mx-auto px-3 py-2">
           <div className="flex justify-between items-center">
@@ -1015,6 +962,7 @@ export function AviatorGame() {
                 </div>
               </div>
               <Badge
+                variant={isConnected ? "success" : "danger"}
                 className={cn(
                   "border px-2 py-0.5 text-xs font-bold",
                   isConnected
@@ -1028,9 +976,12 @@ export function AviatorGame() {
             </div>
             <div className="flex items-center gap-2">
               {premiumSureOdd && (
-                <div className="hidden md:flex items-center gap-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 px-3 py-1.5 rounded-lg border border-green-500/30 shadow-lg">
-                  <Crown className="w-4 h-4" />
-                  <span className="font-bold text-sm">Premium: {premiumSureOdd.toFixed(2)}x</span>
+                <div className="flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-green-500/30 shadow-lg">
+                  <Crown className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="font-bold text-xs sm:text-sm">
+                    <span className="hidden sm:inline">Premium: </span>
+                    {premiumSureOdd.toFixed(2)}x
+                  </span>
                 </div>
               )}
               <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-600/50">
@@ -1050,13 +1001,18 @@ export function AviatorGame() {
       </div>
 
       <div className="max-w-7xl mx-auto px-3 py-2 relative z-10">
-        {/* Compact Past Crashes */}
         <div className="mb-3 overflow-x-auto pb-1">
           <div className="flex gap-1.5 min-w-max">
             <div className="flex items-center bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 text-xs">
               <History className="w-3 h-3 mr-1 text-slate-400" />
               <span className="font-medium text-slate-300">Recent:</span>
             </div>
+            {premiumSureOdd && (
+              <div className="flex md:hidden items-center gap-1 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 px-2 py-1 rounded-lg border border-green-500/30 text-xs font-bold animate-pulse">
+                <Crown className="w-3 h-3" />
+                <span>Sure: {premiumSureOdd.toFixed(2)}x</span>
+              </div>
+            )}
             {pastCrashes.slice(0, 8).map((crash, index) => (
               <div
                 key={index}
@@ -1077,30 +1033,46 @@ export function AviatorGame() {
           </div>
         </div>
 
-        {/* Main Layout - Optimized for mobile */}
         <div className="grid lg:grid-cols-[1fr_300px] gap-3">
-          {/* Game Area */}
           <div className="space-y-3">
-            {/* Compact Game Canvas */}
             <Card className="bg-gradient-to-br from-slate-900/80 to-slate-800/80 border-slate-700/50 shadow-2xl backdrop-blur-sm overflow-hidden">
               <CardContent className="p-0">
-                {isBettingPhase ? (
+                {isBettingPhase || !isInitialized ? (
                   <div className="flex flex-col items-center justify-center h-[200px] sm:h-[250px] bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-800 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/10 to-pink-500/5 animate-pulse"></div>
                     <div className="relative z-10 text-center">
-                      <div className="text-4xl sm:text-6xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent mb-2 animate-pulse">
-                        {roundCountdown}
-                      </div>
-                      <div className="text-sm sm:text-lg text-slate-200 mb-2 font-semibold">Next round starting...</div>
-                      <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
-                        <Clock className="w-4 h-4 animate-spin" />
-                        <span>Get ready!</span>
-                      </div>
+                      {!isInitialized ? (
+                        <>
+                          <div className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2 animate-pulse">
+                            Connecting...
+                          </div>
+                          <div className="text-sm sm:text-lg text-slate-200 mb-2 font-semibold">Initializing game</div>
+                          <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Please wait...</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-4xl sm:text-6xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent mb-2 animate-pulse">
+                            {roundCountdown}
+                          </div>
+                          <div className="text-sm sm:text-lg text-slate-200 mb-2 font-semibold">
+                            Next round starting...
+                          </div>
+                          <div className="flex items-center justify-center gap-2 text-sm text-slate-400">
+                            <Clock className="w-4 h-4 animate-spin" />
+                            <span>Get ready!</span>
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <div
-                      className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 transition-all duration-1000 ease-linear"
-                      style={{ width: `${((5 - roundCountdown) / 5) * 100}%` }}
-                    ></div>
+                    {isInitialized && (
+                      <div
+                        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 transition-all duration-1000 ease-linear"
+                        style={{ width: `${((5 - roundCountdown) / 5) * 100}%` }}
+                      ></div>
+                    )}
                   </div>
                 ) : (
                   <div className="relative">
@@ -1110,7 +1082,7 @@ export function AviatorGame() {
                       height={250}
                       className="w-full h-[200px] sm:h-[250px] rounded-lg"
                     ></canvas>
-                    {!isRoundActive && (
+                    {showCrashScreen && (
                       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-red-500/20 via-red-600/10 to-red-500/20 backdrop-blur-sm rounded-lg">
                         <div className="text-center">
                           <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent mb-2 animate-pulse">
@@ -1127,7 +1099,6 @@ export function AviatorGame() {
               </CardContent>
             </Card>
 
-            {/* Ultra Compact Betting Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[1, 2].map((betNumber) => {
                 const currentBetAmount = betNumber === 1 ? betAmount1 : betAmount2
@@ -1146,7 +1117,6 @@ export function AviatorGame() {
                       hasActiveBet && isRoundActive && "ring-2 ring-green-400/50 animate-pulse",
                     )}
                   >
-                    {/* Unique Design Elements */}
                     <div className="absolute top-0 right-0 w-16 h-16 opacity-10">
                       {betNumber === 1 ? (
                         <Rocket className="w-full h-full text-blue-400" />
@@ -1154,8 +1124,6 @@ export function AviatorGame() {
                         <Target className="w-full h-full text-purple-400" />
                       )}
                     </div>
-
-                    {/* Animated border effect */}
                     <div
                       className={cn(
                         "absolute inset-0 rounded-xl opacity-20",
@@ -1165,9 +1133,7 @@ export function AviatorGame() {
                         hasActiveBet && isRoundActive && "animate-pulse",
                       )}
                     ></div>
-
                     <div className="relative p-3 space-y-3">
-                      {/* Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div
@@ -1192,10 +1158,7 @@ export function AviatorGame() {
                           </Badge>
                         )}
                       </div>
-
-                      {/* Compact Input Controls */}
                       <div className="space-y-2">
-                        {/* Bet Amount Row */}
                         <div>
                           <label className="text-xs text-slate-400 mb-1 block">Amount (KES)</label>
                           <div className="flex items-center gap-1">
@@ -1242,8 +1205,6 @@ export function AviatorGame() {
                             </Button>
                           </div>
                         </div>
-
-                        {/* Auto Cashout Row */}
                         <div>
                           <label className="text-xs text-slate-400 mb-1 block">Auto Cashout (x)</label>
                           <div className="flex items-center gap-1">
@@ -1279,9 +1240,7 @@ export function AviatorGame() {
                             />
                             <Button
                               variant="outline"
-                              onClick={() =>
-                                adjustAmount(betNumber === 1 ? setAutoCashout1 : setAutoCashout2, true, 0.1)
-                              }
+                              onClick={() => adjustAmount(betNumber === 1 ? setAutoCashout1 : setAutoCashout2, true, 0.1)}
                               className={cn(
                                 "h-8 w-8 p-0 rounded-lg border-2 transition-all duration-200",
                                 betNumber === 1
@@ -1295,8 +1254,6 @@ export function AviatorGame() {
                           </div>
                         </div>
                       </div>
-
-                      {/* Potential Win Display */}
                       {hasActiveBet && isRoundActive && (
                         <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg p-2 border border-green-500/30">
                           <div className="flex justify-between items-center mb-1">
@@ -1314,8 +1271,6 @@ export function AviatorGame() {
                           </div>
                         </div>
                       )}
-
-                      {/* Action Buttons */}
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           onClick={() => handlePlaceBet(betNumber as 1 | 2)}
@@ -1348,7 +1303,6 @@ export function AviatorGame() {
             </div>
           </div>
 
-          {/* Compact Sidebar */}
           <div className={cn("space-y-3", showSidebar ? "block" : "hidden lg:block")}>
             <Tabs defaultValue="winners" className="w-full">
               <TabsList className="w-full grid grid-cols-3 bg-slate-800/50 border border-slate-700/50 backdrop-blur-sm rounded-lg h-8">
@@ -1365,7 +1319,6 @@ export function AviatorGame() {
                   Stats
                 </TabsTrigger>
               </TabsList>
-
               <TabsContent value="winners">
                 <Card className="bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-slate-600/50 shadow-xl backdrop-blur-sm">
                   <CardContent className="p-3 space-y-2">
@@ -1401,7 +1354,6 @@ export function AviatorGame() {
                   </CardContent>
                 </Card>
               </TabsContent>
-
               <TabsContent value="live">
                 <Card className="bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-slate-600/50 shadow-xl backdrop-blur-sm">
                   <CardContent className="p-3 space-y-2">
@@ -1445,7 +1397,6 @@ export function AviatorGame() {
                   </CardContent>
                 </Card>
               </TabsContent>
-
               <TabsContent value="stats">
                 <Card className="bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-slate-600/50 shadow-xl backdrop-blur-sm">
                   <CardContent className="p-3 space-y-3">
@@ -1469,8 +1420,6 @@ export function AviatorGame() {
                 </Card>
               </TabsContent>
             </Tabs>
-
-            {/* Quick Bets */}
             <Card className="bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-slate-600/50 shadow-xl backdrop-blur-sm">
               <CardContent className="p-3">
                 <div className="flex items-center gap-2 mb-2">
