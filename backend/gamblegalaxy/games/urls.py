@@ -1,3 +1,4 @@
+
 from django.urls import path
 from . import views
 from .views import top_winners_today
@@ -13,4 +14,5 @@ urlpatterns = [
     path('aviator/sure-odds/get/', views.get_sure_odd, name='get_sure_odd'),
     path('aviator/sure-odds/status/', views.sure_odd_status, name='sure_odd_status'),
     path('aviator/sure-odds/history/', views.sure_odd_history, name='sure_odd_history'),
+    path('wallet/balance/', views.get_balance, name='get_balance'),
 ]

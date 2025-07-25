@@ -270,3 +270,12 @@ def sure_odd_history(request):
     user = request.user
     history = SureOddPurchase.objects.filter(user=user).order_by('-created_at').values('odd_value', 'created_at', 'used')
     return Response({'history': list(history)})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_balance(request):
+    try:
+        wallet = Wallet.objects.get(user=request.user)
+        return Response({"balance": float(wallet.balance)})
+    except Wallet.DoesNotExist:
+        return Response({"error": "Wallet not found"}, status=404)

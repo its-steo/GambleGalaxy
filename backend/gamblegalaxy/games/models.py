@@ -58,6 +58,7 @@ class AviatorBet(models.Model):
     time_placed = models.DateTimeField(default=timezone.now)
     is_winner = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    auto_cashout = models.FloatField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.username} - Bet: {self.amount} on Round {self.round.id}"

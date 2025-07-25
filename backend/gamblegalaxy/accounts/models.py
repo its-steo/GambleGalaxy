@@ -18,11 +18,11 @@ class CustomUser(AbstractUser):
 # accounts/models.py
 
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 
 class Wallet(models.Model):
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
+        get_user_model(),
         on_delete=models.CASCADE,
         related_name='account_wallet'  # 👈 Unique reverse relation name to avoid conflict
     )
