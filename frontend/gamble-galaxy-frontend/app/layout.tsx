@@ -1,28 +1,29 @@
-"use client";
+"use client"
 
-import { usePathname } from "next/navigation";
-import { Navbar } from "@/components/layout/navbar";
-import { WalletProvider } from "@/context/WalletContext";
-import { useAuth } from "@/lib/auth";
-import { useEffect } from "react";
-import "./globals.css";
+import { usePathname } from "next/navigation"
+import { Navbar } from "@/components/layout/navbar"
+import { WalletProvider } from "@/context/WalletContext"
+import { useAuth } from "@/lib/auth"
+import { useEffect } from "react"
+import "./globals.css"
+import { Toaster } from "sonner"
 
-const excludeNavbarRoutes = ["/auth/login", "/auth/register"]; // Updated to match exact routes
+const excludeNavbarRoutes = ["/auth/login", "/auth/register"]
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  const pathname = usePathname();
-  const { loadUser, isLoading } = useAuth();
+  const pathname = usePathname()
+  const { loadUser, isLoading } = useAuth()
 
-  // Load user on app initialization to sync auth state
+  // Sync user session on mount
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    loadUser()
+  }, [loadUser])
 
-  // Prevent rendering until auth state is loaded
+  // Loading state
   if (isLoading) {
     return (
       <html lang="en">
@@ -35,17 +36,46 @@ export default function RootLayout({
           </div>
         </body>
       </html>
-    );
+    )
   }
 
   return (
     <html lang="en">
-      <body className="bg-gray-900 text-white">
+      <body className="bg-gray-900 text-white font-sans antialiased">
         <WalletProvider>
+          {/* Optional Navbar */}
           {!excludeNavbarRoutes.includes(pathname) && <Navbar />}
-          <main>{children}</main>
+
+          {/* Main content */}
+          <main className="min-h-screen w-full overflow-x-hidden">
+            {children}
+          </main>
+
+          {/* Global Toaster */}
+          <Toaster
+            position="top-center"
+            richColors
+            expand
+            closeButton
+            duration={3500}
+            toastOptions={{
+              classNames: {
+                toast:
+                  "rounded-xl shadow-xl border border-white/20 bg-gradient-to-br from-zinc-900 via-neutral-900 to-zinc-800 text-white",
+                title: "font-semibold text-sm sm:text-base",
+                description: "text-xs sm:text-sm text-neutral-300",
+                closeButton: "text-white hover:text-red-400",
+              },
+              style: {
+                padding: "12px 16px",
+                borderRadius: "12px",
+                boxShadow: "0 0 12px rgba(0, 255, 164, 0.3)",
+                fontSize: "14px",
+              },
+            }}
+          />
         </WalletProvider>
       </body>
     </html>
-  );
+  )
 }

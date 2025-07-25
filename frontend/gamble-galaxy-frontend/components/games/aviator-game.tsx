@@ -1335,11 +1335,13 @@ useEffect(() => {
                           >
                             <div className="flex items-center gap-2">
                               <div className="w-6 h-6 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center text-xs font-bold text-white">
-                                {winner.username.charAt(0).toUpperCase()}
+                                {winner.username ? winner.username.charAt(0).toUpperCase() : "?"}
                               </div>
                               <div>
                                 <div className="font-medium text-xs text-white">{winner.username}</div>
-                                <div className="text-xs text-slate-400">{winner.cashed_out_at.toFixed(2)}x</div>
+                                <div className="text-xs text-slate-400">
+                                  {winner.cashed_out_at !== undefined ? `${winner.cashed_out_at.toFixed(2)}x` : "—"}
+                                </div>
                               </div>
                             </div>
                             <div className="text-green-400 font-bold text-xs">
