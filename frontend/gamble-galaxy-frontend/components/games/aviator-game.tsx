@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +39,45 @@ import type { TopWinner } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+// Define interfaces for type safety
+interface Round {
+  multiplier: number;
+}
+
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+}
+
+interface TrailPoint {
+  x: number;
+  y: number;
+  opacity: number;
+  size: number;
+}
+
+interface Star {
+  x: number;
+  y: number;
+  size: number;
+  opacity: number;
+  twinkle: number;
+}
+
+interface Position {
+  x: number;
+  y: number;
+}
+
+interface Velocity {
+  x: number;
+  y: number;
+}
+
 export function AviatorGame() {
   const { user } = useAuth()
   const {
@@ -64,7 +103,6 @@ export function AviatorGame() {
   const [topWinners, setTopWinners] = useState<TopWinner[]>([])
   const [pastCrashes, setPastCrashes] = useState<number[]>([])
   const [walletBalance, setWalletBalance] = useState<number>(0)
-  const [sureOdds, setSureOdds] = useState<number | null>(null)
   const [isBettingPhase, setIsBettingPhase] = useState(true)
   const [roundCountdown, setRoundCountdown] = useState(5)
   const [showSidebar, setShowSidebar] = useState(false)
@@ -74,7 +112,6 @@ export function AviatorGame() {
   const [isLoadingPremiumOdds, setIsLoadingPremiumOdds] = useState(false)
   const [premiumSureOdd, setPremiumSureOdd] = useState<number | null>(null)
   const [hasPurchasedPremium, setHasPurchasedPremium] = useState(false)
-  // New states for crash screen control
   const [showCrashScreen, setShowCrashScreen] = useState(false)
   const [lastCrashRoundId, setLastCrashRoundId] = useState<string | null>(null)
 
@@ -82,357 +119,18 @@ export function AviatorGame() {
   const prevRoundActiveRef = useRef<boolean>(isRoundActive)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number>(0)
-  const planePositionRef = useRef({ x: 80, y: 300 })
+  const planePositionRef = useRef<Position>({ x: 80, y: 300 })
   const lastMultiplierRef = useRef<number>(1.0)
-  const trailPointsRef = useRef<Array<{ x: number; y: number; opacity: number; size: number }>>([])
-  const particlesRef = useRef<Array<{ x: number; y: number; vx: number; vy: number; life: number; maxLife: number }>>([])
-  const starsRef = useRef<Array<{ x: number; y: number; size: number; opacity: number; twinkle: number }>>([])
-  const velocityRef = useRef({ x: 0, y: 0 })
+  const trailPointsRef = useRef<TrailPoint[]>([])
+  const particlesRef = useRef<Particle[]>([])
+  const starsRef = useRef<Star[]>([])
+  const velocityRef = useRef<Velocity>({ x: 0, y: 0 })
   const smoothMultiplierRef = useRef<number>(1.0)
   const lazerSignalTimer = useRef<NodeJS.Timeout | null>(null)
 
-  // Initialize game on mount
-  useEffect(() => {
-    console.log("🎮 Initializing Aviator Game")
+  // Removed duplicate pollForPremiumOdd declaration
 
-    setIsInitialized(false)
-    setIsFirstLoad(true)
-    setIsBettingPhase(true)
-    setRoundCountdown(5)
-    setHasBet1(false)
-    setHasBet2(false)
-    setShowCrashScreen(false)
-    setLastCrashRoundId(null)
-    lastMultiplierRef.current = 1.0
-    smoothMultiplierRef.current = 1.0
-
-    connect()
-    loadGameData()
-    fetchWalletBalance()
-    fetchSureOdds()
-    initializeStars()
-    startLazerSignalTimer()
-
-    if (user) {
-      checkExistingPremiumOdds()
-    }
-
-    const initTimer = setTimeout(() => {
-      console.log("✅ Game initialized")
-      setIsInitialized(true)
-    }, 2000)
-
-    return () => {
-      console.log("🧹 Cleaning up Aviator Game")
-      clearTimeout(initTimer)
-      disconnect()
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-      }
-      if (lazerSignalTimer.current) {
-        clearInterval(lazerSignalTimer.current)
-      }
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current)
-      }
-    }
-  }, [connect, disconnect, user])
-
-  // Sync WebSocket wallet balance
-  useEffect(() => {
-    if (wsBalance !== walletBalance && wsBalance > 0) {
-      console.log("💰 Updating wallet balance from WebSocket:", wsBalance)
-      setWalletBalance(wsBalance)
-    }
-  }, [wsBalance])
-
-  // Debug state transitions
-  useEffect(() => {
-    console.log("🔄 State Update:", {
-      isRoundActive,
-      isBettingPhase,
-      showCrashScreen,
-      currentRoundId,
-      currentMultiplier,
-      roundCountdown,
-    })
-  }, [isRoundActive, isBettingPhase, showCrashScreen, currentRoundId, currentMultiplier, roundCountdown])
-
-  // Handle round state changes
-  useEffect(() => {
-    console.log("🔄 Round active state changed:", isRoundActive, "Initialized:", isInitialized)
-
-    if (isFirstLoad) {
-      console.log("⏳ Skipping first load round handling")
-      setIsFirstLoad(false)
-      return
-    }
-
-    if (!isRoundActive && prevRoundActiveRef.current && isInitialized && lastCrashRoundId !== currentRoundId) {
-      console.log("🏁 Round ended, updating crash history")
-      handleRoundEnd()
-      setIsBettingPhase(true)
-      setRoundCountdown(5)
-      setHasBet1(false)
-      setHasBet2(false)
-      lastMultiplierRef.current = 1.0
-      smoothMultiplierRef.current = 1.0
-
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
-      countdownIntervalRef.current = setInterval(() => {
-        setRoundCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownIntervalRef.current!)
-            setIsBettingPhase(false)
-            loadGameData()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    } else if (isRoundActive && isInitialized) {
-      console.log("🚀 Round started, initializing canvas")
-      setIsBettingPhase(false)
-      setShowCrashScreen(false)
-      lastMultiplierRef.current = 1.0
-      smoothMultiplierRef.current = 1.0
-      velocityRef.current = { x: 0, y: 0 }
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
-      initCanvas()
-    }
-
-    prevRoundActiveRef.current = isRoundActive
-  }, [isRoundActive, isInitialized, currentRoundId])
-
-  // Reset multiplier at round start
-  useEffect(() => {
-    if (isRoundActive && isInitialized) {
-      console.log("🚀 Round started, resetting multiplier")
-      lastMultiplierRef.current = 1.0
-      smoothMultiplierRef.current = 1.0
-    }
-  }, [isRoundActive, isInitialized])
-
-  // Handle auto cashout
-useEffect(() => {
-  if (isRoundActive) {
-    const targetMultiplier = Number.isFinite(currentMultiplier) ? currentMultiplier : 1.0;
-    const smoothingFactor = 0.15;
-    smoothMultiplierRef.current += (targetMultiplier - smoothMultiplierRef.current) * smoothingFactor;
-    lastMultiplierRef.current = smoothMultiplierRef.current;
-
-    console.log("🔄 Updating multiplier:", {
-      currentMultiplier,
-      smoothMultiplier: smoothMultiplierRef.current,
-      isRoundActive,
-    });
-
-    if (hasBet1 && autoCashout1) {
-      const parsedAutoCashout = Number.parseFloat(autoCashout1);
-      if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
-        handleCashOut(1);
-      }
-    }
-    if (hasBet2 && autoCashout2) {
-      const parsedAutoCashout = Number.parseFloat(autoCashout2);
-      if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
-        handleCashOut(2);
-      }
-    }
-  }
-}, [currentMultiplier, hasBet1, hasBet2, autoCashout1, autoCashout2, isRoundActive])
-
-  // Initialize canvas when betting phase ends
-  useEffect(() => {
-    if (!isBettingPhase && !animationRef.current && isInitialized && isRoundActive) {
-      console.log("🎨 Initializing canvas for active round")
-      initCanvas()
-    }
-  }, [isBettingPhase, isInitialized, isRoundActive])
-
-  const fetchWalletBalance = async () => {
-    if (user) {
-      try {
-        console.log("💰 Fetching wallet balance for user:", user.id)
-        const res = await api.getWallet()
-        console.log("💰 Wallet balance API response:", res)
-        if (res.data && res.data.balance !== undefined) {
-          const newBalance = Number(res.data.balance)
-          console.log("💰 Setting wallet balance to:", newBalance)
-          setWalletBalance(newBalance)
-        } else {
-          console.warn("⚠️ Invalid wallet balance response:", res)
-        }
-      } catch (error) {
-        console.error("❌ Error fetching wallet balance:", error)
-        toast.error("Failed to load wallet balance", { description: "Please check your connection." })
-      }
-    }
-  }
-
-  const loadGameData = async () => {
-    try {
-      const [winnersRes, crashesRes] = await Promise.all([api.getTopWinners(), api.getPastCrashes()])
-      console.log("📊 Loaded game data:", { winners: winnersRes.data, crashes: crashesRes.data })
-      if (winnersRes.data) setTopWinners(winnersRes.data)
-      if (crashesRes.data) setPastCrashes(crashesRes.data.map((round: any) => round.multiplier))
-    } catch (error) {
-      console.error("❌ Error loading game data:", error)
-      toast.error("Failed to load game data", { description: "Could not fetch game data." })
-    }
-  }
-
-  const fetchSureOdds = async () => {
-    try {
-      const res = await api.getUserSureOdds()
-      console.log("🎯 Sure odds fetched:", res.data)
-      if (res.data && res.data.length > 0 && typeof res.data[0].odd === "string") {
-        setSureOdds(Number.parseFloat(res.data[0].odd))
-      }
-    } catch (error) {
-      console.warn("⚠️ Error fetching sure odds:", error)
-    }
-  }
-
-  const handlePlaceBet = async (betNumber: 1 | 2) => {
-    if (!user) {
-      toast.error("Login Required", { description: "Please log in to place bets." })
-      return
-    }
-    if (!isConnected) {
-      toast.error("Connection Error", { description: "Not connected to game server." })
-      return
-    }
-    if (betNumber === 1 ? hasBet1 : hasBet2) {
-      toast.info("Bet Already Placed", { description: "You can only place one bet per panel per round." })
-      return
-    }
-    if (!isBettingPhase) {
-      toast.error("Betting Phase Closed", { description: "Wait for the next round to place a bet." })
-      return
-    }
-    const betAmount = betNumber === 1 ? betAmount1 : betAmount2
-    const parsedBetAmount = Number.parseFloat(betAmount)
-    if (isNaN(parsedBetAmount) || parsedBetAmount < 10 || parsedBetAmount > 10000) {
-      toast.error("Invalid Bet Amount", { description: "Bet must be between 10 and 10,000 KES." })
-      return
-    }
-    if (parsedBetAmount > walletBalance) {
-      toast.error("Insufficient Balance", { description: "Please deposit funds to place this bet." })
-      return
-    }
-    const autoCashout = betNumber === 1 ? autoCashout1 : autoCashout2
-    const parsedAutoCashout = autoCashout ? Number.parseFloat(autoCashout) : undefined
-    if (parsedAutoCashout && (isNaN(parsedAutoCashout) || parsedAutoCashout < 1.01)) {
-      toast.error("Invalid Auto Cashout", { description: "Auto cashout must be at least 1.01x." })
-      return
-    }
-    try {
-      const payload = {
-        amount: parsedBetAmount,
-        user_id: user.id,
-        auto_cashout: parsedAutoCashout,
-      }
-      console.log("🎲 Placing bet via WebSocket:", payload)
-      await placeBet(payload)
-      if (betNumber === 1) setHasBet1(true)
-      else setHasBet2(true)
-      setWalletBalance((prev) => prev - parsedBetAmount)
-      console.log("✅ Bet placed successfully")
-    } catch (error: any) {
-      console.error("❌ Error placing bet:", error)
-      toast.error("Error Placing Bet", {
-        description: error.message || "Network error or server issue. Please try again.",
-      })
-    }
-  }
-
-  const handleCashOut = async (betNumber: 1 | 2) => {
-    if (!user || (betNumber === 1 ? !hasBet1 : !hasBet2)) {
-      toast.info("No Active Bet", { description: "You don't have an active bet to cash out." })
-      return
-    }
-    if (!isRoundActive) {
-      toast.error("Round Ended", { description: "The round has already crashed." })
-      return
-    }
-    try {
-      console.log("💰 Cashing out at:", currentMultiplier)
-      await cashOut(user.id, currentMultiplier)
-      if (betNumber === 1) setHasBet1(false)
-      else setHasBet2(false)
-      console.log("✅ Cashout successful")
-    } catch (error: any) {
-      console.error("❌ Error cashing out:", error)
-      toast.error("Error Cashing Out", { description: error.message || "Failed to cash out. Please try again." })
-    }
-  }
-
-  const handlePayForPremiumOdds = async () => {
-    if (!user) {
-      toast.error("Login Required", { description: "Please log in to purchase premium odds." })
-      return
-    }
-    if (walletBalance < 10000) {
-      toast.error("Insufficient Balance", {
-        description: "You need KES 10,000 to purchase premium sure odds.",
-      })
-      return
-    }
-    setIsLoadingPremiumOdds(true)
-    try {
-      console.log("💎 Starting premium sure odds purchase for user:", user.id)
-      const response = await api.purchaseSureOdd()
-      console.log("💎 Purchase API response:", response)
-      if (response.data && (response.status === 200 || response.status === 201)) {
-        await fetchWalletBalance()
-        setWalletBalance((prev) => prev - 10000)
-        pollForPremiumOdd()
-        toast.success("Payment Successful!", {
-          description: "KES 10,000 deducted. Waiting for premium sure odd assignment...",
-        })
-      } else {
-        throw new Error(response.error || "Payment failed")
-      }
-    } catch (error: any) {
-      console.error("❌ Error purchasing premium odds:", error)
-      toast.error("Payment Failed", {
-        description: error.message || "Could not process payment. Please try again.",
-      })
-      setIsLoadingPremiumOdds(false)
-    }
-  }
-
-  const pollForPremiumOdd = () => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await api.getSureOdd()
-        if (response.data && response.data.odd_value) {
-          setPremiumSureOdd(response.data.odd_value)
-          setHasPurchasedPremium(true)
-          setIsLoadingPremiumOdds(false)
-          setShowLazerSignal(false)
-          clearInterval(pollInterval)
-          toast.success("Premium Sure Odd Received!", {
-            description: `Your premium sure odd is ${response.data.odd_value.toFixed(2)}x`,
-          })
-        }
-      } catch (error) {
-        console.error("❌ Error polling for premium odd:", error)
-      }
-    }, 3000)
-    setTimeout(() => {
-      clearInterval(pollInterval)
-      if (isLoadingPremiumOdds) {
-        setIsLoadingPremiumOdds(false)
-        toast.error("Timeout", {
-          description: "Premium sure odd assignment timed out. Contact support.",
-        })
-      }
-    }, 10 * 60 * 1000)
-  }
-
-  const checkExistingPremiumOdds = async () => {
+  const checkExistingPremiumOdds = useCallback(async () => {
     try {
       const response = await api.getSureOddStatus()
       if (response.data) {
@@ -450,9 +148,29 @@ useEffect(() => {
     } catch (error) {
       console.error("❌ Error checking existing premium odds:", error)
     }
-  }
+  }, [setPremiumSureOdd, setHasPurchasedPremium, setIsLoadingPremiumOdds])
 
-  const startLazerSignalTimer = () => {
+  const fetchWalletBalance = useCallback(async () => {
+    if (user) {
+      try {
+        console.log("💰 Fetching wallet balance for user:", user.id)
+        const res = await api.getWallet()
+        console.log("💰 Wallet balance API response:", res)
+        if (res.data && res.data.balance !== undefined) {
+          const newBalance = Number(res.data.balance)
+          console.log("💰 Setting wallet balance to:", newBalance)
+          setWalletBalance(newBalance)
+        } else {
+          console.warn("⚠️ Invalid wallet balance response:", res)
+        }
+      } catch (error) {
+        console.error("❌ Error fetching wallet balance:", error)
+        toast.error("Failed to load wallet balance", { description: "Please check your connection." })
+      }
+    }
+  }, [user, setWalletBalance])
+
+  const startLazerSignalTimer = useCallback(() => {
     if (lazerSignalTimer.current) {
       clearInterval(lazerSignalTimer.current)
     }
@@ -463,13 +181,13 @@ useEffect(() => {
       }
     }, 5 * 60 * 1000)
     lazerSignalTimer.current = timer
-  }
+  }, [showLazerSignal, setShowLazerSignal])
 
-  const handleDismissLazerSignal = () => {
+  const handleDismissLazerSignal = useCallback(() => {
     setShowLazerSignal(false)
-  }
+  }, [setShowLazerSignal])
 
-  const handleRoundEnd = async () => {
+  const handleRoundEnd = useCallback(async () => {
     try {
       console.log("🏁 Handling round end, current multiplier:", currentMultiplier)
       setPastCrashes((prev) => [currentMultiplier, ...prev].slice(0, 12))
@@ -478,7 +196,7 @@ useEffect(() => {
 
       const crashesRes = await api.getPastCrashes()
       if (crashesRes.data) {
-        setPastCrashes(crashesRes.data.map((round: any) => round.multiplier).slice(0, 12))
+        setPastCrashes(crashesRes.data.map((round: Round) => round.multiplier).slice(0, 12))
       }
 
       try {
@@ -502,23 +220,27 @@ useEffect(() => {
     } catch (error) {
       console.error("❌ Error in handleRoundEnd:", error)
     }
-  }
+  }, [currentMultiplier, currentRoundId, setPastCrashes, setShowCrashScreen, setLastCrashRoundId])
 
-  const initializeStars = () => {
-    const stars = []
-    for (let i = 0; i < 80; i++) {
-      stars.push({
-        x: Math.random() * 800,
-        y: Math.random() * 300,
-        size: Math.random() * 1.5 + 0.5,
-        opacity: Math.random() * 0.6 + 0.2,
-        twinkle: Math.random() * Math.PI * 2,
-      })
-    }
-    starsRef.current = stars
-  }
 
-  const initCanvas = () => {
+  const adjustColorBrightness = useCallback((color: string, amount: number) => {
+    const hex = color.replace("#", "")
+    const r = Math.max(0, Math.min(255, Number.parseInt(hex.substr(0, 2), 16) + amount))
+    const g = Math.max(0, Math.min(255, Number.parseInt(hex.substr(2, 2), 16) + amount))
+    const b = Math.max(0, Math.min(255, Number.parseInt(hex.substr(4, 2), 16) + amount))
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+  }, [])
+
+  const getMultiplierColor = useCallback((multiplier: number) => {
+    if (multiplier < 1.5) return "#ff4757"
+    if (multiplier < 2) return "#ff6b35"
+    if (multiplier < 5) return "#ffa502"
+    if (multiplier < 10) return "#2ed573"
+    if (multiplier < 20) return "#1e90ff"
+    if (multiplier < 50) return "#a55eea"
+    return "#ff6b6b"
+  }, [])
+  const initCanvas = useCallback(() => {
     if (!canvasRef.current) return
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
@@ -611,7 +333,7 @@ useEffect(() => {
         }
       }
 
-      particlesRef.current = particlesRef.current.filter((particle) => {
+      particlesRef.current = particlesRef.current.filter((particle: Particle) => {
         particle.x += particle.vx
         particle.y += particle.vy
         particle.vx *= 0.98
@@ -781,42 +503,392 @@ useEffect(() => {
     }
 
     drawGame()
-  }
+  }, [isRoundActive, getMultiplierColor, adjustColorBrightness])
 
-  const adjustColorBrightness = (color: string, amount: number) => {
-    const hex = color.replace("#", "")
-    const r = Math.max(0, Math.min(255, Number.parseInt(hex.substr(0, 2), 16) + amount))
-    const g = Math.max(0, Math.min(255, Number.parseInt(hex.substr(2, 2), 16) + amount))
-    const b = Math.max(0, Math.min(255, Number.parseInt(hex.substr(4, 2), 16) + amount))
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
-  }
+  const handleCashOut = useCallback(async (betNumber: 1 | 2) => {
+    if (!user || (betNumber === 1 ? !hasBet1 : !hasBet2)) {
+      toast.info("No Active Bet", { description: "You don't have an active bet to cash out." })
+      return
+    }
+    if (!isRoundActive) {
+      toast.error("Round Ended", { description: "The round has already crashed." })
+      return
+    }
+    try {
+      console.log("💰 Cashing out at:", currentMultiplier)
+      await cashOut(user.id, currentMultiplier)
+      if (betNumber === 1) setHasBet1(false)
+      else setHasBet2(false)
+      console.log("✅ Cashout successful")
+    } catch (error: unknown) {
+      console.error("❌ Error cashing out:", error)
+      toast.error("Error Cashing Out", {
+        description: error instanceof Error ? error.message : "Failed to cash out. Please try again.",
+      })
+    }
+  }, [user, hasBet1, hasBet2, isRoundActive, currentMultiplier, cashOut, setHasBet1, setHasBet2])
 
-  const getMultiplierColor = (multiplier: number) => {
-    if (multiplier < 1.5) return "#ff4757"
-    if (multiplier < 2) return "#ff6b35"
-    if (multiplier < 5) return "#ffa502"
-    if (multiplier < 10) return "#2ed573"
-    if (multiplier < 20) return "#1e90ff"
-    if (multiplier < 50) return "#a55eea"
-    return "#ff6b6b"
-  }
+  const loadGameData = useCallback(async () => {
+    try {
+      const [winnersRes, crashesRes] = await Promise.all([api.getTopWinners(), api.getPastCrashes()])
+      console.log("📊 Loaded game data:", { winners: winnersRes.data, crashes: crashesRes.data })
+      if (winnersRes.data) setTopWinners(winnersRes.data)
+      if (crashesRes.data) setPastCrashes(crashesRes.data.map((round: Round) => round.multiplier))
+    } catch (error) {
+      console.error("❌ Error loading game data:", error)
+      toast.error("Failed to load game data", { description: "Could not fetch game data." })
+    }
+  }, [setTopWinners, setPastCrashes])
 
-  const adjustAmount = (setter: React.Dispatch<React.SetStateAction<string>>, increment: boolean, step: number) => {
-    setter((prev) => {
-      const current = Number.parseFloat(prev) || 0
-      const newAmount = increment ? current + step : Math.max(10, current - step)
-      return newAmount.toFixed(2)
+  const pollForPremiumOdd = useCallback(() => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await api.getSureOdd()
+        if (response.data && response.data.odd_value) {
+          setPremiumSureOdd(response.data.odd_value)
+          setHasPurchasedPremium(true)
+          setIsLoadingPremiumOdds(false)
+          setShowLazerSignal(false)
+          clearInterval(pollInterval)
+          toast.success("Premium Sure Odd Received!", {
+            description: `Your premium sure odd is ${response.data.odd_value.toFixed(2)}x`,
+          })
+        }
+      } catch (error) {
+        console.error("❌ Error polling for premium odd:", error)
+      }
+    }, 3000)
+    setTimeout(() => {
+      clearInterval(pollInterval)
+      if (isLoadingPremiumOdds) {
+        setIsLoadingPremiumOdds(false)
+        toast.error("Timeout", {
+          description: "Premium sure odd assignment timed out. Contact support.",
+        })
+      }
+    }, 10 * 60 * 1000)
+  }, [setPremiumSureOdd, setHasPurchasedPremium, setIsLoadingPremiumOdds, setShowLazerSignal, isLoadingPremiumOdds])
+
+  const handlePayForPremiumOdds = useCallback(async () => {
+    if (!user) {
+      toast.error("Login Required", { description: "Please log in to purchase premium odds." })
+      return
+    }
+    if (walletBalance < 10000) {
+      toast.error("Insufficient Balance", {
+        description: "You need KES 10,000 to purchase premium sure odds.",
+      })
+      return
+    }
+    setIsLoadingPremiumOdds(true)
+    try {
+      console.log("💎 Starting premium sure odds purchase for user:", user.id)
+      const response = await api.purchaseSureOdd()
+      console.log("💎 Purchase API response:", response)
+      if (response.data && (response.status === 200 || response.status === 201)) {
+        await fetchWalletBalance()
+        setWalletBalance((prev) => prev - 10000)
+        pollForPremiumOdd()
+        toast.success("Payment Successful!", {
+          description: "KES 10,000 deducted. Waiting for premium sure odd assignment...",
+        })
+      } else {
+        throw new Error(response.error || "Payment failed")
+      }
+    } catch (error: unknown) {
+      console.error("❌ Error purchasing premium odds:", error)
+      toast.error("Payment Failed", {
+        description: error instanceof Error ? error.message : "Could not process payment. Please try again.",
+      })
+      setIsLoadingPremiumOdds(false)
+    }
+  }, [user, walletBalance, fetchWalletBalance, pollForPremiumOdd, setIsLoadingPremiumOdds])
+
+  const initializeStars = useCallback(() => {
+    const stars: Star[] = []
+    for (let i = 0; i < 80; i++) {
+      stars.push({
+        x: Math.random() * 800,
+        y: Math.random() * 300,
+        size: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.6 + 0.2,
+        twinkle: Math.random() * Math.PI * 2,
+      })
+    }
+    starsRef.current = stars
+  }, [])
+
+  const handlePlaceBet = useCallback(
+    async (betNumber: 1 | 2) => {
+      if (!user) {
+        toast.error("Login Required", { description: "Please log in to place bets." })
+        return
+      }
+      if (!isConnected) {
+        toast.error("Connection Error", { description: "Not connected to game server." })
+        return
+      }
+      if (betNumber === 1 ? hasBet1 : hasBet2) {
+        toast.info("Bet Already Placed", { description: "You can only place one bet per panel per round." })
+        return
+      }
+      if (!isBettingPhase) {
+        toast.error("Betting Phase Closed", { description: "Wait for the next round to place a bet." })
+        return
+      }
+      const betAmount = betNumber === 1 ? betAmount1 : betAmount2
+      const parsedBetAmount = Number.parseFloat(betAmount)
+      if (isNaN(parsedBetAmount) || parsedBetAmount < 10 || parsedBetAmount > 10000) {
+        toast.error("Invalid Bet Amount", { description: "Bet must be between 10 and 10,000 KES." })
+        return
+      }
+      if (parsedBetAmount > walletBalance) {
+        toast.error("Insufficient Balance", { description: "Please deposit funds to place this bet." })
+        return
+      }
+      const autoCashout = betNumber === 1 ? autoCashout1 : autoCashout2
+      const parsedAutoCashout = autoCashout ? Number.parseFloat(autoCashout) : undefined
+      if (parsedAutoCashout && (isNaN(parsedAutoCashout) || parsedAutoCashout < 1.01)) {
+        toast.error("Invalid Auto Cashout", { description: "Auto cashout must be at least 1.01x." })
+        return
+      }
+      try {
+        const payload = {
+          amount: parsedBetAmount,
+          user_id: user.id,
+          auto_cashout: parsedAutoCashout,
+        }
+        console.log("🎲 Placing bet via WebSocket:", payload)
+        await placeBet(payload)
+        if (betNumber === 1) setHasBet1(true)
+        else setHasBet2(true)
+        setWalletBalance((prev) => prev - parsedBetAmount)
+        console.log("✅ Bet placed successfully")
+      } catch (error: unknown) {
+        console.error("❌ Error placing bet:", error)
+        toast.error("Error Placing Bet", {
+          description: error instanceof Error ? error.message : "Network error or server issue. Please try again.",
+        })
+      }
+    },
+    [
+      user,
+      isConnected,
+      hasBet1,
+      hasBet2,
+      isBettingPhase,
+      betAmount1,
+      betAmount2,
+      walletBalance,
+      autoCashout1,
+      autoCashout2,
+      placeBet,
+      setHasBet1,
+      setHasBet2,
+      setWalletBalance,
+    ]
+  )
+
+  // Initialize game on mount
+  useEffect(() => {
+    console.log("🎮 Initializing Aviator Game")
+
+    setIsInitialized(false)
+    setIsFirstLoad(true)
+    setIsBettingPhase(true)
+    setRoundCountdown(5)
+    setHasBet1(false)
+    setHasBet2(false)
+    setShowCrashScreen(false)
+    setLastCrashRoundId(null)
+    lastMultiplierRef.current = 1.0
+    smoothMultiplierRef.current = 1.0
+
+    connect()
+    loadGameData()
+    fetchWalletBalance()
+    initializeStars()
+    startLazerSignalTimer()
+
+    if (user) {
+      checkExistingPremiumOdds()
+    }
+
+    const initTimer = setTimeout(() => {
+      console.log("✅ Game initialized")
+      setIsInitialized(true)
+    }, 2000)
+
+    return () => {
+      console.log("🧹 Cleaning up Aviator Game")
+      clearTimeout(initTimer)
+      disconnect()
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+      if (lazerSignalTimer.current) {
+        clearInterval(lazerSignalTimer.current)
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current)
+      }
+    }
+  }, [
+    connect,
+    disconnect,
+    fetchWalletBalance,
+    checkExistingPremiumOdds,
+    startLazerSignalTimer,
+    user,
+    loadGameData,
+    initializeStars,
+  ])
+
+  // Sync WebSocket wallet balance
+  useEffect(() => {
+    if (wsBalance !== walletBalance && wsBalance > 0) {
+      console.log("💰 Updating wallet balance from WebSocket:", wsBalance)
+      setWalletBalance(wsBalance)
+    }
+  }, [wsBalance, walletBalance, setWalletBalance])
+
+  // Debug state transitions
+  useEffect(() => {
+    console.log("🔄 State Update:", {
+      isRoundActive,
+      isBettingPhase,
+      showCrashScreen,
+      currentRoundId,
+      currentMultiplier,
+      roundCountdown,
     })
-  }
+  }, [isRoundActive, isBettingPhase, showCrashScreen, currentRoundId, currentMultiplier, roundCountdown])
 
-  const calculatePotentialWin = (betAmount: string, multiplier: number) => {
+  // Handle round state changes
+  useEffect(() => {
+    console.log("🔄 Round active state changed:", isRoundActive, "Initialized:", isInitialized)
+
+    if (isFirstLoad) {
+      console.log("⏳ Skipping first load round handling")
+      setIsFirstLoad(false)
+      return
+    }
+
+    if (!isRoundActive && prevRoundActiveRef.current && isInitialized && lastCrashRoundId !== currentRoundId) {
+      console.log("🏁 Round ended, updating crash history")
+      handleRoundEnd()
+      setIsBettingPhase(true)
+      setRoundCountdown(5)
+      setHasBet1(false)
+      setHasBet2(false)
+      lastMultiplierRef.current = 1.0
+      smoothMultiplierRef.current = 1.0
+
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+      countdownIntervalRef.current = setInterval(() => {
+        setRoundCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownIntervalRef.current!)
+            setIsBettingPhase(false)
+            loadGameData()
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } else if (isRoundActive && isInitialized) {
+      console.log("🚀 Round started, initializing canvas")
+      setIsBettingPhase(false)
+      setShowCrashScreen(false)
+      lastMultiplierRef.current = 1.0
+      smoothMultiplierRef.current = 1.0
+      velocityRef.current = { x: 0, y: 0 }
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+      initCanvas()
+    }
+
+    prevRoundActiveRef.current = isRoundActive
+  }, [
+    isRoundActive,
+    isInitialized,
+    currentRoundId,
+    handleRoundEnd,
+    isFirstLoad,
+    lastCrashRoundId,
+    initCanvas,
+    loadGameData,
+    setIsBettingPhase,
+    setRoundCountdown,
+    setHasBet1,
+    setHasBet2,
+  ])
+
+  // Reset multiplier at round start
+  useEffect(() => {
+    if (isRoundActive && isInitialized) {
+      console.log("🚀 Round started, resetting multiplier")
+      lastMultiplierRef.current = 1.0
+      smoothMultiplierRef.current = 1.0
+    }
+  }, [isRoundActive, isInitialized, currentRoundId, currentMultiplier])
+
+  // Handle auto cashout
+  useEffect(() => {
+    if (isRoundActive) {
+      const targetMultiplier = Number.isFinite(currentMultiplier) ? currentMultiplier : 1.0
+      const smoothingFactor = 0.15
+      smoothMultiplierRef.current += (targetMultiplier - smoothMultiplierRef.current) * smoothingFactor
+      lastMultiplierRef.current = smoothMultiplierRef.current
+
+      console.log("🔄 Updating multiplier:", {
+        currentMultiplier,
+        smoothMultiplier: smoothMultiplierRef.current,
+        isRoundActive,
+      })
+
+      if (hasBet1 && autoCashout1) {
+        const parsedAutoCashout = Number.parseFloat(autoCashout1)
+        if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
+          handleCashOut(1)
+        }
+      }
+      if (hasBet2 && autoCashout2) {
+        const parsedAutoCashout = Number.parseFloat(autoCashout2)
+        if (parsedAutoCashout && currentMultiplier >= parsedAutoCashout) {
+          handleCashOut(2)
+        }
+      }
+    }
+  }, [currentMultiplier, hasBet1, hasBet2, autoCashout1, autoCashout2, isRoundActive, handleCashOut])
+
+  // Initialize canvas when betting phase ends
+  useEffect(() => {
+    if (!isBettingPhase && !animationRef.current && isInitialized && isRoundActive) {
+      console.log("🎨 Initializing canvas for active round")
+      initCanvas()
+    }
+  }, [isBettingPhase, isInitialized, isRoundActive, initCanvas])
+
+
+  const adjustAmount = useCallback(
+    (setter: React.Dispatch<React.SetStateAction<string>>, increment: boolean, step: number) => {
+      setter((prev) => {
+        const current = Number.parseFloat(prev) || 0
+        const newAmount = increment ? current + step : Math.max(10, current - step)
+        return newAmount.toFixed(2)
+      })
+    },
+    []
+  )
+
+  const calculatePotentialWin = useCallback((betAmount: string, multiplier: number) => {
     const amount = Number.parseFloat(betAmount) || 0
     return (amount * multiplier).toFixed(2)
-  }
+  }, [])
 
-  const getBetMultiplierProgress = (multiplier: number) => {
+  const getBetMultiplierProgress = useCallback((multiplier: number) => {
     return Math.min((multiplier - 1) * 15, 100)
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 text-white relative overflow-hidden">
@@ -1384,12 +1456,12 @@ useEffect(() => {
                               </div>
                               <div>
                                 <div className="font-medium text-xs text-white">{bet.username || "Anonymous"}</div>
-                                {bet.multiplier && (
-                                  <div className="text-xs text-slate-400">{bet.multiplier.toFixed(2)}x</div>
+                                {bet.cashout_multiplier !== undefined && (
+                                  <div className="text-xs text-slate-400">{bet.cashout_multiplier.toFixed(2)}x</div>
                                 )}
                               </div>
                             </div>
-                            <div className="text-green-400 font-bold text-xs">KES {(bet.amount || 0).toFixed(0)}</div>
+                            <div className="text-green-400 font-bold text-xs">KES {Number(bet.amount || 0).toFixed(0)}</div>
                           </div>
                         ))}
                       </div>

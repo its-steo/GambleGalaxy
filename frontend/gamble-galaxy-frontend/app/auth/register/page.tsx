@@ -10,7 +10,7 @@ import { Input } from "../../../components/ui/input"
 import { Card } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth"
 // Update the toast import
-import { Toaster, toast } from "sonner"
+import {toast } from "sonner"
 import { Eye, EyeOff, UserPlus } from "lucide-react"
 
 export default function RegisterPage() {

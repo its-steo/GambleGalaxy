@@ -1,8 +1,7 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import {
   Gamepad,
   Wallet,
@@ -25,38 +24,27 @@ import {
   Flame,
   Target,
   Gift,
-} from "lucide-react"
-import { useAuth } from "@/lib/auth"
-import { Badge } from "@/components/ui/badge"
+} from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { Badge } from "@/components/ui/badge";
 
 interface SideNavProps {
-  onShare: () => void
-  onClose?: () => void
+  onShare: () => void;
+  onClose?: () => void;
 }
 
 const SideNav = ({ onShare, onClose }: SideNavProps) => {
-  const pathname = usePathname()
-  const { logout, user } = useAuth()
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
-
-  // Mouse tracking for interactive effects
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
-    }
-    window.addEventListener("mousemove", handleMouseMove)
-    return () => window.removeEventListener("mousemove", handleMouseMove)
-  }, [])
+  const pathname = usePathname();
+  const { logout, user } = useAuth();
 
   const handleNavClick = () => {
-    if (onClose) onClose()
-  }
+    if (onClose) onClose();
+  };
 
   const handleLogout = () => {
-    logout()
-    if (onClose) onClose()
-  }
+    logout();
+    if (onClose) onClose();
+  };
 
   const navItems = [
     {
@@ -97,7 +85,7 @@ const SideNav = ({ onShare, onClose }: SideNavProps) => {
       iconBg: "bg-gradient-to-r from-blue-500 to-cyan-500",
       description: "Manage Funds",
     },
-  ]
+  ];
 
   const quickActions = [
     {
@@ -133,7 +121,7 @@ const SideNav = ({ onShare, onClose }: SideNavProps) => {
       hoverColor: "hover:text-green-700",
       bgHover: "hover:bg-green-50",
     },
-  ]
+  ];
 
   const communityItems = [
     {
@@ -169,7 +157,7 @@ const SideNav = ({ onShare, onClose }: SideNavProps) => {
       hoverColor: "hover:text-indigo-700",
       bgHover: "hover:bg-indigo-50",
     },
-  ]
+  ];
 
   return (
     <aside className="w-64 xs:w-72 sm:w-80 h-full bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 border-r border-white/10 flex flex-col shadow-xl relative overflow-hidden">
@@ -230,14 +218,12 @@ const SideNav = ({ onShare, onClose }: SideNavProps) => {
           </div>
           <div className="space-y-1.5 xs:space-y-2 sm:space-y-3">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || (item.href === "/betting" && pathname.startsWith("/betting"))
+              const isActive = pathname === item.href || (item.href === "/betting" && pathname.startsWith("/betting"));
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   onClick={handleNavClick}
-                  onMouseEnter={() => setHoveredItem(item.name)}
-                  onMouseLeave={() => setHoveredItem(null)}
                   className={`group relative flex items-center gap-2 xs:gap-3 sm:gap-4 px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 md:py-4 rounded-lg xs:rounded-xl sm:rounded-2xl transition-all duration-300 hover:scale-105 ${
                     isActive
                       ? `${item.bgColor} shadow-lg border border-gray-200`
@@ -301,7 +287,7 @@ const SideNav = ({ onShare, onClose }: SideNavProps) => {
                     />
                   </div>
                 </Link>
-              )
+              );
             })}
           </div>
         </div>
@@ -379,8 +365,8 @@ const SideNav = ({ onShare, onClose }: SideNavProps) => {
         <div className="pt-2 xs:pt-3 sm:pt-4 border-t border-gray-200">
           <button
             onClick={() => {
-              onShare()
-              handleNavClick()
+              onShare();
+              handleNavClick();
             }}
             className="w-full flex items-center justify-center gap-1.5 xs:gap-2 sm:gap-3 px-3 xs:px-4 sm:px-6 py-2 xs:py-2.5 sm:py-3 md:py-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg xs:rounded-xl sm:rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl group"
           >
@@ -427,7 +413,7 @@ const SideNav = ({ onShare, onClose }: SideNavProps) => {
         </div>
       </div>
     </aside>
-  )
-}
+  );
+};
 
-export default SideNav
+export default SideNav;

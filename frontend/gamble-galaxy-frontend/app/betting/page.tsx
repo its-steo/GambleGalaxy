@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +22,6 @@ interface BetSlipItem {
 }
 
 export default function BettingPage() {
-  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [betHistory, setBetHistory] = useState<Bet[]>([]);
@@ -520,7 +518,7 @@ export default function BettingPage() {
                         Guaranteed Winning Predictions
                       </h3>
                       <p className="text-gray-300 mb-6 sm:mb-8 text-base sm:text-lg max-w-2xl mx-auto">
-                        Get access to our expert analysts' guaranteed winning predictions with 95%+ accuracy rate
+                        Get access to our expert analysts guaranteed winning predictions with 95%+ accuracy rate
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">

@@ -1,34 +1,38 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import axios from "axios"
-import { getAuthHeader } from "@/lib/auth"
-import { Banknote, Minus, Plus, Sparkles, Loader2 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { useWallet } from "@/context/WalletContext"
-import { toast } from "sonner"
+import type React from "react";
+import { useState } from "react";
+import axios, { AxiosError } from "axios"; // Import AxiosError
+import { getAuthHeader } from "@/lib/auth";
+import { Banknote, Minus, Plus, Sparkles, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useWallet } from "@/context/WalletContext";
+import { toast } from "sonner";
+
+interface WalletApiResponse {
+  detail?: string;
+}
 
 export default function WithdrawForm() {
-  const [amount, setAmount] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const { refreshBalance } = useWallet()
-  const quickAmounts = [500, 1000, 2000, 5000, 10000]
+  const [amount, setAmount] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { refreshBalance } = useWallet();
+  const quickAmounts = [500, 1000, 2000, 5000, 10000];
 
   const handleWithdraw = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const parsedAmount = Number.parseFloat(amount)
+    e.preventDefault();
+    const parsedAmount = Number.parseFloat(amount);
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast.error("Invalid amount", {
         description: "Please enter a valid positive number for withdrawal.",
         className: "bg-red-500/90 text-white border-red-400",
-      })
-      return
+      });
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       const res = await axios.post(
         "http://127.0.0.1:8000/api/wallet/withdraw/",
@@ -40,39 +44,40 @@ export default function WithdrawForm() {
         {
           headers: getAuthHeader(),
         }
-      )
+      );
 
       if (res.status === 201 || res.status === 200) {
         toast.success("Withdrawal Successful!", {
           description: `✅ KES ${parsedAmount.toLocaleString()} has been processed.`,
           className: "bg-green-500/90 text-white border-green-400",
-        })
-        setAmount("")
-        await refreshBalance()
+        });
+        setAmount("");
+        await refreshBalance();
       } else {
         toast.error("Withdrawal Failed", {
           description: res.data?.detail || res.statusText || "Please try again later.",
           className: "bg-red-500/90 text-white border-red-400",
-        })
+        });
       }
-    } catch (err: any) {
-      console.error("Withdraw error:", err)
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<WalletApiResponse>;
+      console.error("Withdraw error:", axiosError);
       const errorMessage =
-        err?.response?.data?.detail || err?.message || "Withdrawal failed"
+        axiosError.response?.data?.detail || axiosError.message || "Withdrawal failed";
       toast.error("Network Error", {
         description: errorMessage,
         className: "bg-red-500/90 text-white border-red-400",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const adjustAmount = (increment: boolean) => {
-    const current = Number.parseFloat(amount) || 0
-    const newAmount = increment ? current + 100 : Math.max(0, current - 100)
-    setAmount(newAmount.toString())
-  }
+    const current = Number.parseFloat(amount) || 0;
+    const newAmount = increment ? current + 100 : Math.max(0, current - 100);
+    setAmount(newAmount.toString());
+  };
 
   return (
     <form onSubmit={handleWithdraw} className="space-y-4 sm:space-y-6 text-white">
@@ -164,5 +169,5 @@ export default function WithdrawForm() {
         )}
       </Button>
     </form>
-  )
+  );
 }

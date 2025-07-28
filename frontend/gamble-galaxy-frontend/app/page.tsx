@@ -298,7 +298,7 @@ export default function HomePage() {
                         <div className="text-green-400 text-xs sm:text-sm">Won {testimonial.amount}</div>
                       </div>
                     </div>
-                    <p className="text-gray-300 italic text-xs xs:text-sm sm:text-base">"{testimonial.text}"</p>
+                    <p className="text-gray-300 italic text-xs xs:text-sm sm:text-base">`{testimonial.text}`</p>
                     <div className="flex text-yellow-400 mt-3 xs:mt-4">
                       {[...Array(5)].map((_, i) => (
                         <Star key={i} className="w-3 h-3 sm:w-4 sm:h-4 fill-current" />

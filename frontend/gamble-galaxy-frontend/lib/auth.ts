@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "./api";
 import type { User, RegisterData } from "./types";
+import axios, { AxiosError } from "axios";
 
 interface AuthState {
   user: User | null;
@@ -14,6 +15,10 @@ interface AuthState {
   logout: () => void;
   loadUser: () => Promise<void>;
   checkUsername: (username: string) => Promise<boolean>;
+}
+
+interface AuthApiResponse {
+  detail?: string;
 }
 
 export const useAuth = create<AuthState>()(
@@ -35,7 +40,7 @@ export const useAuth = create<AuthState>()(
           }
           set({ isLoading: false });
           return false;
-        } catch (error) {
+        } catch {
           set({ isLoading: false });
           return false;
         }
@@ -47,7 +52,7 @@ export const useAuth = create<AuthState>()(
           const response = await api.register(userData);
           set({ isLoading: false });
           return !!response.data;
-        } catch (error) {
+        } catch {
           set({ isLoading: false });
           return false;
         }
@@ -73,8 +78,9 @@ export const useAuth = create<AuthState>()(
             set({ user: response.data, isAuthenticated: true, isLoading: false });
           } else {
             // Token might be invalid or expired, try to refresh
-            const newToken = getRefreshedAccessToken();
+            const newToken = await getRefreshedAccessToken();
             if (newToken) {
+              localStorage.setItem("access_token", newToken);
               const retryResponse = await api.getProfile();
               if (retryResponse.data) {
                 set({ user: retryResponse.data, isAuthenticated: true, isLoading: false });
@@ -85,8 +91,9 @@ export const useAuth = create<AuthState>()(
               get().logout();
             }
           }
-        } catch (error) {
-          console.error("Error loading user:", error);
+        } catch (error: unknown) {
+          const axiosError = error as AxiosError<AuthApiResponse>;
+          console.error("Error loading user:", axiosError.response?.data?.detail || axiosError.message);
           get().logout();
         }
       },
@@ -95,7 +102,7 @@ export const useAuth = create<AuthState>()(
         try {
           const response = await api.checkUsername(username);
           return response.data?.exists || false;
-        } catch (error) {
+        } catch {
           return false;
         }
       },
@@ -120,7 +127,21 @@ export function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function getRefreshedAccessToken(): string | null {
-  // TODO: Implement token refresh logic and return the new access token or null if failed.
-  return null;
+async function getRefreshedAccessToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    const response = await axios.post<{ access: string }>(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/token/refresh/`,
+      { refresh: refreshToken }
+    );
+    return response.data.access;
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<AuthApiResponse>;
+    console.error("Token refresh failed:", axiosError.response?.data?.detail || axiosError.message);
+    return null;
+  }
 }

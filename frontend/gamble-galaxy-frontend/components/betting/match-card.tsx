@@ -30,7 +30,6 @@ interface MatchCardProps {
 }
 
 export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardProps) {
-  const [isHovered, setIsHovered] = useState(false)
   const [pulseAnimation, setPulseAnimation] = useState(false)
   const [liveViewers] = useState(Math.floor(Math.random() * 5000) + 1000)
 
@@ -162,8 +161,6 @@ Join the action! 🚀`
         pulseAnimation && "animate-pulse",
         isLive && "ring-2 ring-green-400/50 ring-pulse",
       )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Enhanced Header */}
       <div className="relative p-3 sm:p-4 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-pink-500/10 overflow-hidden">

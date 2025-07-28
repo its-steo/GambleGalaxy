@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
-import { Button } from "../ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { Button } from "../ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Clock,
   Lock,
@@ -26,112 +26,108 @@ import {
   CheckCircle,
   AlertTriangle,
   Timer,
-} from "lucide-react"
-import type { SureOddSlip } from "@/lib/types"
-import { api } from "@/lib/api"
-import { toast } from "sonner"
+} from "lucide-react";
+import type { SureOddSlip } from "@/lib/types";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 interface SureOddsModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
-  const [sureOdds, setSureOdds] = useState<SureOddSlip | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [paying, setPaying] = useState(false)
-  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(3600) // 1 hour countdown
+  const [sureOdds, setSureOdds] = useState<SureOddSlip | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(3600); // 1 hour countdown
 
   // Countdown timer effect
   useEffect(() => {
     if (isOpen && timeLeft > 0) {
       const timer = setInterval(() => {
-        setTimeLeft((prev) => Math.max(0, prev - 1))
-      }, 1000)
-      return () => clearInterval(timer)
+        setTimeLeft((prev) => Math.max(0, prev - 1));
+      }, 1000);
+      return () => clearInterval(timer);
     }
-  }, [isOpen, timeLeft])
+  }, [isOpen, timeLeft]);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadSureOdds()
-    }
-  }, [isOpen])
-
-  const loadSureOdds = async () => {
-    setLoading(true)
+  // Memoized loadSureOdds function
+  const loadSureOdds = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await api.getSureOdds()
+      const response = await api.getSureOdds();
       if (response.data) {
-        setSureOdds(response.data)
+        setSureOdds(response.data);
       } else {
         toast.error("No sure odds available", {
           description: "Please check back later",
           className: "bg-red-500/90 text-white border-red-400",
-        })
-        onClose()
+        });
+        onClose();
       }
-    } catch (error) {
-      toast.error("Failed to load sure odds")
-      onClose()
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, [setLoading, setSureOdds, onClose]);
+
+  // Load sure odds when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadSureOdds();
+    }
+  }, [isOpen, loadSureOdds]);
 
   const handlePayment = async () => {
-    setPaying(true)
+    setPaying(true);
     try {
-      const response = await api.paySureOdds()
+      const response = await api.paySureOdds();
       if (response.data) {
-        setShowPaymentSuccess(true)
+        setShowPaymentSuccess(true);
         setTimeout(() => {
-          setShowPaymentSuccess(false)
-          loadSureOdds() // Reload to show predictions
-        }, 2000)
+          setShowPaymentSuccess(false);
+          loadSureOdds(); // Reload to show predictions
+        }, 2000);
         toast.success("🎉 Payment successful!", {
           description: "Premium predictions unlocked!",
           className: "bg-green-500/90 text-white border-green-400",
-        })
+        });
       } else {
         toast.error("Payment failed", {
           description: response.error || "Please try again",
           className: "bg-red-500/90 text-white border-red-400",
-        })
+        });
       }
-    } catch (error) {
-      toast.error("Payment error", {
-        description: "Please check your wallet balance",
-        className: "bg-red-500/90 text-white border-red-400",
-      })
     } finally {
-      setPaying(false)
+      setPaying(false);
     }
-  }
+  };
 
   const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  };
 
   const getPredictionColor = (prediction: string) => {
     switch (prediction.toLowerCase()) {
       case "home win":
       case "1":
-        return "from-green-500 to-emerald-500"
+        return "from-green-500 to-emerald-500";
       case "draw":
       case "x":
-        return "from-yellow-500 to-orange-500"
+        return "from-yellow-500 to-orange-500";
       case "away win":
       case "2":
-        return "from-blue-500 to-cyan-500"
+        return "from-blue-500 to-cyan-500";
       default:
-        return "from-purple-500 to-pink-500"
+        return "from-purple-500 to-pink-500";
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -154,11 +150,11 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
           </div>
         </DialogContent>
       </Dialog>
-    )
+    );
   }
 
   if (!sureOdds) {
-    return null
+    return null;
   }
 
   return (
@@ -323,7 +319,9 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
                           <div className="flex items-center space-x-3 sm:space-x-4">
                             <div
-                              className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${getPredictionColor(match.prediction)} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg`}
+                              className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${getPredictionColor(
+                                match.prediction
+                              )} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg`}
                             >
                               <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                             </div>
@@ -387,7 +385,7 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                   </h4>
 
                   <p className="text-gray-300 mb-4 sm:mb-6 text-base sm:text-lg max-w-2xl mx-auto">
-                    Get access to our expert analysts' guaranteed winning predictions with 95%+ accuracy rate
+                    Get access to our expert analysts&apos; guaranteed winning predictions with 95%+ accuracy rate
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -477,5 +475,5 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

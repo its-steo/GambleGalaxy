@@ -1,29 +1,30 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Button } from "../ui/button"
-import { useAuth } from "@/lib/auth"
-import { LogOut, Menu, X, Wallet, Bell, Settings, User } from "lucide-react"
-import { WalletBalance } from "@/components/wallet/wallet-balance"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image"; // Import Image from next/image
+import { Button } from "../ui/button";
+import { useAuth } from "@/lib/auth";
+import { LogOut, Menu, X, Wallet, Bell, Settings, User } from "lucide-react";
+import { WalletBalance } from "@/components/wallet/wallet-balance";
 
 interface NavbarProps {
-  onMobileMenuToggle?: () => void
-  isMobileMenuOpen?: boolean
+  onMobileMenuToggle?: () => void;
+  isMobileMenuOpen?: boolean;
 }
 
 export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
-  const { user, isAuthenticated, logout } = useAuth()
-  const [scrolled, setScrolled] = useState(false)
+  const { user, isAuthenticated, logout } = useAuth();
+  const [scrolled, setScrolled] = useState(false);
 
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20)
-    }
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <nav
@@ -103,14 +104,19 @@ export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
                 {/* User Profile */}
                 <div className="flex items-center space-x-1 xs:space-x-1.5 sm:space-x-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-md xs:rounded-lg sm:rounded-xl px-1.5 xs:px-2 sm:px-3 py-1 xs:py-1.5 sm:py-2 hover:bg-white/20 transition-all duration-300">
                   {user?.avatar ? (
-                    <img
+                    <Image
                       src={user.avatar || "/placeholder.svg"}
-                      alt={user.username}
+                      alt={user.username || "User avatar"}
+                      width={28} // Matches sm:w-7 sm:h-7 (7 * 4 = 28px)
+                      height={28}
                       className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 rounded-full border-2 border-white/20"
+                      unoptimized={user.avatar.startsWith("data:")} // Handle base64 or external images
                     />
                   ) : (
                     <div className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">{user?.username.charAt(0).toUpperCase()}</span>
+                      <span className="text-white text-xs font-bold">
+                        {user?.username.charAt(0).toUpperCase()}
+                      </span>
                     </div>
                   )}
                   <div className="hidden sm:block">
@@ -201,5 +207,5 @@ export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
         </div>
       )}
     </nav>
-  )
+  );
 }

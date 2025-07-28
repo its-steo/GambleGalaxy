@@ -118,10 +118,6 @@ export function BetSlip({ items, onRemoveItem, onClearAll }: BetSlipProps) {
           description: response.error || "Please try again",
         })
       }
-    } catch (error) {
-      toast.error("Error placing bet", {
-        description: "Please check your connection and try again",
-      })
     } finally {
       setIsPlacing(false)
     }

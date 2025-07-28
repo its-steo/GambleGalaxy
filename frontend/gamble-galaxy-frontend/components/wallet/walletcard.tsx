@@ -1,13 +1,11 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { WalletBalance } from "./wallet-balance"
-import { Wallet, Sparkles } from "lucide-react" // Added Sparkles for visual flair
-import { cn } from "@/lib/utils" // Import cn for conditional class names
+import type React from "react";
+import { WalletBalance } from "./wallet-balance";
+import { Wallet, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface WalletCardProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-export default function WalletCard({ className, ...props }: WalletCardProps) {
+export default function WalletCard({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
@@ -29,7 +27,7 @@ export default function WalletCard({ className, ...props }: WalletCardProps) {
           </span>
         </h2>
         <p className="text-gray-300 text-xs xs:text-sm sm:text-base mb-3 sm:mb-4">Current available funds</p>
-        <WalletBalance className="shadow-xl" /> {/* Reusing the enhanced WalletBalance component */}
+        <WalletBalance className="shadow-xl" />
       </div>
 
       <div className="relative z-10 flex-shrink-0">
@@ -42,7 +40,8 @@ export default function WalletCard({ className, ...props }: WalletCardProps) {
       {/* Add a subtle animation for the background pulse */}
       <style jsx>{`
         @keyframes pulse-slow {
-          0%, 100% {
+          0%,
+          100% {
             transform: scale(1);
             opacity: 0.1;
           }
@@ -56,5 +55,5 @@ export default function WalletCard({ className, ...props }: WalletCardProps) {
         }
       `}</style>
     </div>
-  )
+  );
 }
