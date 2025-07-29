@@ -39,52 +39,77 @@ export interface Transaction {
 
 // Betting Types
 export interface Match {
-  id: number;
-  home_team: string;
-  away_team: string;
-  match_time: string;
-  odds_home_win: string;
-  odds_draw: string;
-  odds_away_win: string;
-  status: "upcoming" | "first_half" | "halftime" | "second_half" | "fulltime";
-  score_home: number;
-  score_away: number;
+  id: number
+  home_team: string
+  away_team: string
+  match_time: string
+  status: string
+  score_home: number
+  score_away: number
+
+  // Standard 1X2 odds
+  odds_home_win: string
+  odds_draw: string
+  odds_away_win: string
+
+  // Goals
+  odds_over_2_5?: string
+  odds_under_2_5?: string
+
+  // BTTS
+  odds_btts_yes?: string
+  odds_btts_no?: string
+
+  // Double Chance
+  odds_home_or_draw?: string
+  odds_draw_or_away?: string
+  odds_home_or_away?: string
+
+  // Half Time / Full Time
+  odds_ht_ft_home_home?: string
+  odds_ht_ft_draw_draw?: string
+  odds_ht_ft_away_away?: string
+
+  // Correct Score
+  odds_score_1_0?: string
+  odds_score_2_1?: string
+  odds_score_0_0?: string
+  odds_score_1_1?: string
 }
 
 export interface BetSelection {
   id?: number;
   match: Match;
   match_id?: number;
-  selected_option: "home_win" | "draw" | "away_win";
+  selected_option: string;
   is_correct?: boolean;
 }
 
 export interface Bet {
-  odds: ReactNode;
-  selected_option: "home_win" | "draw" | "away_win"; // Replaced any with specific type
+  odds: string; // Total odds for the bet
   match: Match; // Replaced any with Match type
   id: number;
   user: number;
   amount: string;
   total_odds: string;
-  status: "pending" | "won" | "lost";
+  status:string; // "pending" | "won" | "lost"
   placed_at: string;
   selections: BetSelection[];
 }
 
 export interface SureOddSlip {
-  odd: SureOddSlip | undefined;
-  code: string;
+  code: string
   matches: Array<{
-    home_team: string;
-    away_team: string;
-    match_time: string;
-    prediction?: string;
-  }>;
-  paid: boolean;
-  allow_payment: boolean;
-  show_predictions: boolean;
-  dismiss: boolean;
+    home_team: string
+    away_team: string
+    match_time: string
+    prediction?: string
+  }>
+  amount_paid: number
+  paid: boolean
+  show_predictions: boolean
+  allow_payment: boolean
+  dismiss: boolean
 }
 
 // Aviator Game Types

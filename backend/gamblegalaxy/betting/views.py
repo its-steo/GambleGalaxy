@@ -7,10 +7,9 @@ from django.utils import timezone
 from datetime import timedelta
 from random import sample
 
-from .models import Match, Bet, SureOddSlip
+from .models import Match, Bet, SureOddSlip, SureOddPrediction
 from .serializers import MatchSerializer, BetSerializer
 from wallet.models import Wallet
-
 
 # -------------------------
 # MATCH LIST
@@ -20,14 +19,12 @@ class MatchListView(generics.ListAPIView):
     serializer_class = MatchSerializer
     permission_classes = [permissions.AllowAny]
 
-
 # -------------------------
 # PLACE BET
 # -------------------------
 class PlaceBetView(generics.CreateAPIView):
     serializer_class = BetSerializer
     permission_classes = [IsAuthenticated]
-
 
 # -------------------------
 # BET HISTORY
@@ -38,7 +35,6 @@ class MyBetHistoryView(generics.ListAPIView):
 
     def get_queryset(self):
         return Bet.objects.filter(user=self.request.user).order_by('-placed_at')
-
 
 # -------------------------
 # AUTO GENERATE SURE ODDS
@@ -51,8 +47,26 @@ def auto_generate_sure_odds_for_user(user):
     if matches.exists():
         slip = SureOddSlip.objects.create(user=user, amount_paid=100)
         slip.matches.set(matches)
+        # Generate predictions for each match
+        for match in matches:
+            # Simple logic: choose the option with the lowest odds (most likely outcome)
+            odds = [
+                ('home_win', match.odds_home_win),
+                ('draw', match.odds_draw),
+                ('away_win', match.odds_away_win),
+            ]
+            # Filter out None values and find the option with the lowest odds
+            valid_odds = [(opt, val) for opt, val in odds if val is not None]
+            if valid_odds:
+                predicted_option = min(valid_odds, key=lambda x: x[1])[0]
+            else:
+                predicted_option = sample(['home_win', 'draw', 'away_win'], 1)[0]  # Fallback
+            SureOddPrediction.objects.create(
+                slip=slip,
+                match=match,
+                predicted_option=predicted_option
+            )
         slip.save()
-
 
 # -------------------------
 # GET SURE ODDS
@@ -69,7 +83,7 @@ class SureOddsView(APIView):
 
         slip = SureOddSlip.objects.filter(user=user, is_used=False).order_by('-shown_to_user_at').first()
         if not slip:
-            return Response({'detail': 'No Sure Odds slip found. Please pay to unlock one.'}, status=404)
+            return Response({'detail': 'No Sure Odds slip found. Please try again later.'}, status=404)
 
         matches = slip.matches.order_by('match_time')
         if not matches.exists():
@@ -99,6 +113,9 @@ class SureOddsView(APIView):
             slip.is_used = True
             slip.save()
 
+        # Get predictions for the slip
+        predictions = {p.match_id: p.predicted_option for p in slip.predictions.all()}
+
         return Response({
             'code': str(slip.code),
             'matches': [
@@ -106,9 +123,7 @@ class SureOddsView(APIView):
                     'home_team': m.home_team,
                     'away_team': m.away_team,
                     'match_time': m.match_time,
-                    'prediction': (
-                        m.prediction if show_predictions else "LOCKED"
-                    ),
+                    'prediction': predictions.get(m.id, 'N/A') if show_predictions else "LOCKED",
                     'can_win': user.is_verified if slip.has_paid else False
                 }
                 for m in matches
@@ -118,7 +133,6 @@ class SureOddsView(APIView):
             'show_predictions': show_predictions,
             'dismiss': dismiss
         })
-
 
 # -------------------------
 # PAY FOR SURE ODDS

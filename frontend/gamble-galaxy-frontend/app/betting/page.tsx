@@ -1,53 +1,68 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MatchCard } from "@/components/betting/match-card";
-import { BetSlip } from "@/components/betting/bet_slip";
-import { SureOddsModal } from "@/components/betting/sure-odds-modal";
-import { Navbar } from "@/components/ui/navbar";
-import { Trophy, History, Star, Search, Filter, TrendingUp, Users, Clock, Zap, Target, Award } from "lucide-react";
-import type { Match, Bet } from "@/lib/types";
-import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
-import { toast } from "sonner";
-import SideNav from "@/components/ui/SideNav";
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { MatchCard } from "@/components/betting/match-card"
+import { BetSlip } from "@/components/betting/bet_slip"
+import { SureOddsModal } from "@/components/betting/sure-odds-modal"
+import { Navbar } from "@/components/ui/navbar"
+import {
+  Trophy,
+  History,
+  Star,
+  Search,
+  Filter,
+  TrendingUp,
+  Users,
+  Clock,
+  Zap,
+  Target,
+  Award,
+  Crown,
+  Coins,
+} from "lucide-react"
+import type { Match, Bet } from "@/lib/types"
+import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
+import { toast } from "sonner"
+import SideNav from "@/components/ui/SideNav"
 
 interface BetSlipItem {
-  match: Match;
-  selectedOption: "home_win" | "draw" | "away_win";
+  match: Match
+  selectedOption: "home_win" | "draw" | "away_win"
 }
 
 export default function BettingPage() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [betHistory, setBetHistory] = useState<Bet[]>([]);
-  const [betSlip, setBetSlip] = useState<BetSlipItem[]>([]);
-  const [selectedOptions, setSelectedOptions] = useState<Record<number, "home_win" | "draw" | "away_win">>({});
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sureOddsOpen, setSureOddsOpen] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const [matches, setMatches] = useState<Match[]>([])
+  const [betHistory, setBetHistory] = useState<Bet[]>([])
+  const [betSlip, setBetSlip] = useState<BetSlipItem[]>([])
+  const [selectedOptions, setSelectedOptions] = useState<Record<number, "home_win" | "draw" | "away_win">>({})
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [sureOddsOpen, setSureOddsOpen] = useState(false)
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [liveStats, setLiveStats] = useState({
     activeBets: 1247,
     totalPayout: 45280,
     liveMatches: 12,
     winRate: 68.5,
-  });
+  })
+  const [showPromotion, setShowPromotion] = useState(true)
 
   // Mouse tracking for interactive background
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+    window.addEventListener("mousemove", handleMouseMove)
+    return () => window.removeEventListener("mousemove", handleMouseMove)
+  }, [])
 
   // Simulate live stats updates
   useEffect(() => {
@@ -57,113 +72,116 @@ export default function BettingPage() {
         totalPayout: prev.totalPayout + Math.floor(Math.random() * 1000) - 500,
         liveMatches: Math.max(8, prev.liveMatches + Math.floor(Math.random() * 3) - 1),
         winRate: Math.max(60, Math.min(75, prev.winRate + (Math.random() - 0.5) * 2)),
-      }));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+      }))
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Load matches and bet history only when authenticated and not loading
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      loadMatches();
-      loadBetHistory();
+      loadMatches()
+      loadBetHistory()
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading])
 
   const loadMatches = async () => {
     try {
-      const response = await api.getMatches();
-      if (response.data) setMatches(response.data);
+      const response = await api.getMatches()
+      if (response.data) setMatches(response.data)
     } catch {
-      toast.error("Failed to load matches");
+      toast.error("Failed to load matches")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const loadBetHistory = async () => {
     try {
-      const response = await api.getBetHistory();
-      if (response.data) setBetHistory(response.data);
+      const response = await api.getBetHistory()
+      if (response.data) setBetHistory(response.data)
     } catch {
-      console.error("Failed to load bet history");
+      console.error("Failed to load bet history")
     }
-  };
+  }
 
   const handleAddToBetSlip = (match: Match, option: "home_win" | "draw" | "away_win") => {
-    const existingIndex = betSlip.findIndex((item) => item.match.id === match.id);
+    const existingIndex = betSlip.findIndex((item) => item.match.id === match.id)
     if (existingIndex >= 0) {
-      const updatedSlip = [...betSlip];
-      updatedSlip[existingIndex].selectedOption = option;
-      setBetSlip(updatedSlip);
+      const updatedSlip = [...betSlip]
+      updatedSlip[existingIndex].selectedOption = option
+      setBetSlip(updatedSlip)
     } else {
-      setBetSlip([...betSlip, { match, selectedOption: option }]);
+      setBetSlip([...betSlip, { match, selectedOption: option }])
     }
-    setSelectedOptions((prev) => ({ ...prev, [match.id]: option }));
-
+    setSelectedOptions((prev) => ({ ...prev, [match.id]: option }))
     toast.success("Added to bet slip!", {
       duration: 2000,
-      className: "bg-green-500/90 text-white border-green-400",
-    });
-  };
+      className: "bg-gradient-to-r from-green-500/90 to-emerald-500/90 text-white border-green-400 backdrop-blur-md",
+    })
+  }
 
   const handleRemoveFromBetSlip = (matchId: number) => {
-    setBetSlip((prev) => prev.filter((item) => item.match.id !== matchId));
+    setBetSlip((prev) => prev.filter((item) => item.match.id !== matchId))
     setSelectedOptions((prev) => {
-      const updated = { ...prev };
-      delete updated[matchId];
-      return updated;
-    });
-  };
+      const updated = { ...prev }
+      delete updated[matchId]
+      return updated
+    })
+  }
 
   const handleClearBetSlip = () => {
-    setBetSlip([]);
-    setSelectedOptions({});
-    toast.info("Bet slip cleared");
-  };
+    setBetSlip([])
+    setSelectedOptions({})
+    toast.info("Bet slip cleared", {
+      className: "bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white border-blue-400 backdrop-blur-md",
+    })
+  }
 
   const handleShare = () => {
     if (betSlip.length === 0) {
-      toast.error("Add some bets to your slip first!");
-      return;
+      toast.error("Add some bets to your slip first!", {
+        className: "bg-gradient-to-r from-red-500/90 to-pink-500/90 text-white border-red-400 backdrop-blur-md",
+      })
+      return
     }
-
     const shareText = `Check out my bet slip on Gamble Galaxy!\n${betSlip
       .map((item) => `${item.match.home_team} vs ${item.match.away_team} - ${item.selectedOption.replace("_", " ")}`)
-      .join("\n")}`;
-
+      .join("\n")}`
     if (navigator.share) {
       navigator.share({
         title: "My Bet Slip - Gamble Galaxy",
         text: shareText,
         url: window.location.href,
-      });
+      })
     } else {
-      navigator.clipboard.writeText(shareText);
-      toast.success("Bet slip copied to clipboard!");
+      navigator.clipboard.writeText(shareText)
+      toast.success("Bet slip copied to clipboard!", {
+        className: "bg-gradient-to-r from-purple-500/90 to-pink-500/90 text-white border-purple-400 backdrop-blur-md",
+      })
     }
-  };
+  }
 
   const filteredMatches = matches.filter((match) => {
-    const search = searchTerm.toLowerCase();
+    const search = searchTerm.toLowerCase()
     const matchesSearch =
-      match.home_team.toLowerCase().includes(search) || match.away_team.toLowerCase().includes(search);
-    const matchesStatus = statusFilter === "all" || match.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+      match.home_team.toLowerCase().includes(search) || match.away_team.toLowerCase().includes(search)
+    const matchesStatus = statusFilter === "all" || match.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "bg-gradient-to-r from-yellow-500 to-orange-500";
+        return "bg-gradient-to-r from-yellow-500 to-orange-500"
       case "won":
-        return "bg-gradient-to-r from-green-500 to-emerald-500";
+        return "bg-gradient-to-r from-green-500 to-emerald-500"
       case "lost":
-        return "bg-gradient-to-r from-red-500 to-pink-500";
+        return "bg-gradient-to-r from-red-500 to-pink-500"
       default:
-        return "bg-gradient-to-r from-gray-500 to-gray-600";
+        return "bg-gradient-to-r from-gray-500 to-gray-600"
     }
-  };
+  }
 
   // Show loading while auth is being checked
   if (authLoading || loading) {
@@ -174,7 +192,6 @@ export default function BettingPage() {
           <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
-
         <div className="relative z-10 text-center">
           <div className="relative">
             <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-4 border-purple-500/30 border-t-purple-500 mx-auto mb-4 sm:mb-6"></div>
@@ -186,45 +203,57 @@ export default function BettingPage() {
           <p className="text-gray-400 text-sm sm:text-base">Please wait a moment</p>
         </div>
       </div>
-    );
+    )
   }
 
   // Don't render anything if not authenticated (will redirect)
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated) return null
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       <Navbar onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)} isMobileMenuOpen={isMobileMenuOpen} />
 
+      {/* Enhanced Glassmorphism Background */}
       <div className="fixed inset-0 z-0">
+        {/* Base gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
+
+        {/* Interactive mouse-following orb */}
         <div
-          className="absolute w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 bg-purple-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
+          className="absolute w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
           style={{
             left: mousePosition.x - 96,
             top: mousePosition.y - 96,
           }}
         />
-        <div className="absolute top-1/4 left-1/4 w-36 h-36 sm:w-48 sm:h-48 lg:w-72 lg:h-72 bg-pink-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
-      </div>
 
-      <div className="fixed inset-0 z-0">
-        {[...Array(15)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 3}s`,
-            }}
-          />
-        ))}
+        {/* Static orbs */}
+        <div className="absolute top-1/4 left-1/4 w-36 h-36 sm:w-48 sm:h-48 lg:w-72 lg:h-72 bg-gradient-to-r from-pink-500/10 to-purple-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-3/4 right-1/3 w-32 h-32 sm:w-44 sm:h-44 lg:w-64 lg:h-64 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-full blur-3xl animate-pulse delay-500" />
+
+        {/* Noise texture overlay */}
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.015] mix-blend-overlay"></div>
+
+        {/* Star field */}
+        <div className="fixed inset-0 z-0">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 3}s`,
+                animationDuration: `${2 + Math.random() * 3}s`,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="relative z-10 flex w-full pt-16 lg:pt-0">
+        {/* Mobile menu backdrop */}
         {isMobileMenuOpen && (
           <div
             className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
@@ -232,6 +261,7 @@ export default function BettingPage() {
           />
         )}
 
+        {/* Mobile sidebar */}
         <div
           className={`lg:hidden fixed left-0 top-16 h-[calc(100vh-4rem)] z-50 transform transition-transform duration-300 ${
             isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
@@ -240,12 +270,14 @@ export default function BettingPage() {
           <SideNav onShare={handleShare} onClose={() => setIsMobileMenuOpen(false)} />
         </div>
 
+        {/* Desktop sidebar */}
         <div className="hidden lg:block">
           <SideNav onShare={handleShare} />
         </div>
 
         <main className="flex-1 min-h-screen lg:ml-0 pt-0 lg:pt-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            {/* Enhanced Hero Section */}
             <div className="text-center mb-8 sm:mb-12">
               <div className="inline-flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-xs sm:text-sm mb-4 sm:mb-6">
                 <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-2 text-yellow-400" />
@@ -264,6 +296,7 @@ export default function BettingPage() {
                 Experience the thrill of live sports betting with real-time odds and instant payouts
               </p>
 
+              {/* Enhanced Stats Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto mb-6 sm:mb-8 px-4">
                 {[
                   {
@@ -293,20 +326,97 @@ export default function BettingPage() {
                 ].map((stat, index) => (
                   <div
                     key={index}
-                    className="bg-white/5 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10 hover:border-white/20 transition-all duration-300"
+                    className="bg-white/5 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10 hover:border-white/20 transition-all duration-300 group hover:scale-105"
                   >
+                    {/* Glass reflection effect */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
                     <div
-                      className={`w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r ${stat.color} rounded-lg flex items-center justify-center mx-auto mb-2`}
+                      className={`w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r ${stat.color} rounded-lg flex items-center justify-center mx-auto mb-2 shadow-lg relative z-10`}
                     >
                       <stat.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                     </div>
-                    <div className="text-lg sm:text-xl font-bold text-white">{stat.value}</div>
-                    <div className="text-xs text-gray-400">{stat.label}</div>
+                    <div className="text-lg sm:text-xl font-bold text-white relative z-10">{stat.value}</div>
+                    <div className="text-xs text-gray-400 relative z-10">{stat.label}</div>
                   </div>
                 ))}
               </div>
+
+              {/* Promotional Banner */}
+              {showPromotion && (
+                <div className="relative max-w-4xl mx-auto mb-8 sm:mb-10 px-4 animate-in fade-in duration-500">
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-red-500/20 rounded-2xl blur-xl"></div>
+                  <div className="relative bg-gradient-to-r from-yellow-900/40 via-orange-900/40 to-red-900/40 backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-4 sm:p-6 overflow-hidden">
+                    {/* Animated particles */}
+                    <div className="absolute inset-0 overflow-hidden">
+                      {[...Array(5)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="absolute w-2 h-2 bg-yellow-400/30 rounded-full animate-float"
+                          style={{
+                            left: `${Math.random() * 100}%`,
+                            top: `${Math.random() * 100}%`,
+                            animationDelay: `${Math.random() * 3}s`,
+                            animationDuration: `${3 + Math.random() * 5}s`,
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      className="absolute top-2 right-2 text-white/60 hover:text-white/90 transition-colors"
+                      onClick={() => setShowPromotion(false)}
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                          <Crown className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-1">Welcome Bonus: 200% Match</h3>
+                          <p className="text-yellow-300 text-sm sm:text-base">
+                            Use code <span className="font-bold">GALAXY200</span> on your first deposit!
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold px-4 py-2 rounded-xl shadow-lg hover:shadow-yellow-500/25 transition-all duration-300 hover:scale-105"
+                        onClick={() => {
+                          toast.success("Promo code copied!", {
+                            description: "Use GALAXY200 during deposit",
+                            className:
+                              "bg-gradient-to-r from-yellow-500/90 to-orange-500/90 text-white border-yellow-400 backdrop-blur-md",
+                          })
+                          navigator.clipboard.writeText("GALAXY200")
+                        }}
+                      >
+                        <Coins className="w-4 h-4 mr-2" />
+                        Claim Now
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Enhanced Tabs */}
             <Tabs defaultValue="matches" className="space-y-6 sm:space-y-8">
               <div className="flex justify-center px-4">
                 <TabsList className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl p-1 sm:p-2 grid grid-cols-3 w-full max-w-md sm:max-w-lg">
@@ -336,10 +446,12 @@ export default function BettingPage() {
                 </TabsList>
               </div>
 
+              {/* Matches Tab */}
               <TabsContent value="matches">
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
                   <div className="xl:col-span-2 space-y-4 sm:space-y-6">
-                    <Card className="bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-300">
+                    {/* Enhanced Search Card */}
+                    <Card className="bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-300 rounded-xl sm:rounded-2xl overflow-hidden">
                       <CardContent className="p-4 sm:p-6">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                           <div className="flex-1 relative">
@@ -376,6 +488,7 @@ export default function BettingPage() {
                       </CardContent>
                     </Card>
 
+                    {/* Match Cards Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                       {filteredMatches.length > 0 ? (
                         filteredMatches.map((match) => (
@@ -389,7 +502,7 @@ export default function BettingPage() {
                         ))
                       ) : (
                         <div className="col-span-full">
-                          <Card className="bg-white/5 backdrop-blur-sm border border-white/10">
+                          <Card className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl sm:rounded-2xl overflow-hidden">
                             <CardContent className="p-8 sm:p-12 text-center">
                               <Trophy className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 sm:mb-6 text-gray-500" />
                               <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No matches found</h3>
@@ -403,6 +516,7 @@ export default function BettingPage() {
                     </div>
                   </div>
 
+                  {/* Bet Slip Column */}
                   <div className="xl:col-span-1">
                     <div className="sticky top-20 sm:top-24">
                       <div className="transform hover:scale-105 transition-all duration-300">
@@ -417,8 +531,9 @@ export default function BettingPage() {
                 </div>
               </TabsContent>
 
+              {/* Bet History Tab */}
               <TabsContent value="history">
-                <Card className="bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-300">
+                <Card className="bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-300 rounded-xl sm:rounded-2xl overflow-hidden">
                   <CardHeader>
                     <CardTitle className="text-white flex items-center text-xl sm:text-2xl">
                       <History className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-purple-400" />
@@ -431,9 +546,12 @@ export default function BettingPage() {
                         {betHistory.map((bet) => (
                           <div
                             key={bet.id}
-                            className="bg-white/5 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-105"
+                            className="bg-white/5 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-105 group"
                           >
-                            <div className="flex items-center justify-between mb-3 sm:mb-4">
+                            {/* Glass reflection effect */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                            <div className="flex items-center justify-between mb-3 sm:mb-4 relative z-10">
                               <div className="flex items-center space-x-3 sm:space-x-4">
                                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg sm:rounded-xl flex items-center justify-center">
                                   <span className="text-white font-bold text-xs sm:text-sm">#{bet.id}</span>
@@ -459,7 +577,8 @@ export default function BettingPage() {
                                 )}
                               </div>
                             </div>
-                            <div className="space-y-2 text-xs sm:text-sm text-gray-300">
+
+                            <div className="space-y-2 text-xs sm:text-sm text-gray-300 relative z-10">
                               {bet.selections.map((selection, index) => (
                                 <div
                                   key={index}
@@ -474,7 +593,8 @@ export default function BettingPage() {
                                 </div>
                               ))}
                             </div>
-                            <div className="text-xs text-gray-400 mt-3 sm:mt-4 flex items-center">
+
+                            <div className="text-xs text-gray-400 mt-3 sm:mt-4 flex items-center relative z-10">
                               <Clock className="w-3 h-3 mr-1" />
                               {new Date(bet.placed_at).toLocaleString()}
                             </div>
@@ -498,8 +618,9 @@ export default function BettingPage() {
                 </Card>
               </TabsContent>
 
+              {/* Sure Odds Tab */}
               <TabsContent value="sure-odds">
-                <Card className="bg-gradient-to-br from-yellow-900/20 to-orange-900/20 backdrop-blur-sm border border-yellow-500/30 hover:border-yellow-400/50 transition-all duration-300">
+                <Card className="bg-gradient-to-br from-yellow-900/20 to-orange-900/20 backdrop-blur-sm border border-yellow-500/30 hover:border-yellow-400/50 transition-all duration-300 rounded-xl sm:rounded-2xl overflow-hidden">
                   <CardHeader>
                     <CardTitle className="text-white flex items-center text-xl sm:text-2xl">
                       <Star className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-yellow-500" />
@@ -521,6 +642,7 @@ export default function BettingPage() {
                         Get access to our expert analysts guaranteed winning predictions with 95%+ accuracy rate
                       </p>
 
+                      {/* Enhanced Stats Cards */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
                         {[
                           { label: "Success Rate", value: "95.2%", icon: Award },
@@ -529,21 +651,26 @@ export default function BettingPage() {
                         ].map((stat, index) => (
                           <div
                             key={index}
-                            className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10"
+                            className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10 hover:border-white/20 transition-all duration-300 group"
                           >
-                            <stat.icon className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-yellow-400" />
-                            <div className="text-xl sm:text-2xl font-bold text-white">{stat.value}</div>
-                            <div className="text-xs sm:text-sm text-gray-400">{stat.label}</div>
+                            {/* Glass reflection effect */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                            <stat.icon className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-yellow-400 relative z-10" />
+                            <div className="text-xl sm:text-2xl font-bold text-white relative z-10">{stat.value}</div>
+                            <div className="text-xs sm:text-sm text-gray-400 relative z-10">{stat.label}</div>
                           </div>
                         ))}
                       </div>
 
+                      {/* Enhanced CTA Button */}
                       <Button
                         onClick={() => setSureOddsOpen(true)}
-                        className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 hover:scale-105"
+                        className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold rounded-xl sm:rounded-2xl shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 hover:scale-105 group"
                       >
-                        <Star className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                        Access Sure Odds
+                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-yellow-400/30 to-yellow-400/0 opacity-0 group-hover:opacity-100 transform -skew-x-12 group-hover:animate-shimmer rounded-xl sm:rounded-2xl overflow-hidden"></div>
+                        <Star className="w-4 h-4 sm:w-5 sm:h-5 mr-2 relative z-10" />
+                        <span className="relative z-10">Access Sure Odds</span>
                       </Button>
                     </div>
                   </CardContent>
@@ -551,10 +678,64 @@ export default function BettingPage() {
               </TabsContent>
             </Tabs>
           </div>
-
           <SureOddsModal isOpen={sureOddsOpen} onClose={() => setSureOddsOpen(false)} />
         </main>
       </div>
+
+      {/* Floating Action Button for Mobile */}
+      <div className="fixed bottom-6 right-6 lg:hidden z-50">
+        <Button
+          onClick={() => setSureOddsOpen(true)}
+          className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white w-14 h-14 rounded-full shadow-2xl hover:shadow-yellow-500/25 transition-all duration-300 hover:scale-105 flex items-center justify-center"
+        >
+          <Star className="w-6 h-6" />
+        </Button>
+      </div>
+
+      {/* Custom Animations */}
+      <style jsx global>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%) skewX(-12deg);
+          }
+          100% {
+            transform: translateX(100%) skewX(-12deg);
+          }
+        }
+        
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+        }
+        
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+        
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+        
+        .ring-pulse {
+          animation: ring-pulse 2s infinite;
+        }
+        
+        @keyframes ring-pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4);
+          }
+          70% {
+            box-shadow: 0 0 0 10px rgba(74, 222, 128, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+          }
+        }
+      `}</style>
     </div>
-  );
+  )
 }

@@ -11,10 +11,9 @@ import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { toast } from "sonner"
 
-
 interface BetSlipItem {
   match: Match
-  selectedOption: "home_win" | "draw" | "away_win"
+  selectedOption: string
 }
 
 interface BetSlipProps {
@@ -40,42 +39,70 @@ export function BetSlip({ items, onRemoveItem, onClearAll }: BetSlipProps) {
   }, [items.length])
 
   const getOdds = (item: BetSlipItem) => {
-    switch (item.selectedOption) {
-      case "home_win":
-        return Number.parseFloat(item.match.odds_home_win)
-      case "draw":
-        return Number.parseFloat(item.match.odds_draw)
-      case "away_win":
-        return Number.parseFloat(item.match.odds_away_win)
-      default:
-        return 1
+    const oddsMap: Record<string, string> = {
+      home_win: item.match.odds_home_win,
+      draw: item.match.odds_draw,
+      away_win: item.match.odds_away_win,
+      "over_2.5": item.match.odds_over_2_5 ?? "",
+      "under_2.5": item.match.odds_under_2_5 ?? "",
+      btts_yes: item.match.odds_btts_yes ?? "",
+      btts_no: item.match.odds_btts_no ?? "",
+      home_or_draw: item.match.odds_home_or_draw ?? "",
+      draw_or_away: item.match.odds_draw_or_away ?? "",
+      home_or_away: item.match.odds_home_or_away ?? "",
+      ht_ft_home_home: item.match.odds_ht_ft_home_home ?? "",
+      ht_ft_draw_draw: item.match.odds_ht_ft_draw_draw ?? "",
+      ht_ft_away_away: item.match.odds_ht_ft_away_away ?? "",
+      score_1_0: item.match.odds_score_1_0 ?? "",
+      score_2_1: item.match.odds_score_2_1 ?? "",
+      score_0_0: item.match.odds_score_0_0 ?? "",
+      score_1_1: item.match.odds_score_1_1 ?? "",
     }
+
+    const odds = oddsMap[item.selectedOption]
+    return odds ? Number.parseFloat(odds) : 1
   }
 
-  const getOptionText = (option: BetSlipItem["selectedOption"]) => {
-    switch (option) {
-      case "home_win":
-        return "Home Win"
-      case "draw":
-        return "Draw"
-      case "away_win":
-        return "Away Win"
-      default:
-        return option
+  const getOptionText = (option: string) => {
+    const labels: Record<string, string> = {
+      home_win: "Home Win",
+      draw: "Draw",
+      away_win: "Away Win",
+      "over_2.5": "Over 2.5 Goals",
+      "under_2.5": "Under 2.5 Goals",
+      btts_yes: "Both Teams to Score - Yes",
+      btts_no: "Both Teams to Score - No",
+      home_or_draw: "Home or Draw",
+      draw_or_away: "Draw or Away",
+      home_or_away: "Home or Away",
+      ht_ft_home_home: "HT/FT Home/Home",
+      ht_ft_draw_draw: "HT/FT Draw/Draw",
+      ht_ft_away_away: "HT/FT Away/Away",
+      score_1_0: "Correct Score 1-0",
+      score_2_1: "Correct Score 2-1",
+      score_0_0: "Correct Score 0-0",
+      score_1_1: "Correct Score 1-1",
     }
+    return labels[option] || option.replace("_", " ")
   }
 
-  const getOptionColor = (option: BetSlipItem["selectedOption"]) => {
-    switch (option) {
-      case "home_win":
-        return "from-green-500 to-emerald-500"
-      case "draw":
-        return "from-yellow-500 to-orange-500"
-      case "away_win":
-        return "from-blue-500 to-cyan-500"
-      default:
-        return "from-gray-500 to-gray-600"
+  const getOptionColor = (option: string) => {
+    if (option.includes("home") || option === "home_win") {
+      return "from-green-500 to-emerald-500"
+    } else if (option.includes("draw") || option === "draw") {
+      return "from-yellow-500 to-orange-500"
+    } else if (option.includes("away") || option === "away_win") {
+      return "from-blue-500 to-cyan-500"
+    } else if (option.includes("over") || option.includes("btts_yes")) {
+      return "from-purple-500 to-pink-500"
+    } else if (option.includes("under") || option.includes("btts_no")) {
+      return "from-red-500 to-rose-500"
+    } else if (option.includes("score")) {
+      return "from-indigo-500 to-purple-500"
+    } else if (option.includes("ht_ft")) {
+      return "from-orange-500 to-red-500"
     }
+    return "from-gray-500 to-gray-600"
   }
 
   const totalOdds = items.reduce((acc, item) => acc * getOdds(item), 1)
@@ -220,7 +247,7 @@ export function BetSlip({ items, onRemoveItem, onClearAll }: BetSlipProps) {
       <div className="space-y-2 xs:space-y-3 sm:space-y-4 p-3 xs:p-4 sm:p-6 max-h-48 xs:max-h-60 sm:max-h-80 overflow-y-auto custom-scrollbar">
         {items.map((item, index) => (
           <div
-            key={item.match.id}
+            key={`${item.match.id}-${item.selectedOption}`}
             className="bg-white/5 backdrop-blur-sm rounded-lg xs:rounded-xl sm:rounded-2xl p-2.5 xs:p-3 sm:p-5 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-105 group"
             style={{ animationDelay: `${index * 100}ms` }}
           >

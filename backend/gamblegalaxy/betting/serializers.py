@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from decimal import Decimal, ROUND_HALF_UP
 from .models import Match, Bet, BetSelection, SureOddSlip
-from wallet.models import Wallet  # ✅ Correct import
+from wallet.models import Wallet
 
 
 # -----------------------
@@ -81,19 +81,31 @@ class BetSerializer(serializers.ModelSerializer):
             if match.status != 'upcoming':
                 raise serializers.ValidationError(f"Match '{match}' is not open for betting.")
 
-            # Determine odds based on option
-            if option == 'home_win':
-                odds = match.odds_home_win
-            elif option == 'draw':
-                odds = match.odds_draw
-            elif option == 'away_win':
-                odds = match.odds_away_win
-            else:
-                raise serializers.ValidationError("Invalid option selected.")
-
+            # Use a dictionary for option-to-odds mapping
+            odds_map = {
+                'home_win': match.odds_home_win,
+                'draw': match.odds_draw,
+                'away_win': match.odds_away_win,
+                'over_2.5': match.odds_over_2_5,
+                'under_2.5': match.odds_under_2_5,
+                'btts_yes': match.odds_btts_yes,
+                'btts_no': match.odds_btts_no,
+                'home_or_draw': match.odds_home_or_draw,
+                'draw_or_away': match.odds_draw_or_away,
+                'home_or_away': match.odds_home_or_away,
+                'ht_ft_home_home': match.odds_ht_ft_home_home,
+                'ht_ft_draw_draw': match.odds_ht_ft_draw_draw,
+                'ht_ft_away_away': match.odds_ht_ft_away_away,
+                'score_1_0': match.odds_score_1_0,
+                'score_2_1': match.odds_score_2_1,
+                'score_0_0': match.odds_score_0_0,
+                'score_1_1': match.odds_score_1_1,
+            }
+            
+            odds = odds_map.get(option)
             if odds is None:
                 raise serializers.ValidationError(f"No odds available for {option} on match {match}.")
-
+            
             total_odds *= Decimal(str(odds))
 
             # Create selection
@@ -128,8 +140,12 @@ class SureOddSlipSerializer(serializers.ModelSerializer):
         if obj.amount_paid and obj.matches.exists():
             odds = Decimal("1.0")
             for match in obj.matches.all():
-                # Use average odds as fallback calculation
-                odds_list = [match.odds_home_win, match.odds_draw, match.odds_away_win]
+                # Use average odds including new ones
+                odds_list = [
+                    match.odds_home_win, match.odds_draw, match.odds_away_win,
+                    match.odds_over_2_5, match.odds_under_2_5,
+                    match.odds_btts_yes, match.odds_btts_no
+                ]
                 valid_odds = [Decimal(str(o)) for o in odds_list if o]
                 if valid_odds:
                     odds *= sum(valid_odds) / len(valid_odds)

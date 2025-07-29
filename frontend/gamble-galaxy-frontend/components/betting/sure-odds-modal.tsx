@@ -1,10 +1,10 @@
-"use client";
+"use client"
 
-import { useState, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
-import { Button } from "../ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect, useCallback } from "react"
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
+import { Button } from "../ui/button"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import {
   Clock,
   Lock,
@@ -14,196 +14,216 @@ import {
   EyeOff,
   Star,
   Trophy,
-  Target,
-  Zap,
   Crown,
   Sparkles,
-  TrendingUp,
-  Award,
-  Shield,
-  Flame,
   X,
   CheckCircle,
   AlertTriangle,
   Timer,
-} from "lucide-react";
-import type { SureOddSlip } from "@/lib/types";
-import { api } from "@/lib/api";
-import { toast } from "sonner";
+  Wallet,
+} from "lucide-react"
+import type { SureOddSlip } from "@/lib/types"
+import { api } from "@/lib/api"
+import { toast } from "sonner"
+import { useAuth } from "@/lib/auth"
 
 interface SureOddsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen: boolean
+  onClose: () => void
 }
 
 export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
-  const [sureOdds, setSureOdds] = useState<SureOddSlip | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [paying, setPaying] = useState(false);
-  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(3600); // 1 hour countdown
+  const { user } = useAuth()
+  const [sureOdds, setSureOdds] = useState<SureOddSlip | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [walletBalance, setWalletBalance] = useState<number>(0)
+  const [timeLeft, setTimeLeft] = useState(3600) // 1 hour countdown
+
+  const SURE_ODDS_PRICE = 10000 // KES 10,000
+
+  // Fetch wallet balance
+  const fetchWalletBalance = useCallback(async () => {
+    if (user) {
+      try {
+        const res = await api.getWallet()
+        if (res.data && res.data.balance !== undefined) {
+          setWalletBalance(Number(res.data.balance))
+        }
+      } catch (error) {
+        console.error("Error fetching wallet balance:", error)
+      }
+    }
+  }, [user])
 
   // Countdown timer effect
   useEffect(() => {
     if (isOpen && timeLeft > 0) {
       const timer = setInterval(() => {
-        setTimeLeft((prev) => Math.max(0, prev - 1));
-      }, 1000);
-      return () => clearInterval(timer);
+        setTimeLeft((prev) => Math.max(0, prev - 1))
+      }, 1000)
+      return () => clearInterval(timer)
     }
-  }, [isOpen, timeLeft]);
+  }, [isOpen, timeLeft])
 
-  // Memoized loadSureOdds function
+  // Load sure odds and wallet balance when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadSureOdds()
+      fetchWalletBalance()
+    }
+  }, [isOpen, fetchWalletBalance])
+
   const loadSureOdds = useCallback(async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const response = await api.getSureOdds();
+      const response = await api.getSureOdds()
       if (response.data) {
-        setSureOdds(response.data);
+        setSureOdds(response.data)
       } else {
         toast.error("No sure odds available", {
           description: "Please check back later",
-          className: "bg-red-500/90 text-white border-red-400",
-        });
-        onClose();
+          className: "bg-red-500/90 text-white border-red-400 backdrop-blur-md",
+        })
+        onClose()
       }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [setLoading, setSureOdds, onClose]);
-
-  // Load sure odds when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      loadSureOdds();
-    }
-  }, [isOpen, loadSureOdds]);
+  }, [onClose])
 
   const handlePayment = async () => {
-    setPaying(true);
-    try {
-      const response = await api.paySureOdds();
-      if (response.data) {
-        setShowPaymentSuccess(true);
-        setTimeout(() => {
-          setShowPaymentSuccess(false);
-          loadSureOdds(); // Reload to show predictions
-        }, 2000);
-        toast.success("🎉 Payment successful!", {
-          description: "Premium predictions unlocked!",
-          className: "bg-green-500/90 text-white border-green-400",
-        });
-      } else {
-        toast.error("Payment failed", {
-          description: response.error || "Please try again",
-          className: "bg-red-500/90 text-white border-red-400",
-        });
-      }
-    } finally {
-      setPaying(false);
+    if (!user) {
+      toast.error("Login Required", {
+        description: "Please log in to purchase sure odds",
+        className: "bg-red-500/90 text-white border-red-400 backdrop-blur-md",
+      })
+      return
     }
-  };
+
+    if (walletBalance < SURE_ODDS_PRICE) {
+      toast.error("Insufficient Balance", {
+        description: `You need KES ${SURE_ODDS_PRICE.toLocaleString()} to purchase sure odds`,
+        className: "bg-red-500/90 text-white border-red-400 backdrop-blur-md",
+      })
+      return
+    }
+
+    setPaying(true)
+    try {
+      const response = await api.paySureOdds()
+      if (response.data) {
+        // Update wallet balance immediately
+        setWalletBalance((prev) => prev - SURE_ODDS_PRICE)
+
+        // Reload sure odds to show predictions
+        await loadSureOdds()
+
+        toast.success("🎉 Payment Successful!", {
+          description: `KES ${SURE_ODDS_PRICE.toLocaleString()} deducted. Premium predictions unlocked!`,
+          className: "bg-green-500/90 text-white border-green-400 backdrop-blur-md",
+        })
+      } else {
+        toast.error("Payment Failed", {
+          description: response.error || "Please try again",
+          className: "bg-red-500/90 text-white border-red-400 backdrop-blur-md",
+        })
+      }
+    } catch (error) {
+      console.error("Payment error:", error)
+      toast.error("Payment Error", {
+        description: "Something went wrong. Please try again.",
+        className: "bg-red-500/90 text-white border-red-400 backdrop-blur-md",
+      })
+    } finally {
+      setPaying(false)
+    }
+  }
 
   const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs
       .toString()
-      .padStart(2, "0")}`;
-  };
+      .padStart(2, "0")}`
+  }
 
   const getPredictionColor = (prediction: string) => {
     switch (prediction.toLowerCase()) {
       case "home win":
       case "1":
-        return "from-green-500 to-emerald-500";
+        return "from-green-500 to-emerald-500"
       case "draw":
       case "x":
-        return "from-yellow-500 to-orange-500";
+        return "from-yellow-500 to-orange-500"
       case "away win":
       case "2":
-        return "from-blue-500 to-cyan-500";
+        return "from-blue-500 to-cyan-500"
       default:
-        return "from-purple-500 to-pink-500";
+        return "from-purple-500 to-pink-500"
     }
-  };
+  }
 
   if (loading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 text-white max-w-2xl rounded-3xl overflow-hidden">
-          <div className="relative p-12">
-            {/* Animated Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
-            <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
-
-            <div className="relative z-10 text-center">
-              <div className="relative mb-8">
-                <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-500/30 border-t-purple-500 mx-auto"></div>
-                <div className="absolute inset-0 animate-ping rounded-full h-16 w-16 border-2 border-purple-400/50 mx-auto"></div>
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Loading Premium Predictions</h3>
-              <p className="text-gray-400">Accessing our expert analysis...</p>
+        <DialogContent className="bg-white/5 backdrop-blur-2xl border border-white/10 text-white w-[95vw] max-w-sm mx-auto rounded-2xl overflow-hidden">
+          <div className="p-6 text-center">
+            <div className="relative mb-4">
+              <div className="animate-spin rounded-full h-10 w-10 border-4 border-purple-500/30 border-t-purple-500 mx-auto"></div>
+              <div className="absolute inset-0 animate-ping rounded-full h-10 w-10 border-2 border-purple-400/50 mx-auto"></div>
             </div>
+            <h3 className="text-lg font-bold text-white mb-2">Loading Sure Odds</h3>
+            <p className="text-gray-400 text-sm">Please wait...</p>
           </div>
         </DialogContent>
       </Dialog>
-    );
+    )
   }
 
   if (!sureOdds) {
-    return null;
+    return null
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 text-white w-full max-w-xs sm:max-w-md md:max-w-2xl lg:max-w-4xl rounded-2xl sm:rounded-3xl overflow-hidden max-h-[90vh] overflow-y-auto mx-4">
-        {/* Enhanced Header */}
-        <DialogHeader className="relative p-4 sm:p-6 lg:p-8 border-b border-white/10 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/10 to-orange-600/10 animate-pulse" />
-
-          <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-2xl">
-                <Crown className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-white" />
+      <DialogContent className="bg-white/5 backdrop-blur-2xl border border-white/10 text-white w-[95vw] max-w-md mx-auto rounded-2xl overflow-hidden shadow-2xl max-h-[95vh] flex flex-col">
+        {/* Fixed Header */}
+        <DialogHeader className="flex-shrink-0 p-3 sm:p-4 border-b border-white/10 bg-gradient-to-r from-yellow-500/10 to-orange-500/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white mb-1 sm:mb-2">
-                  <span className="bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
-                    Premium Sure Odds
-                  </span>
-                </h2>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
-                  <Badge className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-2 sm:px-3 py-1 rounded-full text-xs">
-                    <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-lg font-bold text-white truncate">Premium Sure Odds</h2>
+                <div className="flex flex-col xs:flex-row xs:items-center xs:space-x-2 space-y-1 xs:space-y-0">
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs px-2 py-0.5 w-fit">
                     Code: {sureOdds.code}
                   </Badge>
-                  <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 sm:px-3 py-1 rounded-full text-xs">
-                    <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
-                    95.2% Success Rate
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-2 py-0.5 w-fit">
+                    95% Win Rate
                   </Badge>
                 </div>
               </div>
             </div>
-
             <Button
               variant="ghost"
               onClick={onClose}
-              className="text-gray-400 hover:text-white hover:bg-white/20 rounded-lg sm:rounded-xl p-2 sm:p-3 self-end sm:self-auto"
+              className="text-gray-400 hover:text-white hover:bg-white/20 rounded-lg p-1.5 sm:p-2 flex-shrink-0 ml-2"
             >
-              <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </div>
 
-          {/* Countdown Timer */}
+          {/* Compact Timer */}
           {timeLeft > 0 && (
-            <div className="mt-4 sm:mt-6 bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/20">
-              <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-3">
-                <Timer className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
-                <span className="text-white font-semibold text-sm sm:text-base">Offer expires in:</span>
-                <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl font-mono text-base sm:text-lg font-bold">
+            <div className="mt-2 sm:mt-3 bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 border border-white/20">
+              <div className="flex items-center justify-center space-x-2">
+                <Timer className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 flex-shrink-0" />
+                <span className="text-white text-xs sm:text-sm font-medium">Expires in:</span>
+                <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-2 sm:px-3 py-1 rounded-md sm:rounded-lg font-mono text-xs sm:text-sm font-bold">
                   {formatTime(timeLeft)}
                 </div>
               </div>
@@ -211,269 +231,263 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
           )}
         </DialogHeader>
 
-        <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
-          {/* Enhanced Status Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            <Card className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-white/20 transition-all duration-300">
-              <div className="flex items-center space-x-3 sm:space-x-4">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar">
+          {/* Wallet Balance Display */}
+          <Card className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-3 sm:p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Wallet className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-white font-semibold text-xs sm:text-sm truncate">Wallet Balance</h3>
+                  <p className="text-gray-400 text-xs">Available funds</p>
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-white font-bold text-sm sm:text-lg">KES {walletBalance.toLocaleString()}</div>
                 <div
-                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center ${
+                  className={`text-xs font-medium ${
+                    walletBalance >= SURE_ODDS_PRICE ? "text-green-400" : "text-red-400"
+                  }`}
+                >
+                  {walletBalance >= SURE_ODDS_PRICE ? "✅ Sufficient" : "❌ Insufficient"}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Status Cards */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <Card className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3">
+              <div className="flex items-center space-x-2">
+                <div
+                  className={`w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0 ${
                     sureOdds.paid
                       ? "bg-gradient-to-r from-green-500 to-emerald-500"
                       : "bg-gradient-to-r from-red-500 to-pink-500"
                   }`}
                 >
                   {sureOdds.paid ? (
-                    <Unlock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <Unlock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                   ) : (
-                    <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                   )}
                 </div>
-                <div>
-                  <h3 className="text-white font-bold text-base sm:text-lg">Payment Status</h3>
-                  <p className={`text-sm font-semibold ${sureOdds.paid ? "text-green-400" : "text-red-400"}`}>
-                    {sureOdds.paid ? "✅ Premium Access Unlocked" : "🔒 Payment Required"}
+                <div className="min-w-0 flex-1">
+                  <p className="text-white font-medium text-xs">Payment</p>
+                  <p className={`text-xs font-semibold ${sureOdds.paid ? "text-green-400" : "text-red-400"}`}>
+                    {sureOdds.paid ? "Paid" : "Pending"}
                   </p>
                 </div>
               </div>
             </Card>
 
-            <Card className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:border-white/20 transition-all duration-300">
-              <div className="flex items-center space-x-3 sm:space-x-4">
+            <Card className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3">
+              <div className="flex items-center space-x-2">
                 <div
-                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center ${
+                  className={`w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0 ${
                     sureOdds.show_predictions
                       ? "bg-gradient-to-r from-blue-500 to-cyan-500"
                       : "bg-gradient-to-r from-gray-500 to-gray-600"
                   }`}
                 >
                   {sureOdds.show_predictions ? (
-                    <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <Eye className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                   ) : (
-                    <EyeOff className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <EyeOff className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                   )}
                 </div>
-                <div>
-                  <h3 className="text-white font-bold text-base sm:text-lg">Predictions</h3>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white font-medium text-xs">Predictions</p>
                   <p
-                    className={`text-sm font-semibold ${sureOdds.show_predictions ? "text-blue-400" : "text-gray-400"}`}
+                    className={`text-xs font-semibold ${sureOdds.show_predictions ? "text-blue-400" : "text-gray-400"}`}
                   >
-                    {sureOdds.show_predictions ? "👁️ Visible & Ready" : "🙈 Hidden Until Payment"}
+                    {sureOdds.show_predictions ? "Visible" : "Hidden"}
                   </p>
                 </div>
               </div>
             </Card>
           </div>
 
-          {/* Enhanced Matches Section */}
-          <div className="space-y-4 sm:space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
-              <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center">
-                <Trophy className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-purple-400" />
-                Premium Matches
+          {/* Matches */}
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-semibold flex items-center text-sm">
+                <Trophy className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-purple-400" />
+                Matches ({sureOdds.matches.length})
               </h3>
-              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 sm:px-4 py-2 rounded-full text-sm">
-                {sureOdds.matches.length} Matches
-              </Badge>
             </div>
 
-            <div className="grid gap-4 sm:gap-6">
+            <div className="space-y-2">
               {sureOdds.matches.map((match, index) => (
                 <Card
                   key={index}
-                  className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl sm:rounded-2xl overflow-hidden hover:border-white/20 transition-all duration-300 hover:scale-105 group"
+                  className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3 hover:border-white/20 transition-all duration-300"
                 >
-                  <div className="p-4 sm:p-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
-                      <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                          <span className="text-white font-bold text-sm sm:text-base">#{index + 1}</span>
-                        </div>
-                        <div>
-                          <h4 className="text-white font-bold text-base sm:text-lg">
-                            {match.home_team} <span className="text-gray-400 mx-1 sm:mx-2">vs</span> {match.away_team}
-                          </h4>
-                          <div className="flex items-center text-gray-400 text-xs sm:text-sm mt-1">
-                            <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                            {new Date(match.match_time).toLocaleString()}
-                          </div>
-                        </div>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-start space-x-2 min-w-0 flex-1">
+                      <div className="w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-white font-bold text-xs">#{index + 1}</span>
                       </div>
-
-                      {/* Match Stats */}
-                      <div className="text-left sm:text-right">
-                        <div className="flex items-center space-x-1 sm:space-x-2 mb-1 sm:mb-2">
-                          <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
-                          <span className="text-green-400 font-bold text-sm">98.5% Confidence</span>
-                        </div>
-                        <div className="flex items-center space-x-1 sm:space-x-2">
-                          <Target className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
-                          <span className="text-yellow-400 font-bold text-sm">High Value</span>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-white font-medium text-xs sm:text-sm leading-tight">
+                          <span className="block sm:inline">{match.home_team}</span>
+                          <span className="text-gray-400 mx-1"> vs </span>
+                          <span className="block sm:inline">{match.away_team}</span>
+                        </h4>
+                        <div className="flex items-center text-gray-400 text-xs mt-1">
+                          <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1 flex-shrink-0" />
+                          <span className="truncate">{new Date(match.match_time).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
-
-                    {/* Prediction Section */}
-                    {sureOdds.show_predictions && match.prediction ? (
-                      <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-green-500/30">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
-                          <div className="flex items-center space-x-3 sm:space-x-4">
-                            <div
-                              className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${getPredictionColor(
-                                match.prediction
-                              )} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg`}
-                            >
-                              <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                            </div>
-                            <div>
-                              <h5 className="text-white font-bold text-base sm:text-lg">Expert Prediction</h5>
-                              <p className="text-green-400 font-semibold text-sm sm:text-base">{match.prediction}</p>
-                            </div>
-                          </div>
-                          <div className="text-left sm:text-right">
-                            <div className="flex items-center space-x-1 sm:space-x-2 mb-1">
-                              <Award className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
-                              <span className="text-yellow-400 font-bold text-sm">Premium Pick</span>
-                            </div>
-                            <div className="flex items-center space-x-1 sm:space-x-2">
-                              <Flame className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
-                              <span className="text-red-400 font-bold text-sm">Hot Tip</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-gradient-to-r from-gray-900/50 to-gray-800/50 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/10">
-                        <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-gray-500 to-gray-600 rounded-xl sm:rounded-2xl flex items-center justify-center">
-                            <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                          </div>
-                          <div className="text-center sm:text-left">
-                            <h5 className="text-gray-400 font-bold text-base sm:text-lg mb-1">
-                              {sureOdds.paid ? "🔮 Prediction Coming Soon" : "🔒 Premium Prediction Locked"}
-                            </h5>
-                            <p className="text-gray-500 text-sm">
-                              {sureOdds.paid
-                                ? "Will be revealed 30 minutes before match"
-                                : "Unlock with premium access"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
+
+                  {/* Prediction */}
+                  {sureOdds.show_predictions && match.prediction ? (
+                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-md sm:rounded-lg p-2 border border-green-500/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <div
+                            className={`w-5 h-5 sm:w-6 sm:h-6 bg-gradient-to-r ${getPredictionColor(match.prediction)} rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0`}
+                          >
+                            <CheckCircle className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-white font-medium text-xs">Prediction</p>
+                            <p className="text-green-400 font-bold text-xs sm:text-sm truncate">{match.prediction}</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs px-2 py-0.5 flex-shrink-0 ml-2">
+                          <Star className="w-2 h-2 mr-1" />
+                          Premium
+                        </Badge>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-500/20 rounded-md sm:rounded-lg p-2 border border-gray-500/30">
+                      <div className="flex items-center justify-center space-x-2">
+                        <Lock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                        <p className="text-gray-400 text-xs sm:text-sm text-center">
+                          {sureOdds.paid ? "Prediction coming soon" : "Unlock to view prediction"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               ))}
             </div>
           </div>
 
-          {/* Enhanced Payment Section */}
+          {/* Payment Section */}
           {sureOdds.allow_payment && !sureOdds.paid && (
-            <Card className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 backdrop-blur-sm border border-yellow-500/50 rounded-xl sm:rounded-2xl overflow-hidden">
-              <div className="p-6 sm:p-8 text-center relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/10 to-orange-600/10 animate-pulse" />
-
-                <div className="relative z-10">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-2xl">
-                    <Crown className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-                  </div>
-
-                  <h4 className="text-2xl sm:text-3xl font-black text-white mb-3 sm:mb-4">
-                    <span className="bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
-                      Unlock Premium Predictions
-                    </span>
-                  </h4>
-
-                  <p className="text-gray-300 mb-4 sm:mb-6 text-base sm:text-lg max-w-2xl mx-auto">
-                    Get access to our expert analysts&apos; guaranteed winning predictions with 95%+ accuracy rate
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-                    {[
-                      { icon: Award, label: "95.2% Success Rate", color: "from-green-500 to-emerald-500" },
-                      { icon: Target, label: "Expert Analysis", color: "from-blue-500 to-cyan-500" },
-                      { icon: Zap, label: "Instant Access", color: "from-purple-500 to-pink-500" },
-                    ].map((feature, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/20"
-                      >
-                        <div
-                          className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${feature.color} rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-2 sm:mb-3`}
-                        >
-                          <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                        </div>
-                        <p className="text-white font-semibold text-xs sm:text-sm">{feature.label}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="text-3xl sm:text-4xl font-black text-white mb-2">
-                      <span className="line-through text-gray-500 text-xl sm:text-2xl mr-2 sm:mr-3">$15,000</span>
-                      <span className="bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
-                        $10,000
-                      </span>
-                    </div>
-                    <p className="text-yellow-400 font-semibold text-sm sm:text-base">
-                      ⚡ Limited Time Offer - 33% OFF
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={handlePayment}
-                    disabled={paying}
-                    className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-3 sm:py-4 px-8 sm:px-12 rounded-xl sm:rounded-2xl text-base sm:text-xl transition-all duration-300 hover:scale-105 shadow-2xl hover:shadow-yellow-500/25 mt-4 sm:mt-6 w-full sm:w-auto"
-                  >
-                    {paying ? (
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-2 border-white/30 border-t-white mr-2 sm:mr-3"></div>
-                        <span className="text-sm sm:text-base">Processing Payment...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center">
-                        <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
-                        <span className="text-sm sm:text-base">Unlock Premium Access</span>
-                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 ml-2 sm:ml-3" />
-                      </div>
-                    )}
-                  </Button>
-
-                  <p className="text-gray-400 text-xs sm:text-sm mt-3 sm:mt-4">
-                    🔒 Secure payment • 💰 Money-back guarantee • ⚡ Instant access
-                  </p>
+            <Card className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 backdrop-blur-sm border border-yellow-500/30 rounded-lg sm:rounded-xl overflow-hidden">
+              <div className="p-3 sm:p-4 text-center">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-2 sm:mb-3 shadow-lg">
+                  <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
+                <h4 className="text-base sm:text-lg font-bold text-white mb-1 sm:mb-2">Unlock Premium Predictions</h4>
+                <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4">
+                  Get expert predictions with 95%+ accuracy
+                </p>
+
+                <div className="bg-white/10 rounded-md sm:rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
+                    <span className="text-gray-300">Price:</span>
+                    <span className="text-white font-bold">KES {SURE_ODDS_PRICE.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs sm:text-sm mt-1">
+                    <span className="text-gray-300">After purchase:</span>
+                    <span
+                      className={`font-bold ${walletBalance >= SURE_ODDS_PRICE ? "text-green-400" : "text-red-400"}`}
+                    >
+                      KES {(walletBalance - SURE_ODDS_PRICE).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {walletBalance < SURE_ODDS_PRICE && (
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-md sm:rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
+                    <div className="flex items-center justify-center space-x-2">
+                      <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 flex-shrink-0" />
+                      <p className="text-red-400 text-xs sm:text-sm font-medium text-center">
+                        Need KES {(SURE_ODDS_PRICE - walletBalance).toLocaleString()} more
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  onClick={handlePayment}
+                  disabled={paying || walletBalance < SURE_ODDS_PRICE}
+                  className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all duration-300 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+                >
+                  {paying ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-2 border-white/30 border-t-white mr-2"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                      Purchase Now
+                      <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 ml-2" />
+                    </div>
+                  )}
+                </Button>
+
+                <p className="text-gray-400 text-xs mt-2">🔒 Secure payment • ⚡ Instant access</p>
               </div>
             </Card>
           )}
 
-          {/* Payment Success Animation */}
-          {showPaymentSuccess && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-3xl p-12 text-center shadow-2xl">
-                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle className="w-12 h-12 text-green-500" />
+          {/* Success Message */}
+          {sureOdds.paid && (
+            <Card className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm border border-green-500/30 rounded-lg sm:rounded-xl">
+              <div className="p-3 sm:p-4 text-center">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <h3 className="text-3xl font-bold text-white mb-2">Payment Successful!</h3>
-                <p className="text-green-100">Premium predictions unlocked</p>
+                <h4 className="text-base sm:text-lg font-bold text-green-400 mb-1">Premium Access Unlocked!</h4>
+                <p className="text-green-300 text-xs sm:text-sm">You now have access to expert predictions</p>
               </div>
-            </div>
+            </Card>
           )}
 
-          {/* Dismiss Notice */}
+          {/* Expired Notice */}
           {sureOdds.dismiss && (
-            <Card className="bg-gradient-to-r from-red-900/30 to-pink-900/30 backdrop-blur-sm border border-red-500/50 rounded-2xl">
-              <div className="p-6 text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <AlertTriangle className="w-8 h-8 text-white" />
+            <Card className="bg-gradient-to-r from-red-500/20 to-pink-500/20 backdrop-blur-sm border border-red-500/30 rounded-lg sm:rounded-xl">
+              <div className="p-3 sm:p-4 text-center">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                  <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <h4 className="text-xl font-bold text-red-400 mb-2">Offer Expired</h4>
-                <p className="text-red-300">This sure odds slip has expired as matches have started.</p>
+                <h4 className="text-base sm:text-lg font-bold text-red-400 mb-1">Offer Expired</h4>
+                <p className="text-red-300 text-xs sm:text-sm">This sure odds slip has expired</p>
               </div>
             </Card>
           )}
         </div>
+
+        {/* Custom Scrollbar Styles */}
+        <style jsx>{`
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #8b5cf6, #ec4899);
+            border-radius: 10px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(to bottom, #7c3aed, #db2777);
+          }
+        `}</style>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

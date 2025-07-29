@@ -19,19 +19,22 @@ import {
   Star,
   FlameIcon as Fire,
   Eye,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 interface MatchCardProps {
   match: Match
-  onAddToBetSlip: (match: Match, option: "home_win" | "draw" | "away_win") => void
-  selectedOptions: Record<number, "home_win" | "draw" | "away_win">
+  onAddToBetSlip: (match: Match, option: string) => void
+  selectedOptions: Record<number, string>
 }
 
 export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardProps) {
   const [pulseAnimation, setPulseAnimation] = useState(false)
   const [liveViewers] = useState(Math.floor(Math.random() * 5000) + 1000)
+  const [showAllMarkets, setShowAllMarkets] = useState(false)
 
   // Animate when selection changes
   useEffect(() => {
@@ -91,28 +94,34 @@ export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardP
     }
   }
 
-  const getOptionGradient = (option: "home_win" | "draw" | "away_win") => {
-    switch (option) {
-      case "home_win":
-        return "from-green-500 to-emerald-500"
-      case "draw":
-        return "from-yellow-500 to-orange-500"
-      case "away_win":
-        return "from-blue-500 to-cyan-500"
-      default:
-        return "from-gray-500 to-gray-600"
+  const getOptionGradient = (option: string) => {
+    if (option.includes("home") || option === "home_win") {
+      return "from-green-500 to-emerald-500"
+    } else if (option.includes("draw") || option === "draw") {
+      return "from-yellow-500 to-orange-500"
+    } else if (option.includes("away") || option === "away_win") {
+      return "from-blue-500 to-cyan-500"
+    } else if (option.includes("over") || option.includes("btts_yes")) {
+      return "from-purple-500 to-pink-500"
+    } else if (option.includes("under") || option.includes("btts_no")) {
+      return "from-red-500 to-rose-500"
+    } else if (option.includes("score")) {
+      return "from-indigo-500 to-purple-500"
+    } else if (option.includes("ht_ft")) {
+      return "from-orange-500 to-red-500"
     }
+    return "from-gray-500 to-gray-600"
   }
 
-  const isSelected = (option: "home_win" | "draw" | "away_win") => selectedOptions[match.id] === option
+  const isSelected = (option: string) => selectedOptions[match.id] === option
 
   const canBet = match.status === "upcoming"
   const isLive = match.status === "first_half" || match.status === "second_half"
 
-  const handleAddToBetSlip = (option: "home_win" | "draw" | "away_win") => {
+  const handleAddToBetSlip = (option: string) => {
     onAddToBetSlip(match, option)
     toast.success("Added to bet slip! 🎯", {
-      description: `${match.home_team} vs ${match.away_team} - ${option.replace("_", " ")}`,
+      description: `${match.home_team} vs ${match.away_team} - ${getOptionLabel(option)}`,
       className: "bg-green-500/90 text-white border-green-400",
     })
   }
@@ -120,7 +129,7 @@ export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardP
   const handleShare = () => {
     const shareText = `🏆 ${match.home_team} vs ${match.away_team}
     
-📊 Odds:
+📊 Main Odds:
 🏠 ${match.home_team}: ${match.odds_home_win}
 ⚖️ Draw: ${match.odds_draw}
 ✈️ ${match.away_team}: ${match.odds_away_win}
@@ -145,14 +154,109 @@ Join the action! 🚀`
     }
   }
 
-  const getBestOdds = () => {
-    const odds = [
-      Number.parseFloat(match.odds_home_win),
-      Number.parseFloat(match.odds_draw),
-      Number.parseFloat(match.odds_away_win),
-    ]
-    return Math.max(...odds)
+  const getOptionLabel = (option: string) => {
+    const labels: Record<string, string> = {
+      home_win: "Home Win",
+      draw: "Draw",
+      away_win: "Away Win",
+      "over_2.5": "Over 2.5 Goals",
+      "under_2.5": "Under 2.5 Goals",
+      btts_yes: "Both Teams to Score - Yes",
+      btts_no: "Both Teams to Score - No",
+      home_or_draw: "Home or Draw",
+      draw_or_away: "Draw or Away",
+      home_or_away: "Home or Away",
+      ht_ft_home_home: "HT/FT Home/Home",
+      ht_ft_draw_draw: "HT/FT Draw/Draw",
+      ht_ft_away_away: "HT/FT Away/Away",
+      score_1_0: "Correct Score 1-0",
+      score_2_1: "Correct Score 2-1",
+      score_0_0: "Correct Score 0-0",
+      score_1_1: "Correct Score 1-1",
+    }
+    return labels[option] || option.replace("_", " ")
   }
+
+  const getOddsValue = (option: string) => {
+    const oddsMap: Record<string, string> = {
+      home_win: match.odds_home_win ?? "",
+      draw: match.odds_draw ?? "",
+      away_win: match.odds_away_win ?? "",
+      "over_2.5": match.odds_over_2_5 ?? "",
+      "under_2.5": match.odds_under_2_5 ?? "",
+      btts_yes: match.odds_btts_yes ?? "",
+      btts_no: match.odds_btts_no ?? "",
+      home_or_draw: match.odds_home_or_draw ?? "",
+      draw_or_away: match.odds_draw_or_away ?? "",
+      home_or_away: match.odds_home_or_away ?? "",
+      ht_ft_home_home: match.odds_ht_ft_home_home ?? "",
+      ht_ft_draw_draw: match.odds_ht_ft_draw_draw ?? "",
+      ht_ft_away_away: match.odds_ht_ft_away_away ?? "",
+      score_1_0: match.odds_score_1_0 ?? "",
+      score_2_1: match.odds_score_2_1 ?? "",
+      score_0_0: match.odds_score_0_0 ?? "",
+      score_1_1: match.odds_score_1_1 ?? "",
+    }
+    return oddsMap[option]
+  }
+
+  const getBestOdds = () => {
+    const allOdds = [
+      match.odds_home_win,
+      match.odds_draw,
+      match.odds_away_win,
+      match.odds_over_2_5,
+      match.odds_under_2_5,
+      match.odds_btts_yes,
+      match.odds_btts_no,
+      match.odds_home_or_draw,
+      match.odds_draw_or_away,
+      match.odds_home_or_away,
+      match.odds_ht_ft_home_home,
+      match.odds_ht_ft_draw_draw,
+      match.odds_ht_ft_away_away,
+      match.odds_score_1_0,
+      match.odds_score_2_1,
+      match.odds_score_0_0,
+      match.odds_score_1_1,
+    ].filter((odds) => odds && Number.parseFloat(odds) > 0)
+
+    return Math.max(...allOdds.map((odds) => Number.parseFloat(odds)))
+  }
+
+  // Define betting markets
+  const bettingMarkets = [
+    {
+      title: "Match Result",
+      options: ["home_win", "draw", "away_win"],
+      icon: Trophy,
+    },
+    {
+      title: "Goals",
+      options: ["over_2.5", "under_2.5"],
+      icon: Target,
+    },
+    {
+      title: "Both Teams to Score",
+      options: ["btts_yes", "btts_no"],
+      icon: Zap,
+    },
+    {
+      title: "Double Chance",
+      options: ["home_or_draw", "draw_or_away", "home_or_away"],
+      icon: TrendingUp,
+    },
+    {
+      title: "Half Time / Full Time",
+      options: ["ht_ft_home_home", "ht_ft_draw_draw", "ht_ft_away_away"],
+      icon: Clock,
+    },
+    {
+      title: "Correct Score",
+      options: ["score_1_0", "score_2_1", "score_0_0", "score_1_1"],
+      icon: Star,
+    },
+  ]
 
   return (
     <Card
@@ -280,13 +384,13 @@ Join the action! 🚀`
           </div>
         </div>
 
-        {/* Enhanced Betting Options */}
+        {/* Enhanced Betting Markets */}
         {canBet ? (
           <div className="space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-white font-semibold flex items-center text-sm sm:text-base">
                 <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-purple-400" />
-                Betting Odds
+                Betting Markets
               </h3>
               <div className="flex items-center text-xs text-gray-400">
                 <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
@@ -294,59 +398,107 @@ Join the action! 🚀`
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              {(["home_win", "draw", "away_win"] as const).map((option) => {
-                const labels = {
-                  home_win: "Home Win",
-                  draw: "Draw",
-                  away_win: "Away Win",
-                }
-                const odds = {
-                  home_win: match.odds_home_win,
-                  draw: match.odds_draw,
-                  away_win: match.odds_away_win,
-                }
+            {/* Render each betting market */}
+            {bettingMarkets.map((market, marketIndex) => {
+              const availableOptions = market.options.filter((option) => getOddsValue(option))
+              if (availableOptions.length === 0) return null
 
-                const selected = isSelected(option)
+              const isMainMarket = marketIndex === 0 // Match Result is always shown
+              const shouldShow = isMainMarket || showAllMarkets
 
-                return (
-                  <Button
-                    key={option}
-                    variant="ghost"
-                    onClick={() => handleAddToBetSlip(option)}
+              if (!shouldShow && !isMainMarket) return null
+
+              return (
+                <div key={market.title} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <market.icon className="w-3 h-3 text-purple-400" />
+                      <span className="text-white text-sm font-medium">{market.title}</span>
+                    </div>
+                    {availableOptions.length > 0 && (
+                      <span className="text-xs text-gray-400">{availableOptions.length} options</span>
+                    )}
+                  </div>
+
+                  <div
                     className={cn(
-                      "relative flex flex-col items-center justify-center p-2 sm:p-4 h-auto text-center transition-all duration-300 hover:scale-105 rounded-lg sm:rounded-2xl overflow-hidden group/btn",
-                      selected
-                        ? `bg-gradient-to-r ${getOptionGradient(option)} text-white shadow-2xl ring-2 ring-white/20`
-                        : "bg-white/10 backdrop-blur-sm border border-white/20 hover:border-white/40 text-gray-200 hover:bg-white/20",
+                      "grid gap-2",
+                      availableOptions.length === 2
+                        ? "grid-cols-2"
+                        : availableOptions.length === 3
+                          ? "grid-cols-3"
+                          : "grid-cols-2 sm:grid-cols-4",
                     )}
                   >
-                    {/* Background Animation */}
-                    <div
-                      className={cn(
-                        "absolute inset-0 bg-gradient-to-r opacity-0 group-hover/btn:opacity-20 transition-opacity duration-300",
-                        getOptionGradient(option),
-                      )}
-                    />
+                    {availableOptions.map((option) => {
+                      const odds = getOddsValue(option)
+                      const selected = isSelected(option)
 
-                    <div className="relative z-10">
-                      <span className="text-xs text-gray-400 mb-1 sm:mb-2 block">{labels[option]}</span>
-                      <div className="flex items-center justify-center space-x-0.5 sm:space-x-1">
-                        {selected && <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400" />}
-                        <span className="font-bold text-sm sm:text-lg">
-                          {Number.parseFloat(odds[option]).toFixed(2)}
-                        </span>
-                      </div>
-                      {Number.parseFloat(odds[option]) > 3 && (
-                        <div className="flex items-center justify-center mt-0.5 sm:mt-1">
-                          <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400" />
-                        </div>
-                      )}
-                    </div>
-                  </Button>
-                )
-              })}
-            </div>
+                      return (
+                        <Button
+                          key={option}
+                          variant="ghost"
+                          onClick={() => handleAddToBetSlip(option)}
+                          className={cn(
+                            "relative flex flex-col items-center justify-center p-2 sm:p-3 h-auto text-center transition-all duration-300 hover:scale-105 rounded-lg sm:rounded-xl overflow-hidden group/btn",
+                            selected
+                              ? `bg-gradient-to-r ${getOptionGradient(option)} text-white shadow-2xl ring-2 ring-white/20`
+                              : "bg-white/10 backdrop-blur-sm border border-white/20 hover:border-white/40 text-gray-200 hover:bg-white/20",
+                          )}
+                        >
+                          {/* Background Animation */}
+                          <div
+                            className={cn(
+                              "absolute inset-0 bg-gradient-to-r opacity-0 group-hover/btn:opacity-20 transition-opacity duration-300",
+                              getOptionGradient(option),
+                            )}
+                          />
+
+                          <div className="relative z-10">
+                            <span className="text-xs text-gray-400 mb-1 block truncate">{getOptionLabel(option)}</span>
+                            <div className="flex items-center justify-center space-x-0.5 sm:space-x-1">
+                              {selected && <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400" />}
+                              <span className="font-bold text-sm sm:text-base">
+                                {Number.parseFloat(odds).toFixed(2)}
+                              </span>
+                            </div>
+                            {Number.parseFloat(odds) > 3 && (
+                              <div className="flex items-center justify-center mt-0.5 sm:mt-1">
+                                <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400" />
+                              </div>
+                            )}
+                          </div>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Show More/Less Button */}
+            {bettingMarkets.some((market) => market.options.some((option) => getOddsValue(option))) && (
+              <Button
+                variant="ghost"
+                onClick={() => setShowAllMarkets(!showAllMarkets)}
+                className="w-full bg-white/5 hover:bg-white/10 text-white border border-white/20 hover:border-white/40 rounded-lg sm:rounded-xl py-2 transition-all duration-300"
+              >
+                {showAllMarkets ? (
+                  <>
+                    <ChevronUp className="w-4 h-4 mr-2" />
+                    Show Less Markets
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                    Show More Markets (
+                    {bettingMarkets.filter((market) => market.options.some((option) => getOddsValue(option))).length -
+                      1}{" "}
+                    more)
+                  </>
+                )}
+              </Button>
+            )}
 
             {/* Odds Summary */}
             <div className="bg-gradient-to-r from-gray-900/50 to-gray-800/50 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 border border-white/10">

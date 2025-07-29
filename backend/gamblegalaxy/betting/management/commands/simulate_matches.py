@@ -58,3 +58,47 @@ class Command(BaseCommand):
                 else:
                     bet.status = 'lost'
                 bet.save()
+
+
+def grade_selections_for_match(match):
+    selections = BetSelection.objects.filter(match=match)
+    for selection in selections:
+        is_correct = False
+        home = match.score_home
+        away = match.score_away
+
+        if selection.selected_option == 'home_win':
+            is_correct = home > away
+        elif selection.selected_option == 'draw':
+            is_correct = home == away
+        elif selection.selected_option == 'away_win':
+            is_correct = away > home
+        elif selection.selected_option == 'over_2.5':
+            is_correct = (home + away) > 2.5
+        elif selection.selected_option == 'under_2.5':
+            is_correct = (home + away) < 2.5
+        elif selection.selected_option == 'btts_yes':
+            is_correct = home > 0 and away > 0
+        elif selection.selected_option == 'btts_no':
+            is_correct = home == 0 or away == 0
+        elif selection.selected_option == 'home_or_draw':
+            is_correct = home >= away
+        elif selection.selected_option == 'draw_or_away':
+            is_correct = away >= home
+        elif selection.selected_option == 'home_or_away':
+            is_correct = home != away
+        elif selection.selected_option == 'score_1_0':
+            is_correct = home == 1 and away == 0
+        elif selection.selected_option == 'score_2_1':
+            is_correct = home == 2 and away == 1
+        elif selection.selected_option == 'score_0_0':
+            is_correct = home == 0 and away == 0
+        elif selection.selected_option == 'score_1_1':
+            is_correct = home == 1 and away == 1
+        elif selection.selected_option == 'ht_ft_home_home':
+            is_correct = match.status == 'fulltime' and home > away  # You should track HT/FT separately for accuracy
+        # Add more conditions if needed
+
+        selection.is_correct = is_correct
+        selection.save()
+
