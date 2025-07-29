@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import AviatorRound, AviatorBet
 from .models import SureOdd, SureOddPurchase
+from .models import CrashMultiplierSetting
 
 
 
@@ -22,5 +23,10 @@ class SureOddPurchaseAdmin(admin.ModelAdmin):
     @admin.display(description='Status')
     def status_display(self, obj):
         return obj.status()
+    
+@admin.register(CrashMultiplierSetting)
+class CrashMultiplierSettingAdmin(admin.ModelAdmin):
+    list_display = ('min_value', 'max_value', 'weight')
+
 
 

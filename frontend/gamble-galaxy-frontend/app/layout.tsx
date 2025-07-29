@@ -1,32 +1,39 @@
-"use client"
+"use client";
 
-import { usePathname } from "next/navigation"
-import { Navbar } from "@/components/layout/navbar"
-import { WalletProvider } from "@/context/WalletContext"
-import { useAuth } from "@/lib/auth"
-import { useEffect } from "react"
-import "./globals.css"
-import { Toaster } from "sonner"
+import { usePathname } from "next/navigation";
+import { Navbar } from "@/components/layout/navbar";
+import { WalletProvider } from "@/context/WalletContext";
+import { useAuth } from "@/lib/auth";
+import { useEffect } from "react";
+import "./globals.css";
+import { Toaster } from "sonner";
 
-const excludeNavbarRoutes = ["/auth/login", "/auth/register"]
+const excludeNavbarRoutes = ["/auth/login", "/auth/register"];
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const pathname = usePathname()
-  const { loadUser, isLoading } = useAuth()
+  const pathname = usePathname();
+  const { loadUser, isLoading } = useAuth();
 
   // Sync user session on mount
   useEffect(() => {
-    loadUser()
-  }, [loadUser])
+    loadUser();
+  }, [loadUser]);
 
   // Loading state
   if (isLoading) {
     return (
       <html lang="en">
+        <head>
+          <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+            rel="stylesheet"
+          />
+          <link rel="icon" href="/assets/images/home.png" />
+        </head>
         <body className="bg-gray-900 text-white">
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
@@ -36,11 +43,18 @@ export default function RootLayout({
           </div>
         </body>
       </html>
-    )
+    );
   }
 
   return (
     <html lang="en">
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+        <link rel="icon" href="/assets/images/home.png" />
+      </head>
       <body className="bg-gray-900 text-white font-sans antialiased">
         <WalletProvider>
           {/* Optional Navbar */}
@@ -77,5 +91,5 @@ export default function RootLayout({
         </WalletProvider>
       </body>
     </html>
-  )
+  );
 }

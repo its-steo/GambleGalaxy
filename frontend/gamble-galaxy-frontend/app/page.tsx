@@ -211,7 +211,7 @@ export default function HomePage() {
                     </div>
                   </div>
                   <Link href="/games/aviator">
-                    <Button className="w-full bg-white text-purple-900 hover:bg-gray-100 py-2.5 xs:py-3 text-sm xs:text-base sm:text-lg font-semibold rounded-lg xs:rounded-xl transition-all duration-300 hover:scale-105">
+                    <Button className="w-full bg-blue text-purple-900 hover:bg-gray-100 py-2.5 xs:py-3 text-sm xs:text-base sm:text-lg font-semibold rounded-lg xs:rounded-xl transition-all duration-300 hover:scale-105">
                       Play Now
                     </Button>
                   </Link>
@@ -242,7 +242,7 @@ export default function HomePage() {
                     </div>
                   </div>
                   <Link href="/betting">
-                    <Button className="w-full bg-white text-green-900 hover:bg-gray-100 py-2.5 xs:py-3 text-sm xs:text-base sm:text-lg font-semibold rounded-lg xs:rounded-xl transition-all duration-300 hover:scale-105">
+                    <Button className="w-full bg-blue text-green-900 hover:bg-gray-100 py-2.5 xs:py-3 text-sm xs:text-base sm:text-lg font-semibold rounded-lg xs:rounded-xl transition-all duration-300 hover:scale-105">
                       Bet Now
                     </Button>
                   </Link>

@@ -4,11 +4,9 @@ import random
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.db import transaction
-from django.db.models import F
-
-from .models import AviatorRound, AviatorBet, SureOdd
+from django.utils import timezone
+from .models import AviatorRound, AviatorBet, SureOdd, CrashMultiplierSetting
 from wallet.models import Wallet, Transaction
-
 
 class AviatorConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -46,15 +44,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             })
             await asyncio.sleep(5)
 
-            ranges = [(1.00, 2.00), (2.01, 5.00), (5.01, 20.00), (20.01, 1000.00)]
-            weights = [80, 12, 7, 1]
-            selected_range = random.choices(ranges, weights=weights, k=1)[0]
-            crash_multiplier = round(random.uniform(*selected_range), 2)
-
-            sure_odd = await self.get_verified_sure_odd()
-            if sure_odd:
-                crash_multiplier = float(sure_odd)
-
+            crash_multiplier = await self.generate_crash_multiplier()
             aviator_round = await database_sync_to_async(AviatorRound.objects.create)(
                 crash_multiplier=crash_multiplier
             )
@@ -82,6 +72,8 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     'round_id': aviator_round.id,
                 })
 
+                await self.auto_cashout(multiplier, aviator_round)
+
             await self.channel_layer.group_send(self.room_group_name, {
                 'type': 'send_to_group',
                 'type_override': 'crash',
@@ -94,6 +86,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_send(self.room_group_name, {
                 'type': 'send_to_group',
                 'type_override': 'round_summary',
+                'crash_multiplier': crash_multiplier,
                 'message': 'Round complete. Preparing next...',
             })
 
@@ -118,6 +111,10 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": "Round is not active."}))
             return
 
+        if await self.get_existing_bet(user, aviator_round):
+            await self.send(json.dumps({"error": "You already placed a bet in this round."}))
+            return
+
         success, wallet = await self.withdraw_wallet(user, amount)
         if not success:
             await self.send(json.dumps({"error": "Insufficient balance."}))
@@ -126,21 +123,26 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         bet = await database_sync_to_async(AviatorBet.objects.create)(
             user=user,
             round=aviator_round,
-            amount=amount
+            amount=amount,
+            auto_cashout=data.get("auto_cashout")
         )
 
         await database_sync_to_async(Transaction.objects.create)(
             wallet=wallet,
-            amount=amount,
-            transaction_type='withdraw',
+            amount=-amount,
+            transaction_type='bet',
+            description='Placed bet on Aviator'
         )
 
         await self.send(json.dumps({
+            "type": "bet_placed",
             "message": "Bet placed successfully",
             "round_id": round_id,
             "amount": amount,
-            "bet_id": bet.id
+            "bet_id": bet.id,
+            "new_balance": wallet.balance  
         }))
+
 
     async def cashout_bet(self, data):
         user = self.scope["user"]
@@ -153,12 +155,11 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": "Bet not found."}))
             return
 
-        if bet.cash_out_multiplier:
+        if bet.cash_out_multiplier is not None:
             await self.send(json.dumps({"error": "Already cashed out."}))
             return
 
-        crash = bet.round.crash_multiplier
-        if multiplier >= crash:
+        if multiplier >= bet.round.crash_multiplier:
             await self.send(json.dumps({"error": "Too late, crashed!"}))
             return
 
@@ -174,14 +175,40 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         await database_sync_to_async(Transaction.objects.create)(
             wallet=wallet,
             amount=win_amount,
-            transaction_type='deposit',
+            transaction_type='cashout',
+            description='Cashed out from Aviator'
         )
 
         await self.send(json.dumps({
+            "type": "cash_out_success",
             "message": "Cashout successful",
             "win_amount": win_amount,
-            "multiplier": multiplier
+            "multiplier": multiplier,
+            "new_balance": wallet.balance  # 👈 Include updated wallet
         }))
+
+
+    async def auto_cashout(self, current_multiplier, aviator_round):
+        bets = await database_sync_to_async(list)(aviator_round.bets.filter(
+            cash_out_multiplier__isnull=True,
+            auto_cashout__lte=current_multiplier
+        ))
+
+        for bet in bets:
+            win_amount = round(float(bet.amount) * bet.auto_cashout, 2)
+            bet.cash_out_multiplier = bet.auto_cashout
+            bet.final_multiplier = bet.auto_cashout
+            bet.is_winner = True
+            await database_sync_to_async(bet.save)()
+
+            wallet = await self.deposit_wallet(bet.user, win_amount)
+
+            await database_sync_to_async(Transaction.objects.create)(
+                wallet=wallet,
+                amount=win_amount,
+                transaction_type='cashout',
+                description='Auto-cashout on Aviator'
+            )
 
     @database_sync_to_async
     def withdraw_wallet(self, user, amount):
@@ -202,10 +229,15 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             return wallet
 
     @database_sync_to_async
+    def get_wallet(self, user):
+        return Wallet.objects.get(user=user)
+
+    @database_sync_to_async
     def end_round(self, round_id):
         try:
-            aviator_round = AviatorRound.objects.get(id=round_id)
+            aviator_round = AviatorRound.objects.select_related().get(id=round_id)
             aviator_round.is_active = False
+            aviator_round.ended_at = timezone.now()
             aviator_round.save()
 
             for bet in aviator_round.bets.filter(cash_out_multiplier__isnull=True):
@@ -231,3 +263,30 @@ class AviatorConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_bet(self, bet_id):
         return AviatorBet.objects.get(id=bet_id)
+
+    @database_sync_to_async
+    def get_existing_bet(self, user, round):
+        return AviatorBet.objects.filter(user=user, round=round).first()
+
+    @database_sync_to_async
+    def get_crash_multiplier_settings(self):
+        return list(CrashMultiplierSetting.objects.all())
+
+    async def generate_crash_multiplier(self):
+        settings = await self.get_crash_multiplier_settings()
+        if settings:
+            selected_range = random.choices(
+                settings,
+                weights=[s.weight for s in settings],
+                k=1
+            )[0]
+            min_val = selected_range.min_value
+            max_val = selected_range.max_value
+        else:
+            min_val, max_val = 1.00, 2.00
+
+        sure_odd = await self.get_verified_sure_odd()
+        if sure_odd:
+            return float(sure_odd)
+
+        return round(random.uniform(min_val, max_val), 2)
