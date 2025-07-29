@@ -1,0 +1,92 @@
+# Django-specific files
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.sqlite3
+*.db
+migrations/
+*.log
+local_settings.py
+*.env
+.env
+.env.local
+.env.*.local
+*.env.bak
+env/
+venv/
+ENV/
+.venv/
+
+# Django media and static files
+media/
+staticfiles/
+collected_static/
+
+# Python virtual environment
+venv/
+.env/
+*.venv/
+
+# Django database and cache
+*.sqlite3-journal
+*.cache
+*.bak
+*.swp
+*~
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python package management
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg-info
+pip-wheel-metadata/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing and coverage
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.tox/
+.nox/
+htmlcov/
+.pytest_cache/
+.coverage/
+*.mo
+*.pot
+
+# Documentation
+docs/_build/
+docs/build/
+
+# Miscellaneous
+*.bak
+*.swp
+*.swo
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Django-specific temporary files
+*.pid
+*.seed
+*.pid.lock
