@@ -1,22 +1,33 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { AviatorGame } from "@/components/games/aviator-game"
-import { useAuth } from "@/lib/auth"
-import { Plane } from "lucide-react"
+import { useEffect, useState } from "react";
+import { AviatorGame } from "@/components/games/aviator-game";
+import { useAuth } from "@/lib/auth";
+import { Plane } from "lucide-react";
 
 export default function AviatorPage() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth()
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [stars, setStars] = useState<{ left: string; top: string; delay: string; duration: string }[]>([]);
 
-  // Mouse tracking for interactive background
+  // Mouse tracking and stars generation (client-side only)
   useEffect(() => {
+    // Generate stars
+    const generatedStars = [...Array(20)].map(() => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 3}s`,
+      duration: `${2 + Math.random() * 3}s`,
+    }));
+    setStars(generatedStars);
+
+    // Mouse tracking
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
-    }
-    window.addEventListener("mousemove", handleMouseMove)
-    return () => window.removeEventListener("mousemove", handleMouseMove)
-  }, [])
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   // Show loading while authentication is being checked
   if (authLoading) {
@@ -45,7 +56,7 @@ export default function AviatorPage() {
           <p className="text-slate-400 text-sm sm:text-base">Checking authentication</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Show login prompt if not authenticated
@@ -68,13 +79,13 @@ export default function AviatorPage() {
           <p className="text-slate-400 text-sm sm:text-base mb-4">Please log in to play Aviator</p>
           <button
             onClick={() => (window.location.href = "/auth/login")}
-            className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold py-2 px-6 rounded-lg transition-all duration-300"
+            className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-600 text-white font-bold py-2 px-6 rounded-lg transition-all duration-300"
           >
             Go to Login
           </button>
         </div>
       </div>
-    )
+    );
   }
 
   // Main content once authenticated
@@ -83,28 +94,30 @@ export default function AviatorPage() {
       {/* Interactive background */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
-        <div
-          className="absolute w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 bg-purple-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
-          style={{
-            left: mousePosition.x - 96,
-            top: mousePosition.y - 96,
-          }}
-        />
+        {mousePosition.x !== 0 || mousePosition.y !== 0 ? (
+          <div
+            className="absolute w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 bg-purple-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
+            style={{
+              left: mousePosition.x - 96,
+              top: mousePosition.y - 96,
+            }}
+          />
+        ) : null}
         <div className="absolute top-1/4 left-1/4 w-36 h-36 sm:w-48 sm:h-48 lg:w-72 lg:h-72 bg-pink-500/10 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
       {/* Animated stars */}
       <div className="fixed inset-0 z-0">
-        {[...Array(20)].map((_, i) => (
+        {stars.map((star, i) => (
           <div
             key={i}
             className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${2 + Math.random() * 3}s`,
+              left: star.left,
+              top: star.top,
+              animationDelay: star.delay,
+              animationDuration: star.duration,
             }}
           />
         ))}
@@ -115,5 +128,5 @@ export default function AviatorPage() {
         <AviatorGame />
       </div>
     </div>
-  )
+  );
 }
