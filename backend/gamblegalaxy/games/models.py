@@ -1,27 +1,30 @@
 from django.db import models
-from django.contrib.auth import get_user_model
 from django.utils import timezone
-import random
 from django.conf import settings
+import random
 
 class AviatorRound(models.Model):
     start_time = models.DateTimeField(default=timezone.now)
     crash_multiplier = models.FloatField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
-    ended_at = models.DateTimeField(null=True, blank=True)  # ⬅️ New field to mark when round ended
-    delay_before_next = models.PositiveIntegerField(default=5)  # ⬅️ Delay in seconds before next round starts
+    ended_at = models.DateTimeField(null=True, blank=True)
+    delay_before_next = models.PositiveIntegerField(default=5)
 
     def save(self, *args, **kwargs):
         if not self.crash_multiplier:
-            ranges = [
-                (1.00, 2.00),
-                (3.01, 10.00),
-                (10.01, 30.00),
-                (30.01, 1000.00)
-            ]
-            weights = [80, 12, 7, 1]
-            selected_range = random.choices(ranges, weights=weights, k=1)[0]
-            self.crash_multiplier = round(random.uniform(*selected_range), 2)
+            from .models import CrashMultiplierSetting
+            settings_qs = CrashMultiplierSetting.objects.all()
+            if settings_qs.exists():
+                ranges = [(s.min_value, s.max_value) for s in settings_qs]
+                weights = [s.weight for s in settings_qs]
+                selected_range = random.choices(ranges, weights=weights, k=1)[0]
+                self.crash_multiplier = round(random.uniform(*selected_range), 2)
+            else:
+                # Fallback default
+                ranges = [(1.00, 3.00), (3.01, 10.00), (10.01, 30.00), (30.01, 1000.00)]
+                weights = [80, 12, 7, 1]
+                selected_range = random.choices(ranges, weights=weights, k=1)[0]
+                self.crash_multiplier = round(random.uniform(*selected_range), 2)
 
         super().save(*args, **kwargs)
 
@@ -41,9 +44,6 @@ class AviatorRound(models.Model):
             return "purple"
 
     def should_start_new_round(self):
-        """
-        Helper method to determine if new round should start after delay.
-        """
         if self.ended_at:
             return (timezone.now() - self.ended_at).total_seconds() >= self.delay_before_next
         return False
@@ -93,17 +93,6 @@ class SureOdd(models.Model):
         return f"{self.user.username} - {self.odd} - Verified: {self.verified_by_admin}"
 
 
-class TransactionLog(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transaction_logs')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    reason = models.CharField(max_length=255)
-    balance_after = models.DecimalField(max_digits=10, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.user.username} - {self.reason} - {self.amount}"
-    
-    # In games/models.py
 class SureOddPurchase(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sure_odd_purchases')
     odd_value = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -121,3 +110,26 @@ class SureOddPurchase(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.odd_value or 'Pending'}"
 
+
+class TransactionLog(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transaction_logs')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.CharField(max_length=255)
+    balance_after = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.reason} - {self.amount}"
+
+
+class CrashMultiplierSetting(models.Model):
+    min_value = models.FloatField()
+    max_value = models.FloatField()
+    weight = models.PositiveIntegerField(help_text="Relative weight for this range (e.g. 80 = 80%)")
+
+    class Meta:
+        verbose_name = "Crash Multiplier Setting"
+        verbose_name_plural = "Crash Multiplier Settings"
+
+    def __str__(self):
+        return f"{self.min_value:.2f}x - {self.max_value:.2f}x ({self.weight}%)"
