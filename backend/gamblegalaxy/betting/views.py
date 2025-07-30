@@ -45,7 +45,7 @@ def auto_generate_sure_odds_for_user(user):
 
     matches = Match.objects.filter(match_time__gt=timezone.now()).order_by('match_time')[:5]
     if matches.exists():
-        slip = SureOddSlip.objects.create(user=user, amount_paid=100)
+        slip = SureOddSlip.objects.create(user=user, amount_paid=10000)
         slip.matches.set(matches)
         # Generate predictions for each match
         for match in matches:

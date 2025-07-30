@@ -69,7 +69,7 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
   // Load sure odds and wallet balance when modal opens
   useEffect(() => {
     if (isOpen) {
-      loadSureOdds()
+      //loadSureOdds()
       fetchWalletBalance()
     }
   }, [isOpen, fetchWalletBalance])

@@ -27,8 +27,8 @@ import { toast } from "sonner"
 
 interface MatchCardProps {
   match: Match
-  onAddToBetSlip: (match: Match, option: string) => void
-  selectedOptions: Record<number, string>
+  onAddToBetSlip: (match: Match, option: "home_win" | "draw" | "away_win") => void
+  selectedOptions: Record<number, "home_win" | "draw" | "away_win">
 }
 
 export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardProps) {
@@ -119,11 +119,20 @@ export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardP
   const isLive = match.status === "first_half" || match.status === "second_half"
 
   const handleAddToBetSlip = (option: string) => {
-    onAddToBetSlip(match, option)
-    toast.success("Added to bet slip! 🎯", {
-      description: `${match.home_team} vs ${match.away_team} - ${getOptionLabel(option)}`,
-      className: "bg-green-500/90 text-white border-green-400",
-    })
+    // Only allow main market options to be added to bet slip
+    if (["home_win", "draw", "away_win"].includes(option)) {
+      onAddToBetSlip(match, option as "home_win" | "draw" | "away_win")
+      toast.success("Added to bet slip! 🎯", {
+        description: `${match.home_team} vs ${match.away_team} - ${getOptionLabel(option)}`,
+        className: "bg-green-500/90 text-white border-green-400",
+      })
+    } else {
+      // Handle other betting options (e.g., show a different UI or toast)
+      toast.info(`${getOptionLabel(option)} selected`, {
+        description: "This market is not supported in the bet slip yet.",
+        className: "bg-blue-500/90 text-white border-blue-400",
+      })
+    }
   }
 
   const handleShare = () => {
@@ -221,7 +230,7 @@ Join the action! 🚀`
       match.odds_score_1_1,
     ].filter((odds) => odds && Number.parseFloat(odds) > 0)
 
-    return Math.max(...allOdds.map((odds) => Number.parseFloat(odds)))
+   return Math.max(...allOdds.filter((odds): odds is string => typeof odds === "string").map((total_odds) => Number.parseFloat(total_odds)))
   }
 
   // Define betting markets

@@ -126,7 +126,7 @@ class BetSelection(models.Model):
 class SureOddPrediction(models.Model):
     slip = models.ForeignKey('SureOddSlip', related_name='predictions', on_delete=models.CASCADE)
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
-    predicted_option = models.CharField(max_length=30, choices=BetSelection.BET_CHOICES)
+    predicted_option = models.CharField(max_length=50, choices=BetSelection.BET_CHOICES)
 
     def __str__(self):
         return f"S slip #{self.slip.code} - {self.match} - {self.predicted_option}"

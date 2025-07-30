@@ -86,7 +86,7 @@ export interface BetSelection {
 }
 
 export interface Bet {
-  odds: string; // Total odds for the bet
+  odds: ReactNode; // Total odds for the bet
   match: Match; // Replaced any with Match type
   id: number;
   user: number;
