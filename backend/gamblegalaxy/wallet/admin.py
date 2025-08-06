@@ -11,4 +11,3 @@ class TransactionAdmin(admin.ModelAdmin):
     list_display = ('user', 'transaction_type', 'amount', 'timestamp')
     list_filter = ('transaction_type',)
     ordering = ('-timestamp',)
-

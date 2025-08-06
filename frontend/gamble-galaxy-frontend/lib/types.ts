@@ -37,44 +37,72 @@ export interface Transaction {
   description?: string;
 }
 
+// Dashboard Types
+export interface RecentActivity {
+  id: number;
+  activity_type: string;
+  game_type?: string;
+  amount: number;
+  multiplier?: number;
+  description: string;
+  status: string;
+  timestamp: string;
+}
+
+export interface TopWinner {
+  id: number;
+  username: string;
+  avatar?: string;
+  amount: number;
+  game_type: string;
+  multiplier?: number;
+  timestamp: string;
+}
+
+export interface DashboardStats {
+  totalBalance: number;
+  totalBets: number;
+  totalWinnings: number;
+  totalLosses: number;
+  winRate: number;
+  activeBets: number;
+  netProfit: number;
+  recentActivities: RecentActivity[];
+  topWinners: TopWinner[];
+}
+
 // Betting Types
 export interface Match {
-  id: number
-  home_team: string
-  away_team: string
-  match_time: string
-  status: string
-  score_home: number
-  score_away: number
-
+  id: number;
+  home_team: string;
+  away_team: string;
+  match_time: string;
+  status: string;
+  score_home: number;
+  score_away: number;
   // Standard 1X2 odds
-  odds_home_win: string
-  odds_draw: string
-  odds_away_win: string
-
+  odds_home_win: string;
+  odds_draw: string;
+  odds_away_win: string;
   // Goals
-  odds_over_2_5?: string
-  odds_under_2_5?: string
-
+  odds_over_2_5?: string;
+  odds_under_2_5?: string;
   // BTTS
-  odds_btts_yes?: string
-  odds_btts_no?: string
-
+  odds_btts_yes?: string;
+  odds_btts_no?: string;
   // Double Chance
-  odds_home_or_draw?: string
-  odds_draw_or_away?: string
-  odds_home_or_away?: string
-
+  odds_home_or_draw?: string;
+  odds_draw_or_away?: string;
+  odds_home_or_away?: string;
   // Half Time / Full Time
-  odds_ht_ft_home_home?: string
-  odds_ht_ft_draw_draw?: string
-  odds_ht_ft_away_away?: string
-
+  odds_ht_ft_home_home?: string;
+  odds_ht_ft_draw_draw?: string;
+  odds_ht_ft_away_away?: string;
   // Correct Score
-  odds_score_1_0?: string
-  odds_score_2_1?: string
-  odds_score_0_0?: string
-  odds_score_1_1?: string
+  odds_score_1_0?: string;
+  odds_score_2_1?: string;
+  odds_score_0_0?: string;
+  odds_score_1_1?: string;
 }
 
 export interface BetSelection {
@@ -86,30 +114,31 @@ export interface BetSelection {
 }
 
 export interface Bet {
-  odds: ReactNode; // Total odds for the bet
-  match: Match; // Replaced any with Match type
   id: number;
   user: number;
   amount: string;
   total_odds: string;
-  status:string; // "pending" | "won" | "lost"
+  status: string; // "pending" | "won" | "lost"
   placed_at: string;
+  expected_payout?: number;
   selections: BetSelection[];
 }
 
 export interface SureOddSlip {
-  code: string
+  id: number;
+  code: string;
+  paid: boolean;
+  show_predictions: boolean;
+  allow_payment: boolean;
+  dismiss: boolean;
   matches: Array<{
-    home_team: string
-    away_team: string
-    match_time: string
-    prediction?: string
-  }>
-  amount_paid: number
-  paid: boolean
-  show_predictions: boolean
-  allow_payment: boolean
-  dismiss: boolean
+    id: number;
+    home_team: string;
+    away_team: string;
+    match_time: string;
+    prediction?: string;
+    odds: string;
+  }>;
 }
 
 // Aviator Game Types
@@ -130,15 +159,10 @@ export interface AviatorBet {
   amount: string;
   auto_cashout?: number;
   cashed_out_at?: number;
+  cash_out_multiplier?: number;
   is_winner: boolean;
   created_at: string;
-}
-
-export interface TopWinner {
-  username: string;
-  avatar?: string;
-  amount: string;
-  cashed_out_at: number;
+  win_amount?: () => number;
 }
 
 export interface SureOdd {
@@ -169,22 +193,29 @@ export interface RecentCashout {
 
 export type WebSocketMessage =
   | { type: "multiplier"; live_players: LivePlayer[]; multiplier: number; round_id: number }
-  | { type: "crash"; crash_multiplier: number }
-  | { type: "manual_cashout_success"; message: string }
-  | { type: "manual_cashout_error"; error: string }
-  | { type: "cash_out_error"; message: string; error: string }
+  | { type: "crash"; crash_multiplier: number; round_id: number }
+  | { type: "manual_cashout_success"; message: string; win_amount: number; multiplier: number; new_balance: number; bet_id: number }
+  | { type: "manual_cashout_error"; message: string; error: string }
   | { type: "balance_update"; balance: number }
-  | { type: "live_players"; players?: LivePlayer[]; count?: number }
+  | { type: "live_players"; players: LivePlayer[]; count?: number }
   | { type: "recent_cashouts"; cashouts: RecentCashout[] }
-  | { type: "new_bet"; bet: AviatorBet }
-  | { type: "game_state"; round_id: number; multiplier: number; is_active: boolean; live_players: LivePlayer[]; recent_cashouts: RecentCashout[]; count?: number }
-  | { type: "round_started"; round_id: number }
-  | { type: "bet_placed"; new_balance: number; amount: number }
+  | { type: "new_bet"; bet: { username: string; amount: number } }
+  | {
+      type: "game_state";
+      round_id: number | null;
+      multiplier: number;
+      is_active: boolean;
+      live_players: LivePlayer[];
+      recent_cashouts: RecentCashout[];
+      count?: number;
+    }
+  | { type: "round_started"; round_id: number; multiplier: number }
+  | { type: "bet_placed"; message: string; round_id: number; amount: number; bet_id: number; bet_number: 1 | 2; new_balance: number }
   | { type: "bet_error"; message: string; original_balance?: number }
-  | { type: "cash_out_success"; new_balance: number; win_amount: number; multiplier: number }
   | { type: "player_cashed_out"; recent_cashouts: RecentCashout[] }
+  | { type: "betting_open"; message: string; countdown: number; round_id: number; live_players?: LivePlayer[] }
+  | { type: "round_summary"; crash_multiplier: number; message: string; round_id: number }
   | { type: "pong" };
-
 
 export interface PremiumSureOddPurchase {
   id: string;

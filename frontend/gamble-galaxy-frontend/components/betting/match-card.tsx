@@ -5,30 +5,14 @@ import { Card } from "@/components/ui/card"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
 import type { Match } from "@/lib/types"
-import {
-  Clock,
-  Trophy,
-  Share2,
-  Zap,
-  TrendingUp,
-  Target,
-  Sparkles,
-  Users,
-  Calendar,
-  MapPin,
-  Star,
-  FlameIcon as Fire,
-  Eye,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react"
+import { Clock, Trophy, Share2, Zap, TrendingUp, Target, Sparkles, Users, Calendar, MapPin, Star, FlameIcon as Fire, Eye, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 interface MatchCardProps {
   match: Match
-  onAddToBetSlip: (match: Match, option: "home_win" | "draw" | "away_win") => void
-  selectedOptions: Record<number, "home_win" | "draw" | "away_win">
+  onAddToBetSlip: (match: Match, option: string) => void // Changed to accept any string
+  selectedOptions: Record<number, string> // Changed to accept any string
 }
 
 export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardProps) {
@@ -114,23 +98,33 @@ export function MatchCard({ match, onAddToBetSlip, selectedOptions }: MatchCardP
   }
 
   const isSelected = (option: string) => selectedOptions[match.id] === option
-
   const canBet = match.status === "upcoming"
   const isLive = match.status === "first_half" || match.status === "second_half"
 
   const handleAddToBetSlip = (option: string) => {
-    // Only allow main market options to be added to bet slip
-    if (["home_win", "draw", "away_win"].includes(option)) {
-      onAddToBetSlip(match, option as "home_win" | "draw" | "away_win")
+    try {
+      // Check if odds are available for this option
+      const odds = getOddsValue(option)
+      if (!odds || parseFloat(odds) <= 0) {
+        toast.error("Odds not available", {
+          description: "This market doesn't have valid odds",
+          className: "bg-red-500/90 text-white border-red-400",
+        })
+        return
+      }
+
+      // Add to bet slip - now supports all markets
+      onAddToBetSlip(match, option)
+      
       toast.success("Added to bet slip! 🎯", {
-        description: `${match.home_team} vs ${match.away_team} - ${getOptionLabel(option)}`,
+        description: `${match.home_team} vs ${match.away_team} - ${getOptionLabel(option)} @ ${parseFloat(odds).toFixed(2)}`,
         className: "bg-green-500/90 text-white border-green-400",
       })
-    } else {
-      // Handle other betting options (e.g., show a different UI or toast)
-      toast.info(`${getOptionLabel(option)} selected`, {
-        description: "This market is not supported in the bet slip yet.",
-        className: "bg-blue-500/90 text-white border-blue-400",
+    } catch (error) {
+      console.error("Error adding to bet slip:", error)
+      toast.error("Failed to add to bet slip", {
+        description: "Please try again",
+        className: "bg-red-500/90 text-white border-red-400",
       })
     }
   }
@@ -183,30 +177,30 @@ Join the action! 🚀`
       score_0_0: "Correct Score 0-0",
       score_1_1: "Correct Score 1-1",
     }
-    return labels[option] || option.replace("_", " ")
+    return labels[option] || option.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())
   }
 
   const getOddsValue = (option: string) => {
-    const oddsMap: Record<string, string> = {
-      home_win: match.odds_home_win ?? "",
-      draw: match.odds_draw ?? "",
-      away_win: match.odds_away_win ?? "",
-      "over_2.5": match.odds_over_2_5 ?? "",
-      "under_2.5": match.odds_under_2_5 ?? "",
-      btts_yes: match.odds_btts_yes ?? "",
-      btts_no: match.odds_btts_no ?? "",
-      home_or_draw: match.odds_home_or_draw ?? "",
-      draw_or_away: match.odds_draw_or_away ?? "",
-      home_or_away: match.odds_home_or_away ?? "",
-      ht_ft_home_home: match.odds_ht_ft_home_home ?? "",
-      ht_ft_draw_draw: match.odds_ht_ft_draw_draw ?? "",
-      ht_ft_away_away: match.odds_ht_ft_away_away ?? "",
-      score_1_0: match.odds_score_1_0 ?? "",
-      score_2_1: match.odds_score_2_1 ?? "",
-      score_0_0: match.odds_score_0_0 ?? "",
-      score_1_1: match.odds_score_1_1 ?? "",
+    const oddsMap: Record<string, string | undefined> = {
+      home_win: match.odds_home_win,
+      draw: match.odds_draw,
+      away_win: match.odds_away_win,
+      "over_2.5": match.odds_over_2_5,
+      "under_2.5": match.odds_under_2_5,
+      btts_yes: match.odds_btts_yes,
+      btts_no: match.odds_btts_no,
+      home_or_draw: match.odds_home_or_draw,
+      draw_or_away: match.odds_draw_or_away,
+      home_or_away: match.odds_home_or_away,
+      ht_ft_home_home: match.odds_ht_ft_home_home,
+      ht_ft_draw_draw: match.odds_ht_ft_draw_draw,
+      ht_ft_away_away: match.odds_ht_ft_away_away,
+      score_1_0: match.odds_score_1_0,
+      score_2_1: match.odds_score_2_1,
+      score_0_0: match.odds_score_0_0,
+      score_1_1: match.odds_score_1_1,
     }
-    return oddsMap[option]
+    return oddsMap[option] || ""
   }
 
   const getBestOdds = () => {
@@ -228,44 +222,64 @@ Join the action! 🚀`
       match.odds_score_2_1,
       match.odds_score_0_0,
       match.odds_score_1_1,
-    ].filter((odds) => odds && Number.parseFloat(odds) > 0)
+    ].filter((odds) => odds && parseFloat(odds) > 0)
 
-   return Math.max(...allOdds.filter((odds): odds is string => typeof odds === "string").map((total_odds) => Number.parseFloat(total_odds)))
+    return allOdds.length > 0 
+      ? Math.max(...allOdds.map((odds) => parseFloat(odds as string)))
+      : 0
   }
 
-  // Define betting markets
+  // Define betting markets with improved structure
   const bettingMarkets = [
     {
       title: "Match Result",
       options: ["home_win", "draw", "away_win"],
       icon: Trophy,
+      priority: 1,
     },
     {
       title: "Goals",
       options: ["over_2.5", "under_2.5"],
       icon: Target,
+      priority: 2,
     },
     {
       title: "Both Teams to Score",
       options: ["btts_yes", "btts_no"],
       icon: Zap,
+      priority: 3,
     },
     {
       title: "Double Chance",
       options: ["home_or_draw", "draw_or_away", "home_or_away"],
       icon: TrendingUp,
+      priority: 4,
     },
     {
       title: "Half Time / Full Time",
       options: ["ht_ft_home_home", "ht_ft_draw_draw", "ht_ft_away_away"],
       icon: Clock,
+      priority: 5,
     },
     {
       title: "Correct Score",
       options: ["score_1_0", "score_2_1", "score_0_0", "score_1_1"],
       icon: Star,
+      priority: 6,
     },
   ]
+
+  // Filter markets that have available odds
+  const availableMarkets = bettingMarkets
+    .map(market => ({
+      ...market,
+      availableOptions: market.options.filter(option => {
+        const odds = getOddsValue(option)
+        return odds && parseFloat(odds) > 0
+      })
+    }))
+    .filter(market => market.availableOptions.length > 0)
+    .sort((a, b) => a.priority - b.priority)
 
   return (
     <Card
@@ -279,7 +293,6 @@ Join the action! 🚀`
       <div className="relative p-3 sm:p-4 border-b border-white/10 bg-gradient-to-r from-purple-500/10 to-pink-500/10 overflow-hidden">
         {/* Background Animation */}
         <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 to-pink-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
         <div className="relative flex items-center justify-between">
           <div className="flex items-center space-x-2 sm:space-x-3">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
@@ -296,7 +309,6 @@ Join the action! 🚀`
               )}
             </div>
           </div>
-
           <div className="flex items-center space-x-1 sm:space-x-2">
             {getBestOdds() > 3 && (
               <div className="flex items-center px-1.5 sm:px-2 py-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-full border border-yellow-500/30">
@@ -407,11 +419,8 @@ Join the action! 🚀`
               </div>
             </div>
 
-            {/* Render each betting market */}
-            {bettingMarkets.map((market, marketIndex) => {
-              const availableOptions = market.options.filter((option) => getOddsValue(option))
-              if (availableOptions.length === 0) return null
-
+            {/* Render available betting markets */}
+            {availableMarkets.map((market, marketIndex) => {
               const isMainMarket = marketIndex === 0 // Match Result is always shown
               const shouldShow = isMainMarket || showAllMarkets
 
@@ -424,24 +433,22 @@ Join the action! 🚀`
                       <market.icon className="w-3 h-3 text-purple-400" />
                       <span className="text-white text-sm font-medium">{market.title}</span>
                     </div>
-                    {availableOptions.length > 0 && (
-                      <span className="text-xs text-gray-400">{availableOptions.length} options</span>
-                    )}
+                    <span className="text-xs text-gray-400">{market.availableOptions.length} options</span>
                   </div>
-
                   <div
                     className={cn(
                       "grid gap-2",
-                      availableOptions.length === 2
+                      market.availableOptions.length === 2
                         ? "grid-cols-2"
-                        : availableOptions.length === 3
+                        : market.availableOptions.length === 3
                           ? "grid-cols-3"
                           : "grid-cols-2 sm:grid-cols-4",
                     )}
                   >
-                    {availableOptions.map((option) => {
+                    {market.availableOptions.map((option) => {
                       const odds = getOddsValue(option)
                       const selected = isSelected(option)
+                      const oddsValue = parseFloat(odds || "0")
 
                       return (
                         <Button
@@ -462,16 +469,17 @@ Join the action! 🚀`
                               getOptionGradient(option),
                             )}
                           />
-
                           <div className="relative z-10">
-                            <span className="text-xs text-gray-400 mb-1 block truncate">{getOptionLabel(option)}</span>
+                            <span className="text-xs text-gray-400 mb-1 block truncate">
+                              {getOptionLabel(option)}
+                            </span>
                             <div className="flex items-center justify-center space-x-0.5 sm:space-x-1">
                               {selected && <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400" />}
                               <span className="font-bold text-sm sm:text-base">
-                                {Number.parseFloat(odds).toFixed(2)}
+                                {oddsValue.toFixed(2)}
                               </span>
                             </div>
-                            {Number.parseFloat(odds) > 3 && (
+                            {oddsValue > 3 && (
                               <div className="flex items-center justify-center mt-0.5 sm:mt-1">
                                 <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400" />
                               </div>
@@ -486,7 +494,7 @@ Join the action! 🚀`
             })}
 
             {/* Show More/Less Button */}
-            {bettingMarkets.some((market) => market.options.some((option) => getOddsValue(option))) && (
+            {availableMarkets.length > 1 && (
               <Button
                 variant="ghost"
                 onClick={() => setShowAllMarkets(!showAllMarkets)}
@@ -500,25 +508,24 @@ Join the action! 🚀`
                 ) : (
                   <>
                     <ChevronDown className="w-4 h-4 mr-2" />
-                    Show More Markets (
-                    {bettingMarkets.filter((market) => market.options.some((option) => getOddsValue(option))).length -
-                      1}{" "}
-                    more)
+                    Show More Markets ({availableMarkets.length - 1} more)
                   </>
                 )}
               </Button>
             )}
 
             {/* Odds Summary */}
-            <div className="bg-gradient-to-r from-gray-900/50 to-gray-800/50 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 border border-white/10">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Best Odds:</span>
-                <div className="flex items-center space-x-1">
-                  <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-green-400" />
-                  <span className="text-green-400 font-bold">{getBestOdds().toFixed(2)}</span>
+            {getBestOdds() > 0 && (
+              <div className="bg-gradient-to-r from-gray-900/50 to-gray-800/50 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 border border-white/10">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400">Best Odds:</span>
+                  <div className="flex items-center space-x-1">
+                    <TrendingUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-green-400" />
+                    <span className="text-green-400 font-bold">{getBestOdds().toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-6 sm:py-8">
@@ -542,7 +549,6 @@ Join the action! 🚀`
               <span>{Math.floor(Math.random() * 1000) + 200} views</span>
             </div>
           </div>
-
           <Button
             variant="ghost"
             onClick={handleShare}

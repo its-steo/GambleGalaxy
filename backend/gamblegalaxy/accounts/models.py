@@ -43,4 +43,3 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.transaction_type.title()} of {self.amount} on {self.timestamp}"
-

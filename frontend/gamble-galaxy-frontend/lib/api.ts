@@ -21,12 +21,37 @@ interface ApiResponse<T> {
   status: number
 }
 
+interface DashboardStats {
+  totalBalance: number
+  totalBets: number
+  totalWinnings: number
+  totalLosses: number
+  winRate: number
+  activeBets: number
+  netProfit: number
+  recentActivities: RecentActivity[]
+  topWinners: TopWinner[]
+}
+
+interface RecentActivity {
+  id: number
+  activity_type: string
+  game_type?: string
+  amount: number
+  multiplier?: number
+  description: string
+  status: string
+  timestamp: string
+}
+
 class ApiClient {
   private async getAccessToken(): Promise<string | null> {
+    if (typeof window === 'undefined') return null
     return localStorage.getItem("access_token")
   }
 
   private getRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null
     return localStorage.getItem("refresh_token")
   }
 
@@ -35,22 +60,28 @@ class ApiClient {
     if (!refresh) return null
 
     try {
+      console.log("🔄 Attempting to refresh access token...")
       const res = await fetch(`${API_BASE_URL}/accounts/token/refresh/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh }),
       })
+
       const data = await res.json()
+      console.log("🔄 Refresh response:", { status: res.status, data })
 
       if (res.ok && data.access) {
         localStorage.setItem("access_token", data.access)
+        console.log("✅ Access token refreshed successfully")
         return data.access
       } else {
+        console.log("❌ Token refresh failed, clearing tokens")
         localStorage.removeItem("access_token")
         localStorage.removeItem("refresh_token")
         return null
       }
-    } catch {
+    } catch (error) {
+      console.error("💥 Token refresh error:", error)
       return null
     }
   }
@@ -62,33 +93,72 @@ class ApiClient {
 
   async request<T>(endpoint: string, options: RequestInit = {}, retry = true): Promise<ApiResponse<T>> {
     try {
+      console.log(`🌐 Making API request to: ${API_BASE_URL}${endpoint}`)
+      console.log(`📤 Request options:`, {
+        method: options.method || 'GET',
+        headers: options.headers,
+        body: options.body,
+      })
+
       const headers: HeadersInit = {
         "Content-Type": "application/json",
         ...(options.headers || {}),
         ...(await this.getAuthHeaders()),
       }
 
+      console.log(`🔑 Final headers:`, headers)
+
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
       })
 
-      const data = await res.json()
+      console.log(`📥 Response status: ${res.status}`)
+      console.log(`📥 Response headers:`, Object.fromEntries(res.headers.entries()))
 
+      let data: any
+      const contentType = res.headers.get('content-type')
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json()
+        console.log(`📥 Response data:`, data)
+      } else {
+        const text = await res.text()
+        console.log(`📥 Response text:`, text)
+        data = { message: text }
+      }
+
+      // Handle 401 with retry
       if (res.status === 401 && retry) {
+        console.log("🔄 Got 401, attempting token refresh...")
         const newAccess = await this.refreshAccessToken()
         if (newAccess) {
+          console.log("🔄 Retrying request with new token...")
           return this.request<T>(endpoint, options, false) // retry once
         }
       }
 
-      return {
+      const result: ApiResponse<T> = {
         data: res.ok ? data : undefined,
-        error: !res.ok ? data?.detail || data?.message || "An error occurred" : undefined,
+        error: !res.ok ? data?.detail || data?.message || data?.error || `HTTP ${res.status}` : undefined,
         status: res.status,
       }
-    } catch {
-      return { error: "Network error", status: 0 }
+
+      console.log(`📋 Final API result:`, result)
+      return result
+
+    } catch (error) {
+      console.error("💥 Network error in API request:", error)
+      console.error("💥 Error details:", {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      })
+
+      return { 
+        error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
+        status: 0 
+      }
     }
   }
 
@@ -115,6 +185,19 @@ class ApiClient {
     return this.request<{ exists: boolean }>(`/accounts/check-username/?username=${username}`)
   }
 
+  // ✅ Dashboard
+  async getDashboardStats() {
+    return this.request<DashboardStats>("/dashboard/stats/")
+  }
+
+  async getRecentActivity() {
+    return this.request<RecentActivity[]>("/dashboard/activity/")
+  }
+
+  async getTopWinners() {
+    return this.request<TopWinner[]>("/dashboard/top-winners/")
+  }
+
   // ✅ Wallet
   async getWallet() {
     return this.request<Wallet>("/wallet/")
@@ -138,16 +221,59 @@ class ApiClient {
     return this.request<Transaction[]>("/transactions/")
   }
 
-  // ✅ Betting
+  // ✅ Betting - FIXED
   async getMatches() {
     return this.request<Match[]>("/betting/matches/")
   }
 
   async placeBet(betData: { amount: number; selections: Array<{ match_id: number; selected_option: string }> }) {
-    return this.request<Bet>("/betting/place/", {
-      method: "POST",
-      body: JSON.stringify(betData),
-    })
+    console.log("🎯 placeBet called with:", betData)
+    
+    // Validate bet data
+    if (!betData.amount || betData.amount <= 0) {
+      console.error("❌ Invalid bet amount:", betData.amount)
+      return {
+        error: "Invalid bet amount",
+        status: 400
+      }
+    }
+
+    if (!betData.selections || betData.selections.length === 0) {
+      console.error("❌ No selections provided")
+      return {
+        error: "No selections provided",
+        status: 400
+      }
+    }
+
+    // Validate each selection
+    for (const selection of betData.selections) {
+      if (!selection.match_id || !selection.selected_option) {
+        console.error("❌ Invalid selection:", selection)
+        return {
+          error: "Invalid selection data",
+          status: 400
+        }
+      }
+    }
+
+    console.log("✅ Bet data validation passed")
+
+    try {
+      const result = await this.request<Bet>("/betting/place/", {
+        method: "POST",
+        body: JSON.stringify(betData),
+      })
+
+      console.log("🎯 placeBet result:", result)
+      return result
+    } catch (error) {
+      console.error("💥 Error in placeBet:", error)
+      return {
+        error: `Failed to place bet: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        status: 0
+      }
+    }
   }
 
   async getBetHistory() {
@@ -191,7 +317,7 @@ class ApiClient {
     )
   }
 
-  async getTopWinners() {
+  async getAviatorTopWinners() {
     return this.request<TopWinner[]>("/games/aviator/top-winners/")
   }
 

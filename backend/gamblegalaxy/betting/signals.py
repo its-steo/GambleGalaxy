@@ -37,4 +37,3 @@ def create_sure_odd_slips(sender, instance, created, **kwargs):
                 matches = Match.objects.order_by('?')[:3]
                 slip.matches.set(matches)
                 slip.save()
-
