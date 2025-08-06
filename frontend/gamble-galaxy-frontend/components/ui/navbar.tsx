@@ -39,17 +39,7 @@ export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
           {/* Mobile Menu Button & Logo */}
           <div className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-4">
             {/* Mobile Menu Toggle - Only show on mobile */}
-            <Button
-              onClick={onMobileMenuToggle}
-              className="lg:hidden bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 p-1.5 xs:p-2 rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300"
-            >
-              {isMobileMenuOpen ? (
-                <X className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" />
-              ) : (
-                <Menu className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" />
-              )}
-            </Button>
-
+           
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-3 group">
               <div className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-md xs:rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
