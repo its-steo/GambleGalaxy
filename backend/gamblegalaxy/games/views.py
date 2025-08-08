@@ -22,16 +22,13 @@ logger = logging.getLogger(__name__)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def start_aviator_round(request):
-    """
-    Starts a new Aviator round with a weighted random crash multiplier.
-    """
     ranges = [
         (1.00, 2.00),    # Most frequent
         (3.01, 10.00),   # Less frequent
         (10.01, 30.00),  # Rare
         (30.01, 1000.00) # Very rare
     ]
-    weights = [80, 12, 7, 1]  # Corresponding weights (can be adjusted)
+    weights = [80, 12, 7, 1]
 
     selected_range = random.choices(ranges, weights=weights, k=1)[0]
     crash = round(random.uniform(*selected_range), 2)
@@ -73,15 +70,12 @@ def place_aviator_bet(request):
             if wallet.balance < amount_decimal:
                 return Response({'error': 'Insufficient wallet balance.'}, status=400)
 
-            # Deduct from wallet
             wallet.balance -= amount_decimal
             wallet.save()
 
-            # Debug: Log Transaction model fields and parameters
             print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
             print(f"Creating transaction for user: {user.username}, amount: {-amount_decimal}, type: withdraw")
 
-            # Record transaction
             try:
                 Transaction.objects.create(
                     user=user,
@@ -93,7 +87,6 @@ def place_aviator_bet(request):
                 logger.exception("Error creating transaction")
                 return Response({'error': f'Failed to create transaction: {str(e)}'}, status=500)
 
-            # Save bet
             bet = AviatorBet.objects.create(
                 user=user,
                 round=aviator_round,
@@ -101,7 +94,6 @@ def place_aviator_bet(request):
                 auto_cashout=data.get('auto_cashout')
             )
 
-            # Debug: Log serializer fields
             print(f"AviatorBetSerializer fields: {AviatorBetSerializer().get_fields().keys()}")
 
             serializer = AviatorBetSerializer(bet)
@@ -117,10 +109,6 @@ def place_aviator_bet(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def cashout_aviator_bet(request):
-    """
-    Cash out a bet before the plane crashes.
-    """
-    # Debug: Log incoming request data
     print(f"cashout_aviator_bet request.data: {request.data}")
 
     bet_id = request.data.get('bet_id')
@@ -130,7 +118,7 @@ def cashout_aviator_bet(request):
         return Response({'error': f'Bet ID and multiplier are required. Received: bet_id={bet_id}, multiplier={multiplier}'}, status=400)
 
     try:
-        bet_id = int(bet_id)  # Ensure bet_id is an integer
+        bet_id = int(bet_id)
     except (ValueError, TypeError):
         return Response({'error': f'Invalid bet_id format: {bet_id}'}, status=400)
 
@@ -149,11 +137,12 @@ def cashout_aviator_bet(request):
     if bet.cash_out_multiplier is not None:
         return Response({'error': 'Bet already cashed out.'}, status=400)
 
-    crash_multiplier = bet.round.crash_multiplier
-    if crash_multiplier is None:
-        return Response({'error': 'Round has not crashed yet.'}, status=400)
+    if not bet.round.is_active:
+        logger.warning(f"[Cashout] Round not active: {bet.round.id}, crash_multiplier: {bet.round.crash_multiplier}")
+        return Response({'error': 'Too late! Plane crashed.'}, status=400)
 
-    if multiplier >= crash_multiplier:
+    if multiplier >= bet.round.crash_multiplier:
+        logger.warning(f"[Cashout] Multiplier too high: {multiplier} >= {bet.round.crash_multiplier} for round {bet.round.id}")
         return Response({'error': 'Too late! Plane crashed.'}, status=400)
 
     with transaction.atomic():
@@ -171,7 +160,6 @@ def cashout_aviator_bet(request):
         wallet.balance += Decimal(str(win_amount))
         wallet.save()
 
-        # Debug: Log Transaction model fields and parameters
         print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
         print(f"Creating transaction for user: {request.user.username}, amount: {win_amount}, type: winning")
 
@@ -186,9 +174,6 @@ def cashout_aviator_bet(request):
             logger.exception("Error creating transaction")
             return Response({'error': f'Failed to create transaction: {str(e)}'}, status=500)
 
-    # Debug: Log serializer fields
-    print(f"AviatorBetSerializer fields: {AviatorBetSerializer().get_fields().keys()}")
-
     return Response({
         'message': 'Cashout successful',
         'win_amount': win_amount,
@@ -196,10 +181,20 @@ def cashout_aviator_bet(request):
     }, status=200)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_round_status(request, round_id):
+    try:
+        round = AviatorRound.objects.get(id=round_id)
+        return Response({
+            'is_active': round.is_active,
+            'crash_multiplier': round.crash_multiplier,
+            'start_time': round.start_time
+        })
+    except AviatorRound.DoesNotExist:
+        return Response({'error': 'Round not found'}, status=404)
+
+@api_view(['GET'])
 def past_crashes(request):
-    """
-    Returns the last 20 crash multipliers with color coding.
-    """
     recent_rounds = AviatorRound.objects.order_by('-start_time')[:20]
     data = [
         {
@@ -215,9 +210,6 @@ def past_crashes(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_sure_odds(request):
-    """
-    Returns sure odds submitted by the logged-in user.
-    """
     odds = SureOdd.objects.filter(user=request.user).order_by('-created_at')
     serializer = SureOddSerializer(odds, many=True)
     return Response(serializer.data)
@@ -225,18 +217,12 @@ def user_sure_odds(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_bet_history(request):
-    """
-    Returns the last 20 bets placed by the user.
-    """
     bets = AviatorBet.objects.filter(user=request.user).order_by('-created_at')[:20]
     serializer = AviatorBetSerializer(bets, many=True)
     return Response(serializer.data)
 
 @api_view(['GET'])
 def top_winners_today(request):
-    """
-    Returns the top 10 winners of the day based on cashout winnings.
-    """
     today = timezone.now().date()
     bets = AviatorBet.objects.filter(
         created_at__date=today,
@@ -273,7 +259,6 @@ def purchase_sure_odd(request):
             wallet.balance -= amount
             wallet.save()
 
-            # Debug: Log Transaction model fields and parameters
             print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
             print(f"Creating transaction for user: {user.username}, amount: {-amount}, type: withdraw")
 

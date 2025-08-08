@@ -1,12 +1,13 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from games.models import AviatorBet, AviatorRound
+from wallet.models import Wallet
 from django.contrib.auth import get_user_model
 import random
 import time
 import string
-
-
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 User = get_user_model()
 
@@ -27,12 +28,13 @@ class Command(BaseCommand):
             while User.objects.filter(username=username).exists():
                 username = self.create_random_bot_name()
 
-            User.objects.create_user(
+            user = User.objects.create_user(
                 username=username,
                 password='botpassword',
                 is_bot=True
             )
-            print(f"[CREATE BOT] {username}")
+            Wallet.objects.get_or_create(user=user, defaults={'balance': 10000})
+            print(f"[CREATE BOT] {username} with wallet balance 10000")
 
     def simulate_multiplier_growth(self, round_obj):
         multiplier = 1.00
@@ -50,6 +52,7 @@ class Command(BaseCommand):
                 break
 
     def handle_bot_cashouts(self, round_obj, current_multiplier):
+        channel_layer = get_channel_layer()
         bets = AviatorBet.objects.filter(round=round_obj, cash_out_multiplier__isnull=True)
         for bet in bets:
             if bet.auto_cashout and current_multiplier >= bet.auto_cashout:
@@ -57,9 +60,19 @@ class Command(BaseCommand):
                 bet.final_multiplier = round_obj.crash_multiplier
                 bet.is_winner = bet.cash_out_multiplier < round_obj.crash_multiplier
                 bet.save()
+                win_amount = bet.win_amount()
                 print(f"[AUTO CASHOUT] {bet.user.username} auto-cashed out at {bet.cash_out_multiplier}x")
-
-              
+                async_to_sync(channel_layer.group_send)(
+                    'aviator_room',
+                    {
+                        'type': 'send_to_group',
+                        'type_override': 'bot_cashout',
+                        'username': bet.user.username,
+                        'multiplier': float(bet.cash_out_multiplier),
+                        'amount': float(bet.amount),
+                        'win_amount': float(win_amount)
+                    }
+                )
             elif not bet.auto_cashout:
                 if random.random() < 0.05 * current_multiplier:
                     cashout_multiplier = round(current_multiplier, 2)
@@ -67,12 +80,23 @@ class Command(BaseCommand):
                     bet.final_multiplier = round_obj.crash_multiplier
                     bet.is_winner = cashout_multiplier < round_obj.crash_multiplier
                     bet.save()
+                    win_amount = bet.win_amount()
                     print(f"[MANUAL CASHOUT] {bet.user.username} cashed out at {cashout_multiplier}x")
-
-                    
+                    async_to_sync(channel_layer.group_send)(
+                        'aviator_room',
+                        {
+                            'type': 'send_to_group',
+                            'type_override': 'bot_cashout',
+                            'username': bet.user.username,
+                            'multiplier': float(cashout_multiplier),
+                            'amount': float(bet.amount),
+                            'win_amount': float(win_amount)
+                        }
+                    )
 
     def handle(self, *args, **kwargs):
         self.create_bots_if_needed(target=10)
+        channel_layer = get_channel_layer()
 
         while True:
             bots = User.objects.filter(is_bot=True)
@@ -89,13 +113,24 @@ class Command(BaseCommand):
                         amount = random.choice([10, 20, 50])
                         auto_cashout = None if random.random() < 0.5 else round(random.uniform(1.5, 2.5), 2)
 
-                        AviatorBet.objects.create(
+                        bet = AviatorBet.objects.create(
                             user=bot,
                             round=active_round,
                             amount=amount,
                             auto_cashout=auto_cashout
                         )
                         print(f"[BOT BET] {bot.username} placed {amount} bet, cashout at {auto_cashout or 'manual'}")
+                        async_to_sync(channel_layer.group_send)(
+                            'aviator_room',
+                            {
+                                'type': 'send_to_group',
+                                'type_override': 'bot_bet',
+                                'username': bot.username,
+                                'amount': float(amount),
+                                'auto_cashout': auto_cashout,
+                                'round_id': active_round.id
+                            }
+                        )
 
             self.simulate_multiplier_growth(active_round)
 

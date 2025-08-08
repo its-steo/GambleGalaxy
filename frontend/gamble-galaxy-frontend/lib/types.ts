@@ -1,256 +1,155 @@
-import { babelIncludeRegexes } from "next/dist/build/webpack-config";
-import { ReactNode } from "react";
-
-// User & Auth Types
 export interface User {
-  balance: number;
-  id: number;
-  username: string;
-  email: string;
-  phone?: string;
-  is_verified: boolean;
-  is_bot: boolean;
-  avatar?: string;
+  id: number
+  username: string
+  email: string
+  first_name?: string
+  last_name?: string
+  avatar?: string
+  is_bot?: boolean
 }
 
 export interface RegisterData {
-  username: string;
-  email: string;
-  phone?: string;
-  password: string;
+  username: string
+  email: string
+  password: string
+  first_name?: string
+  last_name?: string
 }
 
 export interface LoginResponse {
-  access: string;
-  refresh: string;
+  access: string
+  refresh: string
+  user: User
 }
 
-// Wallet Types
 export interface Wallet {
-  balance: string;
+  id: number
+  user: number
+  balance: number
+  created_at: string
+  updated_at: string
 }
 
 export interface Transaction {
-  id: number;
-  transaction_type: "deposit" | "withdraw";
-  amount: string;
-  timestamp: string;
-  description?: string;
+  id: number
+  user: number
+  amount: number
+  transaction_type: 'deposit' | 'withdraw' | 'winning' | 'bonus'
+  description: string
+  created_at: string
+  status: 'pending' | 'completed' | 'failed'
 }
 
-// Dashboard Types
-export interface RecentActivity {
-  id: number;
-  activity_type: string;
-  game_type?: string;
-  amount: number;
-  multiplier?: number;
-  description: string;
-  status: string;
-  timestamp: string;
-}
-
-export interface TopWinner {
-  id: number;
-  username: string;
-  avatar?: string;
-  amount: number;
-  game_type: string;
-  multiplier?: number;
-  timestamp: string;
-}
-
-export interface DashboardStats {
-  totalBalance: number;
-  totalBets: number;
-  totalWinnings: number;
-  totalLosses: number;
-  winRate: number;
-  activeBets: number;
-  netProfit: number;
-  recentActivities: RecentActivity[];
-  topWinners: TopWinner[];
-}
-
-// Betting Types
 export interface Match {
-  id: number;
-  home_team: string;
-  away_team: string;
-  match_time: string;
-  status: string;
-  score_home: number;
-  score_away: number;
-  // Standard 1X2 odds
-  odds_home_win: string;
-  odds_draw: string;
-  odds_away_win: string;
-  // Goals
-  odds_over_2_5?: string;
-  odds_under_2_5?: string;
-  // BTTS
-  odds_btts_yes?: string;
-  odds_btts_no?: string;
-  // Double Chance
-  odds_home_or_draw?: string;
-  odds_draw_or_away?: string;
-  odds_home_or_away?: string;
-  // Half Time / Full Time
-  odds_ht_ft_home_home?: string;
-  odds_ht_ft_draw_draw?: string;
-  odds_ht_ft_away_away?: string;
-  // Correct Score
-  odds_score_1_0?: string;
-  odds_score_2_1?: string;
-  odds_score_0_0?: string;
-  odds_score_1_1?: string;
-}
-
-export interface BetSelection {
-  id?: number;
-  match: Match;
-  match_id?: number;
-  selected_option: string;
-  is_correct?: boolean;
+  id: number
+  home_team: string
+  away_team: string
+  start_time: string
+  status: 'upcoming' | 'live' | 'finished'
+  odds: {
+    home: number
+    draw?: number
+    away: number
+  }
 }
 
 export interface Bet {
-  id: number;
-  user: number;
-  amount: string;
-  total_odds: string;
-  status: string; // "pending" | "won" | "lost"
-  placed_at: string;
-  expected_payout?: number;
-  selections: BetSelection[];
+  id: number
+  user: number
+  amount: number
+  selections: BetSelection[]
+  total_odds: number
+  potential_win: number
+  status: 'pending' | 'won' | 'lost'
+  created_at: string
 }
 
-export interface SureOddSlip {
-  id: number;
-  code: string;
-  paid: boolean;
-  show_predictions: boolean;
-  allow_payment: boolean;
-  dismiss: boolean;
-  matches: Array<{
-    id: number;
-    home_team: string;
-    away_team: string;
-    match_time: string;
-    prediction?: string;
-    odds: string;
-  }>;
+export interface BetSelection {
+  match_id: number
+  selected_option: string
+  odds: number
 }
 
-// Aviator Game Types
 export interface AviatorRound {
-  id: number;
-  crash_multiplier: number;
-  start_time: string;
-  is_active: boolean;
-  color: "red" | "yellow" | "green" | "blue" | "purple";
+  id: number
+  crash_multiplier: number
+  start_time: string
+  is_active: boolean
+  color?: string
 }
 
 export interface AviatorBet {
-  bet_id: number;
-  id: number;
-  bet: number;
-  user: number;
-  username: string;
-  round: number;
-  round_crash: number;
-  amount: string;
-  auto_cashout?: number;
-  cashed_out_at?: number;
-  cash_out_multiplier?: number;
-  is_winner: boolean;
-  created_at: string;
-  win_amount?: () => number;
-  new_balance?: () => number;
+  id: number
+  user: number
+  username?: string
+  round: number
+  round_crash?: number
+  amount: number
+  auto_cashout?: number
+  cash_out_multiplier?: number
+  final_multiplier?: number
+  is_winner: boolean
+  created_at: string
+}
 
+export interface TopWinner {
+  user: string
+  username?: string
+  avatar?: string
+  amount: number
+  cash_out_multiplier: number
+  win_amount?: number
 }
 
 export interface SureOdd {
-  id: number;
-  user: number;
-  username: string;
-  odd: string;
-  is_used: boolean;
-  verified_by_admin: boolean;
-  created_at: string;
+  id: number
+  user: number
+  username?: string
+  odd: number
+  is_used: boolean
+  verified_by_admin: boolean
+  created_at: string
 }
 
-// WebSocket Message Types
-export interface LivePlayer {
-  user_id: number;
-  username: string;
-  bet_amount: string;
-  cashout_multiplier?: number;
+export interface SureOddSlip {
+  id: number
+  matches: Match[]
+  total_odds: number
+  cost: number
+  expires_at: string
 }
 
 export interface RecentCashout {
-  user_id: number;
-  username: string;
-  amount: string;
-  cashout_multiplier: number;
-  timestamp: string;
+  username: string
+  multiplier: number
+  amount: number
+  win_amount: number
+  timestamp: string
+  is_bot?: boolean
 }
 
-export type WebSocketMessage =
-  | { type: "multiplier"; live_players: LivePlayer[]; multiplier: number; round_id: number }
-  | { type: "crash"; crash_multiplier: number; round_id: number }
-  | { type: "manual_cashout_success"; message: string; win_amount: number; multiplier: number; new_balance: number; bet_id: number }
-  | { type: "manual_cashout_error"; message: string; error: string }
-  | { type: "balance_update"; balance: number }
-  | { type: "live_players"; players: LivePlayer[]; count?: number }
-  | { type: "recent_cashouts"; cashouts: RecentCashout[] }
-  | { type: "new_bet"; bet: { username: string; amount: number } }
-  | {
-      type: "game_state";
-      round_id: number | null;
-      multiplier: number;
-      is_active: boolean;
-      live_players: LivePlayer[];
-      recent_cashouts: RecentCashout[];
-      count?: number;
-    }
-  | { type: "round_started"; round_id: number; multiplier: number }
-  | { type: "bet_placed"; message: string; round_id: number; amount: number; bet_id: number; bet_number: 1 | 2; new_balance: number }
-  | { type: "bet_error"; message: string; original_balance?: number }
-  | { type: "player_cashed_out"; recent_cashouts: RecentCashout[] }
-  | { type: "betting_open"; message: string; countdown: number; round_id: number; live_players?: LivePlayer[] }
-  | { type: "round_summary"; crash_multiplier: number; message: string; round_id: number }
-  | { type: "pong" };
-
-export interface PremiumSureOddPurchase {
-  id: string;
-  user_id: string;
-  amount: number;
-  status: "pending" | "assigned" | "expired";
-  purchased_at: string;
-  assigned_at?: string;
-  odd?: number;
-  expires_at: string;
+export interface WebSocketMessage {
+  type: string
+  [key: string]: any
 }
 
-export interface PremiumSureOddResponse {
-  id: string;
-  odd: number;
-  assigned_at: string;
-  expires_at: string;
-  status: "active" | "used" | "expired";
+// Bot-specific types
+export interface BotPlayer {
+  username: string
+  amount: number
+  auto_cashout?: number
+  multiplier?: number
+  win_amount?: number
+  is_bot: true
 }
 
-export interface PendingPremiumOddsResponse {
-  has_pending: boolean;
-  pending_purchases: PremiumSureOddPurchase[];
-  active_odds: PremiumSureOddResponse[];
-}
-
-export interface PremiumSureOddPurchaseResponse {
-  id: string;
-  message: string;
-  purchase_id: string;
-  amount: number;
-  status: string;
+export interface GameState {
+  round_id: number | null
+  is_active: boolean
+  current_multiplier: number
+  betting_phase: boolean
+  countdown: number
+  live_players: number
+  recent_cashouts: RecentCashout[]
+  bot_players: BotPlayer[]
 }

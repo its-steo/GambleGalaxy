@@ -44,6 +44,12 @@ interface RecentActivity {
   timestamp: string
 }
 
+interface RoundStatus {
+  is_active: boolean
+  crash_multiplier: number
+  start_time: string
+}
+
 class ApiClient {
   private async getAccessToken(): Promise<string | null> {
     if (typeof window === 'undefined') return null
@@ -93,7 +99,11 @@ class ApiClient {
 
   async request<T>(endpoint: string, options: RequestInit = {}, retry = true): Promise<ApiResponse<T>> {
     try {
-      console.log(`🌐 Making API request to: ${API_BASE_URL}${endpoint}`)
+      console.log(`🌐 Making API request to: ${API_BASE_URL}${endpoint}`, {
+        method: options.method,
+        body: options.body,
+        headers: options.headers,
+      })
 
       const headers: HeadersInit = {
         "Content-Type": "application/json",
@@ -106,7 +116,7 @@ class ApiClient {
         headers,
       })
 
-      console.log(`📥 Response status: ${res.status}`)
+      console.log(`📥 Response status: ${res.status}, headers:`, Object.fromEntries(res.headers.entries()))
 
       let data: any
       const contentType = res.headers.get('content-type')
@@ -114,11 +124,13 @@ class ApiClient {
       if (contentType && contentType.includes('application/json')) {
         data = await res.json()
       } else {
-        const text = await res.text()
-        data = { message: text }
+        data = await res.text()
+        console.warn(`⚠️ Non-JSON response received: ${data}`)
+        data = { message: data }
       }
 
-      // Handle 401 with retry
+      console.log(`🔍 Raw API response for ${endpoint}:`, data)
+
       if (res.status === 401 && retry) {
         console.log("🔄 Got 401, attempting token refresh...")
         const newAccess = await this.refreshAccessToken()
@@ -135,9 +147,8 @@ class ApiClient {
       }
 
       return result
-
     } catch (error) {
-      console.error("💥 Network error in API request:", error)
+      console.error(`💥 Network error in API request to ${endpoint}:`, error)
       return { 
         error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
         status: 0 
@@ -145,7 +156,7 @@ class ApiClient {
     }
   }
 
-  // ✅ Auth
+  // Auth
   async login(username: string, password: string) {
     return this.request<LoginResponse>("/accounts/login/", {
       method: "POST",
@@ -168,9 +179,8 @@ class ApiClient {
     return this.request<{ exists: boolean }>(`/accounts/check-username/?username=${username}`)
   }
 
-  // ✅ Wallet - Fixed to match your backend URL patterns
+  // Wallet
   async getWallet() {
-    // Use the correct endpoint that matches your Django URLs: /api/wallet/
     return this.request<{ balance: number }>("/wallet/")
   }
 
@@ -192,7 +202,30 @@ class ApiClient {
     return this.request<Transaction[]>("/wallet/transactions/")
   }
 
-  // ✅ Betting
+  // 💾 CRITICAL: Direct wallet balance update for instant cashouts
+  async updateWalletBalance(data: {
+    user_id: number
+    amount: number
+    transaction_type: 'winning' | 'deposit' | 'withdraw' | 'bonus'
+    description: string
+    bet_id?: number
+  }) {
+    console.log("💾 Updating wallet balance in database:", data)
+    
+    const response = await this.request<{
+      success: boolean
+      new_balance: number
+      transaction_id: number
+    }>("/wallet/update-balance/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+
+    console.log("💾 Wallet balance update response:", response)
+    return response
+  }
+
+  // Betting
   async getMatches() {
     return this.request<Match[]>("/betting/matches/")
   }
@@ -218,82 +251,134 @@ class ApiClient {
     })
   }
 
-  // ✅ Aviator - Fixed to match your backend URLs
+  // Aviator
   async startAviatorRound() {
-    return this.request<AviatorRound>("/games/aviator/start/", {
+    console.log("🚀 Initiating new Aviator round")
+    const response = await this.request<AviatorRound>("/games/aviator/start/", {
       method: "POST",
     })
+    console.log("🔍 Start round response:", response)
+    return response
   }
 
   async placeAviatorBet(payload: { amount: number; round_id: number; auto_cashout?: number }) {
-    return this.request<AviatorBet>("/games/aviator/bet/", {
+    console.log("🎲 Placing Aviator bet:", payload)
+    const response = await this.request<{ bet: AviatorBet; new_balance: number }>("/games/aviator/bet/", {
       method: "POST",
       body: JSON.stringify(payload),
     })
+    console.log(`🔍 Aviator bet response:`, response)
+    // Normalize response to return bet object directly
+    if (response.data && response.data.bet) {
+      return {
+        ...response,
+        data: response.data.bet,
+      }
+    }
+    return response
   }
 
   async cashoutAviator(bet_id: number, multiplier: number) {
-    return this.request<{ message: string; win_amount?: number; new_balance?: number }>("/games/aviator/cashout/", {
+    console.log("💰 Cashing out Aviator bet:", { bet_id, multiplier })
+    const response = await this.request<{ message: string; win_amount?: number; new_balance?: number }>("/games/aviator/cashout/", {
       method: "POST",
       body: JSON.stringify({ bet_id, multiplier }),
     })
+    console.log(`🔍 Aviator cashout response:`, response)
+    return response
+  }
+
+  async getRoundStatus(round_id: number) {
+    console.log("🔄 Fetching round status for round:", round_id)
+    const response = await this.request<RoundStatus>(`/games/aviator/round/${round_id}/status/`)
+    console.log(`🔍 Round status response:`, response)
+    return response
   }
 
   async getPastCrashes() {
-    return this.request<Array<{ id: number; multiplier: number; color: string; timestamp: string }>>(
+    console.log("📊 Fetching past crashes")
+    const response = await this.request<Array<{ id: number; multiplier: number; color: string; timestamp: string }>>(
       "/games/aviator/past-crashes/",
     )
+    console.log(`🔍 Past crashes response:`, response)
+    return response
   }
 
-  // Fixed to use correct endpoint
   async getTopWinners() {
-    return this.request<TopWinner[]>("/games/aviator/top-winners/")
+    console.log("🏆 Fetching top winners")
+    const response = await this.request<TopWinner[]>("/games/aviator/top-winners/")
+    console.log(`🔍 Top winners response:`, response)
+    return response
   }
 
   async getUserSureOdds() {
-    return this.request<SureOdd[]>("/games/aviator/sure-odds/")
+    console.log("🎯 Fetching user sure odds")
+    const response = await this.request<SureOdd[]>("/games/aviator/sure-odds/")
+    console.log(`🔍 Sure odds response:`, response)
+    return response
   }
 
   async getMyAviatorBets() {
-    return this.request<AviatorBet[]>("/games/aviator/my-bets/")
+    console.log("📜 Fetching user Aviator bets")
+    const response = await this.request<AviatorBet[]>("/games/aviator/my-bets/")
+    console.log(`🔍 Aviator bets response:`, response)
+    return response
   }
 
-  // ✅ Premium Sure Odds - Matching your backend exactly
+  // Premium Sure Odds
   async purchaseSureOdd() {
-    return this.request<{ detail: string }>("/games/aviator/sure-odds/purchase/", {
+    console.log("💎 Purchasing sure odd")
+    const response = await this.request<{ detail: string }>("/games/aviator/sure-odds/purchase/", {
       method: "POST",
     })
+    console.log(`🔍 Sure odd purchase response:`, response)
+    return response
   }
 
   async getSureOdd() {
-    return this.request<{
+    console.log("🎯 Fetching current sure odd")
+    const response = await this.request<{
       odd_value: number | null
     }>("/games/aviator/sure-odds/get/")
+    console.log(`🔍 Sure odd response:`, response)
+    return response
   }
 
   async getSureOddStatus() {
-    return this.request<{
+    console.log("🔍 Fetching sure odd status")
+    const response = await this.request<{
       has_pending: boolean
     }>("/games/aviator/sure-odds/status/")
+    console.log(`🔍 Sure odd status response:`, response)
+    return response
   }
 
   async getSureOddHistory() {
-    return this.request<{
+    console.log("📜 Fetching sure odd history")
+    const response = await this.request<{
       history: Array<{
         odd_value: number | null
         created_at: string
         used: boolean
       }>
     }>("/games/aviator/sure-odds/history/")
+    console.log(`🔍 Sure odd history response:`, response)
+    return response
   }
 
-  // ✅ Dashboard - Added missing endpoints
+  // Dashboard
   async getDashboardStats() {
-    return this.request<DashboardStats>("/dashboard/stats/")
+    console.log("📊 Fetching dashboard stats")
+    const response = await this.request<DashboardStats>("/dashboard/stats/")
+    console.log(`🔍 Dashboard stats response:`, response)
+    return response
   }
 
   async getRecentActivity() {
-    return this.request<RecentActivity[]>("/dashboard/activity/")
+    console.log("📜 Fetching recent activity")
+    const response = await this.request<RecentActivity[]>("/dashboard/activity/")
+    console.log(`🔍 Recent activity response:`, response)
+    return response
   }
 }
 
