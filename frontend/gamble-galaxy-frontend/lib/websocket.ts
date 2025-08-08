@@ -4,6 +4,12 @@ import { create } from "zustand"
 import { toast } from "sonner"
 import type { WebSocketMessage, RecentCashout } from "./types"
 
+interface BetInfo {
+  id: number
+  amount: number
+  auto_cashout?: number
+}
+
 interface WebSocketState {
   socket: WebSocket | null
   isConnected: boolean
@@ -11,14 +17,17 @@ interface WebSocketState {
   currentRoundId: number | null
   isRoundActive: boolean
   lastCrashMultiplier: number
-  walletBalance: number
   livePlayers: number
   recentCashouts: RecentCashout[]
+  activeBets: Map<number, BetInfo>
+  pastCrashes: number[]
   connect: () => void
   disconnect: () => void
   startRound: () => void
-  cashOut: (userId: number, multiplier: number) => Promise<void>
-  placeBet: (payload: { amount: number; user_id: number; auto_cashout?: number }) => Promise<void>
+  cashOut: (userId: number, multiplier: number) => Promise<any>
+  placeBet: (payload: { amount: number; user_id: number; auto_cashout?: number }) => Promise<any>
+  setPastCrashes: (crashes: number[]) => void
+  addCrashToHistory: (crashMultiplier: number) => void
 }
 
 export const useWebSocket = create<WebSocketState>((set, get) => ({
@@ -28,9 +37,26 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
   currentRoundId: null,
   isRoundActive: false,
   lastCrashMultiplier: 1.0,
-  walletBalance: 0.0,
   livePlayers: 0,
   recentCashouts: [],
+  activeBets: new Map(),
+  pastCrashes: [],
+
+  setPastCrashes: (crashes: number[]) => {
+    console.log("📊 Setting past crashes from API:", crashes)
+    set({ pastCrashes: crashes })
+  },
+
+  addCrashToHistory: (crashMultiplier: number) => {
+    const currentState = get()
+    if (currentState.pastCrashes.length === 0 || currentState.pastCrashes[0] !== crashMultiplier) {
+      const newPastCrashes = [crashMultiplier, ...currentState.pastCrashes].slice(0, 12)
+      console.log("💥 Adding crash to history:", crashMultiplier, "New list:", newPastCrashes)
+      set({ pastCrashes: newPastCrashes })
+      return newPastCrashes
+    }
+    return currentState.pastCrashes
+  },
 
   connect: () => {
     const state = get()
@@ -38,16 +64,16 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws/aviator/"
     const token = localStorage.getItem("access_token")
-    const url = token ? `${wsUrl}?token=${token}` : wsUrl
+    
+    console.log("🔌 Connecting to WebSocket:", wsUrl)
 
-    const newSocket = new WebSocket(url)
+    const newSocket = new WebSocket(wsUrl)
     let pingInterval: NodeJS.Timeout
 
     newSocket.onopen = () => {
-      console.log("🔌 WebSocket connected")
+      console.log("✅ WebSocket connected successfully")
       set({ socket: newSocket, isConnected: true })
 
-      // Setup ping interval
       pingInterval = setInterval(() => {
         if (newSocket.readyState === WebSocket.OPEN) {
           newSocket.send(JSON.stringify({ type: "ping" }))
@@ -56,142 +82,222 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
         }
       }, 30000)
 
-      // Request initial game state
       setTimeout(() => {
         if (newSocket.readyState === WebSocket.OPEN) {
-          newSocket.send(JSON.stringify({ type: "get_game_state" }))
+          console.log("📡 Requesting initial game state")
+          newSocket.send(JSON.stringify({ action: "get_game_state" }))
         }
-      }, 100)
+      }, 500)
     }
 
     newSocket.onmessage = (event) => {
       try {
-        const data: WebSocketMessage = JSON.parse(event.data)
+        const data = JSON.parse(event.data)
+        console.log("📨 WebSocket message received:", data)
+        
         const currentState = get()
 
         switch (data.type) {
-          case "game_state":
-            // Batch all game state updates into a single set call
+          case "betting_open":
+            console.log("🎰 Betting phase opened", data)
             set({
-              currentRoundId: data.round_id ?? currentState.currentRoundId,
-              currentMultiplier: data.multiplier ?? 1.0,
-              isRoundActive: data.is_active ?? false,
-              livePlayers: data.live_players?.length ?? data.count ?? 0,
-              recentCashouts: data.recent_cashouts ?? currentState.recentCashouts,
+              isRoundActive: false,
+              currentMultiplier: 1.0,
+              activeBets: new Map(),
+              // ✅ FIXED: Set round ID when betting opens if provided
+              currentRoundId: data.round_id || currentState.currentRoundId,
             })
             break
 
           case "round_started":
+            console.log("🚀 Round started:", data.round_id)
             set({
-              currentRoundId: data.round_id ?? currentState.currentRoundId,
-              currentMultiplier: 1.0,
+              currentRoundId: data.round_id,
+              currentMultiplier: data.multiplier || 1.0,
               isRoundActive: true,
               lastCrashMultiplier: 1.0,
             })
             break
 
           case "multiplier":
-            // Use current state values to avoid calling get() inside set()
             set({
-              currentMultiplier: data.multiplier ?? 1.0,
-              currentRoundId: data.round_id ?? currentState.currentRoundId,
+              currentMultiplier: data.multiplier || 1.0,
+              currentRoundId: data.round_id || currentState.currentRoundId,
               isRoundActive: true,
-              livePlayers: data.live_players?.length ?? currentState.livePlayers,
             })
             break
 
           case "crash":
-            const crashMultiplier = data.crash_multiplier ?? 1.0
+            console.log("💥 Round crashed at:", data.multiplier)
+            const crashMultiplier = data.multiplier || data.crash_multiplier || 1.0
+            
+            const newPastCrashes = currentState.addCrashToHistory(crashMultiplier)
+            
             set({
               isRoundActive: false,
               lastCrashMultiplier: crashMultiplier,
               currentMultiplier: crashMultiplier,
+              // ✅ FIXED: Keep round ID after crash for next betting phase
             })
+            
             playSound("crash")
+            
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('planeCrashed', { 
+                detail: { 
+                  crashMultiplier,
+                  pastCrashes: newPastCrashes
+                } 
+              }))
+            }
             break
 
           case "bet_placed":
-            // Only update balance if provided
-            if (typeof data.new_balance === "number") {
-              set({ walletBalance: data.new_balance })
+            console.log("✅ Bet placed successfully:", data)
+            
+            // Handle pending request resolution
+            if (data.request_id && (window as any).pendingBetRequests) {
+              const pendingRequest = (window as any).pendingBetRequests.get(data.request_id)
+              if (pendingRequest) {
+                clearTimeout(pendingRequest.timeout)
+                pendingRequest.resolve(data)
+                ;(window as any).pendingBetRequests.delete(data.request_id)
+              }
             }
-            toast.success("Bet Placed!", {
-              description: `KES ${data.amount} bet placed successfully`,
-            })
-            break
-
-          case "bet_error":
-            // Restore original balance if provided
-            if (typeof data.original_balance === "number") {
-              set({ walletBalance: data.original_balance })
+            
+            // Store bet info for cashout
+            if (data.bet_id && data.user_id) {
+              const newBets = new Map(currentState.activeBets)
+              newBets.set(data.user_id, {
+                id: data.bet_id,
+                amount: data.amount,
+                auto_cashout: data.auto_cashout
+              })
+              set({ activeBets: newBets })
             }
-            toast.error("Bet Failed", {
-              description: data.message || "Could not place bet",
-            })
+            
+            // ✅ FIXED: Update wallet balance immediately after bet placement
+            if (typeof data.new_balance === "number" && typeof window !== 'undefined') {
+              console.log("💰 Updating wallet balance from bet_placed:", data.new_balance)
+              window.dispatchEvent(new CustomEvent('walletBalanceUpdate', { 
+                detail: { balance: data.new_balance } 
+              }))
+            }
             break
 
           case "cash_out_success":
-            if (typeof data.new_balance === "number") {
-              set({ walletBalance: data.new_balance })
+            console.log("💰 Cashout successful:", data)
+            
+            // Handle pending request resolution
+            if (data.request_id && (window as any).pendingCashoutRequests) {
+              const pendingRequest = (window as any).pendingCashoutRequests.get(data.request_id)
+              if (pendingRequest) {
+                clearTimeout(pendingRequest.timeout)
+                pendingRequest.resolve(data)
+                ;(window as any).pendingCashoutRequests.delete(data.request_id)
+              }
             }
-            toast.success("Cashed Out!", {
-              description: `Won KES ${data.win_amount?.toFixed(2)} at ${data.multiplier?.toFixed(2)}x`,
-            })
-            playSound("cashout")
-            break
-
-          case "cash_out_error":
-            toast.error("Cashout Failed", {
-              description: data.message || data.error || "Could not cash out",
-            })
-            break
-
-          case "player_cashed_out":
-            // Use provided cashouts or keep current ones
-            if (data.recent_cashouts) {
-              set({ recentCashouts: data.recent_cashouts })
+            
+            // Remove bet from active bets
+            if (data.user_id) {
+              const newBets = new Map(currentState.activeBets)
+              newBets.delete(data.user_id)
+              set({ activeBets: newBets })
             }
-            break
-
-          case "balance_update":
-            if (typeof data.balance === "number") {
-              set({ walletBalance: data.balance })
-            }
-            break
-
-          case "live_players":
-            set({ livePlayers: data.players?.length ?? data.count ?? 0 })
-            break
-
-          case "recent_cashouts":
-            if (data.cashouts) {
-              set({ recentCashouts: data.cashouts })
+            
+            // ✅ FIXED: Update wallet balance immediately after cashout
+            if (typeof data.new_balance === "number" && typeof window !== 'undefined') {
+              console.log("💰 Updating wallet balance from cash_out_success:", data.new_balance)
+              window.dispatchEvent(new CustomEvent('walletBalanceUpdate', { 
+                detail: { balance: data.new_balance } 
+              }))
             }
             break
 
-          case "new_bet":
-            console.log("🆕 New Bet Placed", data.bet)
+          case "auto_cashout":
+            console.log("🤖 Auto cashout triggered:", data)
+            
+            if (data.user_id) {
+              const newBets = new Map(currentState.activeBets)
+              newBets.delete(data.user_id)
+              set({ activeBets: newBets })
+            }
+            
+            // ✅ FIXED: Update wallet balance for auto cashout
+            if (typeof data.new_balance === "number" && typeof window !== 'undefined') {
+              console.log("💰 Updating wallet balance from auto_cashout:", data.new_balance)
+              window.dispatchEvent(new CustomEvent('walletBalanceUpdate', { 
+                detail: { balance: data.new_balance } 
+              }))
+            }
+            break
+
+          case "bet_lost":
+            console.log("😞 Bet lost:", data)
+            
+            if (data.user_id) {
+              const newBets = new Map(currentState.activeBets)
+              newBets.delete(data.user_id)
+              set({ activeBets: newBets })
+            }
+            break
+
+          case "bet_error":
+            console.error("❌ Bet placement failed:", data.message)
+            
+            // Handle pending request rejection
+            if (data.request_id && (window as any).pendingBetRequests) {
+              const pendingRequest = (window as any).pendingBetRequests.get(data.request_id)
+              if (pendingRequest) {
+                clearTimeout(pendingRequest.timeout)
+                pendingRequest.reject(new Error(data.message || "Bet placement failed"))
+                ;(window as any).pendingBetRequests.delete(data.request_id)
+              }
+            }
+            
+            // Update balance if provided in error response
+            if (typeof data.balance === "number" && typeof window !== 'undefined') {
+              console.log("💰 Updating wallet balance from bet_error:", data.balance)
+              window.dispatchEvent(new CustomEvent('walletBalanceUpdate', { 
+                detail: { balance: data.balance } 
+              }))
+            }
+            break
+
+          case "cashout_error":
+            console.error("❌ Cashout failed:", data.message)
+            
+            if (data.request_id && (window as any).pendingCashoutRequests) {
+              const pendingRequest = (window as any).pendingCashoutRequests.get(data.request_id)
+              if (pendingRequest) {
+                clearTimeout(pendingRequest.timeout)
+                pendingRequest.reject(new Error(data.message || "Cashout failed"))
+                ;(window as any).pendingCashoutRequests.delete(data.request_id)
+              }
+            }
+            break
+
+          case "round_summary":
+            console.log("📊 Round summary:", data)
             break
 
           case "pong":
-            // Silent acknowledgment
             break
 
           default:
-            console.warn("⚠️ Unknown WebSocket message type:", data.type)
+            console.warn("⚠️ Unknown WebSocket message type:", data.type, data)
             break
         }
       } catch (error) {
-        console.error("❌ Error parsing WebSocket message:", error)
+        console.error("❌ Error parsing WebSocket message:", error, event.data)
       }
     }
 
     newSocket.onclose = (event) => {
-      console.log("🔌 WebSocket disconnected", event.code)
+      console.log("🔌 WebSocket disconnected:", event.code, event.reason)
       clearInterval(pingInterval)
       set({ socket: null, isConnected: false })
 
-      // Auto-reconnect unless it was a clean close
       if (event.code !== 1000) {
         console.log("🔄 Attempting to reconnect in 3 seconds...")
         setTimeout(() => {
@@ -229,39 +335,51 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
 
   placeBet: async (payload: { amount: number; user_id: number; auto_cashout?: number }) => {
     return new Promise((resolve, reject) => {
-      const { socket, walletBalance } = get()
+      const { socket, currentRoundId } = get()
 
       if (!socket || socket.readyState !== WebSocket.OPEN) {
         reject(new Error("WebSocket not connected"))
         return
       }
 
-      // Optimistically update balance
-      const newBalance = Math.max(0, walletBalance - payload.amount)
-      set({ walletBalance: newBalance })
+      if (!currentRoundId) {
+        reject(new Error("No active round"))
+        return
+      }
 
-      // Set timeout for bet placement
+      console.log("🎲 Placing bet:", payload)
+
+      const requestId = `bet_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
       const timeout = setTimeout(() => {
-        // Restore balance on timeout
-        set({ walletBalance })
+        if ((window as any).pendingBetRequests) {
+          (window as any).pendingBetRequests.delete(requestId)
+        }
         reject(new Error("Bet placement timeout"))
       }, 10000)
+
+      const pendingRequest = { resolve, reject, timeout }
+    
+      if (!(window as any).pendingBetRequests) {
+        (window as any).pendingBetRequests = new Map()
+      }
+      (window as any).pendingBetRequests.set(requestId, pendingRequest)
 
       try {
         socket.send(
           JSON.stringify({
-            type: "place_bet",
             action: "place_bet",
-            ...payload,
+            request_id: requestId,
+            round_id: currentRoundId,
+            amount: payload.amount,
+            auto_cashout: payload.auto_cashout,
           }),
         )
-
-        clearTimeout(timeout)
-        resolve()
       } catch (error) {
         clearTimeout(timeout)
-        // Restore balance on error
-        set({ walletBalance })
+        if ((window as any).pendingBetRequests) {
+          (window as any).pendingBetRequests.delete(requestId)
+        }
         reject(error)
       }
     })
@@ -269,31 +387,57 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
 
   cashOut: async (userId: number, multiplier: number) => {
     return new Promise((resolve, reject) => {
-      const { socket } = get()
+      const { socket, activeBets } = get()
 
       if (!socket || socket.readyState !== WebSocket.OPEN) {
         reject(new Error("WebSocket not connected"))
         return
       }
 
+      const betInfo = activeBets.get(userId)
+      if (!betInfo) {
+        reject(new Error("No active bet found"))
+        return
+      }
+
+      console.log("💰 Cashing out bet:", betInfo.id, "at", multiplier)
+
+      const requestId = `cashout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+      const timeout = setTimeout(() => {
+        if ((window as any).pendingCashoutRequests) {
+          (window as any).pendingCashoutRequests.delete(requestId)
+        }
+        reject(new Error("Cashout timeout"))
+      }, 5000)
+
+      const pendingRequest = { resolve, reject, timeout }
+    
+      if (!(window as any).pendingCashoutRequests) {
+        (window as any).pendingCashoutRequests = new Map()
+      }
+      (window as any).pendingCashoutRequests.set(requestId, pendingRequest)
+
       try {
         socket.send(
           JSON.stringify({
-            type: "cash_out",
-            action: "manual_cashout",
-            user_id: userId,
+            action: "cashout",
+            request_id: requestId,
+            bet_id: betInfo.id,
             multiplier,
           }),
         )
-        resolve()
       } catch (error) {
+        clearTimeout(timeout)
+        if ((window as any).pendingCashoutRequests) {
+          (window as any).pendingCashoutRequests.delete(requestId)
+        }
         reject(error)
       }
     })
   },
 }))
 
-// Sound utility function
 async function playSound(type: "cashout" | "crash") {
   const soundMap: Record<string, string> = {
     crash: "/sounds/crash.mp3",
@@ -301,6 +445,11 @@ async function playSound(type: "cashout" | "crash") {
   }
 
   try {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔊 Would play ${type} sound: ${soundMap[type]}`)
+      return
+    }
+
     const response = await fetch(soundMap[type], { method: "HEAD" })
     if (!response.ok) {
       console.warn(`Sound file ${soundMap[type]} not found`)
@@ -308,7 +457,7 @@ async function playSound(type: "cashout" | "crash") {
     }
 
     const audio = new Audio(soundMap[type])
-    audio.volume = 0.5 // Set reasonable volume
+    audio.volume = 0.3
     await audio.play()
   } catch (err) {
     console.warn(`Failed to play ${type} sound:`, err)

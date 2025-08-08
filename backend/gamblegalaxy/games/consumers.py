@@ -1,4 +1,5 @@
 import asyncio
+from decimal import Decimal
 import json
 import random
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -7,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 from .models import AviatorRound, AviatorBet, SureOdd, CrashMultiplierSetting
 from wallet.models import Wallet, Transaction
+
 
 class AviatorConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -23,6 +25,9 @@ class AviatorConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         action = data.get("action")
+
+        # Debug: Log incoming WebSocket message
+        print(f"WebSocket received: {data}")
 
         if action == "place_bet":
             await self.place_bet(data)
@@ -120,6 +125,9 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": "Insufficient balance."}))
             return
 
+        # Debug: Log AviatorBet model fields
+        print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
+
         bet = await database_sync_to_async(AviatorBet.objects.create)(
             user=user,
             round=aviator_round,
@@ -127,12 +135,21 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             auto_cashout=data.get("auto_cashout")
         )
 
-        await database_sync_to_async(Transaction.objects.create)(
-            wallet=wallet,
-            amount=-amount,
-            transaction_type='bet',
-            description='Placed bet on Aviator'
-        )
+        # Debug: Log Transaction model fields and parameters
+        print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
+        print(f"Creating transaction for user: {user.username}, amount: {-amount}, type: withdraw")
+
+        try:
+            await database_sync_to_async(Transaction.objects.create)(
+                user=user,
+                amount=-amount,
+                transaction_type='withdraw',
+                description='Aviator bet placed'
+            )
+        except Exception as e:
+            print(f"Error creating transaction: {str(e)}")
+            await self.send(json.dumps({"error": f"Failed to create transaction: {str(e)}"}))
+            return
 
         await self.send(json.dumps({
             "type": "bet_placed",
@@ -140,14 +157,20 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             "round_id": round_id,
             "amount": amount,
             "bet_id": bet.id,
-            "new_balance": wallet.balance  
+            "new_balance": float(wallet.balance)
         }))
-
 
     async def cashout_bet(self, data):
         user = self.scope["user"]
         bet_id = data.get("bet_id")
-        multiplier = float(data.get("multiplier", 0))
+        multiplier = data.get("multiplier", 0)
+
+        # Debug: Log cashout parameters
+        print(f"cashout_bet data: bet_id={bet_id}, multiplier={multiplier}")
+
+        if not bet_id or not multiplier:
+            await self.send(json.dumps({"error": f"Bet ID and multiplier are required. Received: bet_id={bet_id}, multiplier={multiplier}"}))
+            return
 
         try:
             bet = await self.get_bet(bet_id)
@@ -155,8 +178,20 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": "Bet not found."}))
             return
 
+        if bet.user != user:
+            await self.send(json.dumps({"error": "Unauthorized: You can only cash out your own bets."}))
+            return
+
         if bet.cash_out_multiplier is not None:
             await self.send(json.dumps({"error": "Already cashed out."}))
+            return
+
+        try:
+            multiplier = float(multiplier)
+            if multiplier <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            await self.send(json.dumps({"error": f"Invalid multiplier format: {multiplier}"}))
             return
 
         if multiplier >= bet.round.crash_multiplier:
@@ -165,6 +200,9 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
         win_amount = round(float(bet.amount) * multiplier, 2)
 
+        # Debug: Log AviatorBet model fields
+        print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
+
         bet.cash_out_multiplier = multiplier
         bet.final_multiplier = multiplier
         bet.is_winner = True
@@ -172,21 +210,29 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
         wallet = await self.deposit_wallet(user, win_amount)
 
-        await database_sync_to_async(Transaction.objects.create)(
-            wallet=wallet,
-            amount=win_amount,
-            transaction_type='cashout',
-            description='Cashed out from Aviator'
-        )
+        # Debug: Log Transaction model fields and parameters
+        print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
+        print(f"Creating transaction for user: {user.username}, amount: {win_amount}, type: winning")
+
+        try:
+            await database_sync_to_async(Transaction.objects.create)(
+                user=user,
+                amount=win_amount,
+                transaction_type='winning',
+                description=f'Cashed out from Aviator at {multiplier}x'
+            )
+        except Exception as e:
+            print(f"Error creating transaction: {str(e)}")
+            await self.send(json.dumps({"error": f"Failed to create transaction: {str(e)}"}))
+            return
 
         await self.send(json.dumps({
             "type": "cash_out_success",
             "message": "Cashout successful",
             "win_amount": win_amount,
             "multiplier": multiplier,
-            "new_balance": wallet.balance  # 👈 Include updated wallet
+            "new_balance": float(wallet.balance)
         }))
-
 
     async def auto_cashout(self, current_multiplier, aviator_round):
         bets = await database_sync_to_async(list)(aviator_round.bets.filter(
@@ -196,6 +242,10 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
         for bet in bets:
             win_amount = round(float(bet.amount) * bet.auto_cashout, 2)
+
+            # Debug: Log AviatorBet model fields
+            print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
+
             bet.cash_out_multiplier = bet.auto_cashout
             bet.final_multiplier = bet.auto_cashout
             bet.is_winner = True
@@ -203,30 +253,44 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
             wallet = await self.deposit_wallet(bet.user, win_amount)
 
-            await database_sync_to_async(Transaction.objects.create)(
-                wallet=wallet,
-                amount=win_amount,
-                transaction_type='cashout',
-                description='Auto-cashout on Aviator'
-            )
+            # Debug: Log Transaction model fields and parameters
+            print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
+            print(f"Creating transaction for user: {bet.user.username}, amount: {win_amount}, type: winning")
+
+            try:
+                await database_sync_to_async(Transaction.objects.create)(
+                    user=bet.user,
+                    amount=win_amount,
+                    transaction_type='winning',
+                    description=f'Auto-cashout on Aviator at {bet.auto_cashout}x'
+                )
+            except Exception as e:
+                print(f"Error creating transaction: {str(e)}")
+                continue
 
     @database_sync_to_async
     def withdraw_wallet(self, user, amount):
         with transaction.atomic():
-            wallet = Wallet.objects.select_for_update().get(user=user)
-            if wallet.balance >= amount:
-                wallet.balance -= amount
-                wallet.save()
-                return True, wallet
-            return False, wallet
+            try:
+                wallet = Wallet.objects.select_for_update().get(user=user)
+                if wallet.balance >= Decimal(str(amount)):
+                    wallet.balance -= Decimal(str(amount))
+                    wallet.save()
+                    return True, wallet
+                return False, wallet
+            except Wallet.DoesNotExist:
+                return False, None
 
     @database_sync_to_async
     def deposit_wallet(self, user, amount):
         with transaction.atomic():
-            wallet = Wallet.objects.select_for_update().get(user=user)
-            wallet.balance += amount
-            wallet.save()
-            return wallet
+            try:
+                wallet = Wallet.objects.select_for_update().get(user=user)
+                wallet.balance += Decimal(str(amount))
+                wallet.save()
+                return wallet
+            except Wallet.DoesNotExist:
+                raise Exception("Wallet not found")
 
     @database_sync_to_async
     def get_wallet(self, user):

@@ -94,11 +94,6 @@ class ApiClient {
   async request<T>(endpoint: string, options: RequestInit = {}, retry = true): Promise<ApiResponse<T>> {
     try {
       console.log(`🌐 Making API request to: ${API_BASE_URL}${endpoint}`)
-      console.log(`📤 Request options:`, {
-        method: options.method || 'GET',
-        headers: options.headers,
-        body: options.body,
-      })
 
       const headers: HeadersInit = {
         "Content-Type": "application/json",
@@ -106,25 +101,20 @@ class ApiClient {
         ...(await this.getAuthHeaders()),
       }
 
-      console.log(`🔑 Final headers:`, headers)
-
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
       })
 
       console.log(`📥 Response status: ${res.status}`)
-      console.log(`📥 Response headers:`, Object.fromEntries(res.headers.entries()))
 
       let data: any
       const contentType = res.headers.get('content-type')
       
       if (contentType && contentType.includes('application/json')) {
         data = await res.json()
-        console.log(`📥 Response data:`, data)
       } else {
         const text = await res.text()
-        console.log(`📥 Response text:`, text)
         data = { message: text }
       }
 
@@ -134,7 +124,7 @@ class ApiClient {
         const newAccess = await this.refreshAccessToken()
         if (newAccess) {
           console.log("🔄 Retrying request with new token...")
-          return this.request<T>(endpoint, options, false) // retry once
+          return this.request<T>(endpoint, options, false)
         }
       }
 
@@ -144,17 +134,10 @@ class ApiClient {
         status: res.status,
       }
 
-      console.log(`📋 Final API result:`, result)
       return result
 
     } catch (error) {
       console.error("💥 Network error in API request:", error)
-      console.error("💥 Error details:", {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : 'No stack trace'
-      })
-
       return { 
         error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
         status: 0 
@@ -185,22 +168,10 @@ class ApiClient {
     return this.request<{ exists: boolean }>(`/accounts/check-username/?username=${username}`)
   }
 
-  // ✅ Dashboard
-  async getDashboardStats() {
-    return this.request<DashboardStats>("/dashboard/stats/")
-  }
-
-  async getRecentActivity() {
-    return this.request<RecentActivity[]>("/dashboard/activity/")
-  }
-
-  async getTopWinners() {
-    return this.request<TopWinner[]>("/dashboard/top-winners/")
-  }
-
-  // ✅ Wallet
+  // ✅ Wallet - Fixed to match your backend URL patterns
   async getWallet() {
-    return this.request<Wallet>("/wallet/")
+    // Use the correct endpoint that matches your Django URLs: /api/wallet/
+    return this.request<{ balance: number }>("/wallet/")
   }
 
   async deposit(amount: number) {
@@ -218,62 +189,19 @@ class ApiClient {
   }
 
   async getTransactions() {
-    return this.request<Transaction[]>("/transactions/")
+    return this.request<Transaction[]>("/wallet/transactions/")
   }
 
-  // ✅ Betting - FIXED
+  // ✅ Betting
   async getMatches() {
     return this.request<Match[]>("/betting/matches/")
   }
 
   async placeBet(betData: { amount: number; selections: Array<{ match_id: number; selected_option: string }> }) {
-    console.log("🎯 placeBet called with:", betData)
-    
-    // Validate bet data
-    if (!betData.amount || betData.amount <= 0) {
-      console.error("❌ Invalid bet amount:", betData.amount)
-      return {
-        error: "Invalid bet amount",
-        status: 400
-      }
-    }
-
-    if (!betData.selections || betData.selections.length === 0) {
-      console.error("❌ No selections provided")
-      return {
-        error: "No selections provided",
-        status: 400
-      }
-    }
-
-    // Validate each selection
-    for (const selection of betData.selections) {
-      if (!selection.match_id || !selection.selected_option) {
-        console.error("❌ Invalid selection:", selection)
-        return {
-          error: "Invalid selection data",
-          status: 400
-        }
-      }
-    }
-
-    console.log("✅ Bet data validation passed")
-
-    try {
-      const result = await this.request<Bet>("/betting/place/", {
-        method: "POST",
-        body: JSON.stringify(betData),
-      })
-
-      console.log("🎯 placeBet result:", result)
-      return result
-    } catch (error) {
-      console.error("💥 Error in placeBet:", error)
-      return {
-        error: `Failed to place bet: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        status: 0
-      }
-    }
+    return this.request<Bet>("/betting/place/", {
+      method: "POST",
+      body: JSON.stringify(betData),
+    })
   }
 
   async getBetHistory() {
@@ -290,14 +218,14 @@ class ApiClient {
     })
   }
 
-  // ✅ Aviator
+  // ✅ Aviator - Fixed to match your backend URLs
   async startAviatorRound() {
     return this.request<AviatorRound>("/games/aviator/start/", {
       method: "POST",
     })
   }
 
-  async placeAviatorBet(payload: { amount: number; user_id: number; auto_cashout?: number; round_id?: number }) {
+  async placeAviatorBet(payload: { amount: number; round_id: number; auto_cashout?: number }) {
     return this.request<AviatorBet>("/games/aviator/bet/", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -305,7 +233,7 @@ class ApiClient {
   }
 
   async cashoutAviator(bet_id: number, multiplier: number) {
-    return this.request<{ message: string; win_amount?: number }>("/games/aviator/cashout/", {
+    return this.request<{ message: string; win_amount?: number; new_balance?: number }>("/games/aviator/cashout/", {
       method: "POST",
       body: JSON.stringify({ bet_id, multiplier }),
     })
@@ -317,7 +245,8 @@ class ApiClient {
     )
   }
 
-  async getAviatorTopWinners() {
+  // Fixed to use correct endpoint
+  async getTopWinners() {
     return this.request<TopWinner[]>("/games/aviator/top-winners/")
   }
 
@@ -329,7 +258,7 @@ class ApiClient {
     return this.request<AviatorBet[]>("/games/aviator/my-bets/")
   }
 
-  // ✅ Premium Sure Odds - Updated to match your backend
+  // ✅ Premium Sure Odds - Matching your backend exactly
   async purchaseSureOdd() {
     return this.request<{ detail: string }>("/games/aviator/sure-odds/purchase/", {
       method: "POST",
@@ -356,6 +285,15 @@ class ApiClient {
         used: boolean
       }>
     }>("/games/aviator/sure-odds/history/")
+  }
+
+  // ✅ Dashboard - Added missing endpoints
+  async getDashboardStats() {
+    return this.request<DashboardStats>("/dashboard/stats/")
+  }
+
+  async getRecentActivity() {
+    return this.request<RecentActivity[]>("/dashboard/activity/")
   }
 }
 

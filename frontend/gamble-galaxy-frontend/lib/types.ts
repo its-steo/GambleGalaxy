@@ -1,3 +1,4 @@
+import { babelIncludeRegexes } from "next/dist/build/webpack-config";
 import { ReactNode } from "react";
 
 // User & Auth Types
@@ -151,7 +152,9 @@ export interface AviatorRound {
 }
 
 export interface AviatorBet {
+  bet_id: number;
   id: number;
+  bet: number;
   user: number;
   username: string;
   round: number;
@@ -163,6 +166,8 @@ export interface AviatorBet {
   is_winner: boolean;
   created_at: string;
   win_amount?: () => number;
+  new_balance?: () => number;
+
 }
 
 export interface SureOdd {
