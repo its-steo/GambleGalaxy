@@ -10,7 +10,8 @@ services:
       python manage.py collectstatic --noinput
       python manage.py migrate
     startCommand: |
-      daphne gamblegalaxy.asgi:application
+      daphne -b 0.0.0.0 -p $PORT gamblegalaxy.asgi:application
+
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
