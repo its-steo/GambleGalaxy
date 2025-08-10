@@ -33,6 +33,10 @@ ALLOWED_HOSTS = [
     'gamblegalaxy.onrender.com',
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://gamblegalaxy.onrender.com"
+]
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
