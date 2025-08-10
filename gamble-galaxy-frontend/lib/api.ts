@@ -1,9 +1,10 @@
 "use client"
 
 class ApiService {
-  private baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
-  private wsURL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws"
-
+ // private baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+ // private wsURL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws"
+  private baseURL = process.env.NEXT_PUBLIC_API_URL || "https://gamblegalaxy.onrender.com/api"
+  private wsURL = process.env.NEXT_PUBLIC_WS_URL || "wss://gamblegalaxy.onrender.com/ws"
   private getAuthHeaders() {
     const token = localStorage.getItem("access_token")
     return {
