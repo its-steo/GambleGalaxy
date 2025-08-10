@@ -29,7 +29,8 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '[::1]',
-    '192.168.100.12'
+    '192.168.100.12',
+    'gamblegalaxy.onrender.com',
 ]
 
 # Application definition
