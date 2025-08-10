@@ -110,4 +110,3 @@ def register_page(request):
 def profile_page(request):
     return render(request, 'frontend/profile.html')
 
-

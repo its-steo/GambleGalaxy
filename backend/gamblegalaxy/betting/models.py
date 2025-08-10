@@ -1,19 +1,21 @@
 from django.db import models
 from django.conf import settings
 import uuid
+from decimal import Decimal
 
 # -------------------
 # MATCH MODEL
 # -------------------
 class Match(models.Model):
+    api_match_id = models.CharField(max_length=50, unique=True, null=True, blank=True)  # New field for API ID
     home_team = models.CharField(max_length=100)
     away_team = models.CharField(max_length=100)
     match_time = models.DateTimeField()
 
     # Standard 1X2 odds
-    odds_home_win = models.DecimalField(max_digits=5, decimal_places=2)
-    odds_draw = models.DecimalField(max_digits=5, decimal_places=2)
-    odds_away_win = models.DecimalField(max_digits=5, decimal_places=2)
+    odds_home_win = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    odds_draw = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    odds_away_win = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
     # Goals
     odds_over_2_5 = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -66,8 +68,8 @@ class Bet(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    total_odds = models.DecimalField(max_digits=6, decimal_places=2, default=1.00)
-    expected_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_odds = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('1.00'))
+    expected_payout = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     match = models.ForeignKey(Match, on_delete=models.CASCADE, null=True, blank=True)
 
     status = models.CharField(
@@ -114,7 +116,7 @@ class BetSelection(models.Model):
     bet = models.ForeignKey('Bet', related_name='selections', on_delete=models.CASCADE)
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
     selected_option = models.CharField(max_length=30, choices=BET_CHOICES)
-    odds = models.FloatField(null=True, blank=True)
+    odds = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     is_correct = models.BooleanField(null=True, blank=True)
 
     def __str__(self):
@@ -129,7 +131,7 @@ class SureOddPrediction(models.Model):
     predicted_option = models.CharField(max_length=50, choices=BetSelection.BET_CHOICES)
 
     def __str__(self):
-        return f"S slip #{self.slip.code} - {self.match} - {self.predicted_option}"
+        return f"Slip #{self.slip.code} - {self.match} - {self.predicted_option}"
 
 # -------------------
 # SURE ODDS SLIP
@@ -138,7 +140,7 @@ class SureOddSlip(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     code = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     matches = models.ManyToManyField('Match')
-    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=10000.00)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('10000.00'))
     has_paid = models.BooleanField(default=False)
     shown_to_user_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)

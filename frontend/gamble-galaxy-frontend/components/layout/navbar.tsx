@@ -1,13 +1,19 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import Image from "next/image"; // Import Image from next/image
-import { Button } from "../ui/button";
-import { useAuth } from "@/lib/auth";
-import { LogOut } from "lucide-react";
+import Link from "next/link"
+import Image from "next/image"
+import { Button } from "../ui/button"
+import { useAuth } from "@/lib/auth"
+import { LogOut } from "lucide-react"
 
 export function Navbar() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth()
+
+  // Check if user is verified - using type-safe approach
+  const isUserVerified =
+    user && typeof user === "object" && user !== null && "is_verified" in user
+      ? Boolean((user as Record<string, unknown>).is_verified)
+      : false
 
   return (
     <nav className="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 backdrop-blur-sm bg-gray-900/95">
@@ -38,12 +44,12 @@ export function Navbar() {
                   ) : (
                     <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-bold">
-                        {user?.username.charAt(0).toUpperCase()}
+                        {user?.username?.charAt(0).toUpperCase() || "U"}
                       </span>
                     </div>
                   )}
-                  <span className="text-white">{user?.username}</span>
-                  {user?.is_verified && <div className="w-2 h-2 bg-green-400 rounded-full" title="Verified" />}
+                  <span className="text-white">{user?.username || "User"}</span>
+                  {isUserVerified && <div className="w-2 h-2 bg-green-400 rounded-full" title="Verified User" />}
                 </div>
                 <Button variant="ghost" onClick={logout} className="text-gray-400 hover:text-white">
                   <LogOut className="w-4 h-4" />
@@ -63,5 +69,5 @@ export function Navbar() {
         </div>
       </div>
     </nav>
-  );
+  )
 }

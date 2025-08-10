@@ -45,7 +45,7 @@ export default function RegisterPage() {
     const success = await register({
       username: formData.username,
       email: formData.email,
-      phone: formData.phone || undefined,
+      phone: formData.phone ,
       password: formData.password,
     })
 
@@ -100,7 +100,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Phone (Optional)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Phone</label>
               <Input
                 type="tel"
                 name="phone"

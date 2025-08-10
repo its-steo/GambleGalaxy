@@ -1,30 +1,37 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image"; // Import Image from next/image
-import { Button } from "../ui/button";
-import { useAuth } from "@/lib/auth";
-import { LogOut, Menu, X, Wallet, Bell, Settings, User } from "lucide-react";
-import { WalletBalance } from "@/components/wallet/wallet-balance";
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import Image from "next/image"
+import { Button } from "../ui/button"
+import { useAuth } from "@/lib/auth"
+import { LogOut, Wallet, Bell, Settings, User } from "lucide-react"
+import { WalletBalance } from "@/components/wallet/wallet-balance"
 
 interface NavbarProps {
-  onMobileMenuToggle?: () => void;
-  isMobileMenuOpen?: boolean;
+  onMobileMenuToggle?: () => void
+  isMobileMenuOpen?: boolean
 }
 
-export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
-  const { user, isAuthenticated, logout } = useAuth();
-  const [scrolled, setScrolled] = useState(false);
+export function Navbar({}: NavbarProps) {
+  const { user, isAuthenticated, logout } = useAuth()
+  const [scrolled, setScrolled] = useState(false)
+
+  // Check if user is verified - using type-safe approach
+  const isUserVerified =
+    user && typeof user === "object" && user !== null && "is_verified" in user
+      ? Boolean((user as Record<string, unknown>).is_verified)
+      : false
 
   // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+      setScrolled(window.scrollY > 20)
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
     <nav
@@ -39,17 +46,6 @@ export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
           {/* Mobile Menu Button & Logo */}
           <div className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-4">
             {/* Mobile Menu Toggle - Only show on mobile */}
-            <Button
-              onClick={onMobileMenuToggle}
-              className="lg:hidden bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 p-1.5 xs:p-2 rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300"
-            >
-              {isMobileMenuOpen ? (
-                <X className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" />
-              ) : (
-                <Menu className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" />
-              )}
-            </Button>
-
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-3 group">
               <div className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-md xs:rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
@@ -115,19 +111,19 @@ export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
                   ) : (
                     <div className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">
-                        {user?.username.charAt(0).toUpperCase()}
+                        {user?.username?.charAt(0).toUpperCase() || "U"}
                       </span>
                     </div>
                   )}
                   <div className="hidden sm:block">
                     <div className="flex items-center space-x-1 sm:space-x-2">
                       <span className="text-white text-xs sm:text-sm font-medium truncate max-w-16 sm:max-w-20 md:max-w-none">
-                        {user?.username}
+                        {user?.username || "User"}
                       </span>
-                      {user?.is_verified && (
+                      {isUserVerified && (
                         <div
                           className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse"
-                          title="Verified"
+                          title="Verified User"
                         />
                       )}
                     </div>
@@ -207,5 +203,5 @@ export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
         </div>
       )}
     </nav>
-  );
+  )
 }

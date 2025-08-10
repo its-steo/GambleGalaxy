@@ -29,4 +29,3 @@ class CrashMultiplierSettingAdmin(admin.ModelAdmin):
     list_display = ('min_value', 'max_value', 'weight')
 
 
-

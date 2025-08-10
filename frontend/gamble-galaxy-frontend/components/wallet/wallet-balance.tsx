@@ -1,8 +1,9 @@
 "use client"
 
 import type React from "react"
-import { Wallet } from "lucide-react"
+import { Wallet } from 'lucide-react'
 import { useWallet } from "@/context/WalletContext"
+import { formatCurrency } from "@/lib/currency"
 import { cn } from "@/lib/utils"
 
 interface WalletBalanceProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -10,7 +11,7 @@ interface WalletBalanceProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function WalletBalance({ balance, className, ...props }: WalletBalanceProps) {
-  const { balance: contextBalance } = useWallet()
+  const { balance: contextBalance, isLoading } = useWallet()
   const displayBalance = balance !== undefined ? balance : contextBalance
 
   return (
@@ -25,7 +26,7 @@ export function WalletBalance({ balance, className, ...props }: WalletBalancePro
         <Wallet className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 text-white" />
       </div>
       <span className="text-sm xs:text-base sm:text-lg font-bold text-white">
-        KES {Number.parseFloat(displayBalance.toString()).toFixed(2)}
+        {isLoading ? "Loading..." : formatCurrency(displayBalance)}
       </span>
     </div>
   )

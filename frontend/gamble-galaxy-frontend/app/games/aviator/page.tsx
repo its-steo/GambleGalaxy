@@ -1,14 +1,14 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { AviatorGame } from "@/components/games/aviator-game";
-import { useAuth } from "@/lib/auth";
-import { Plane } from "lucide-react";
+import { useEffect, useState } from "react"
+import { AviatorGameSimplified } from "@/components/games/aviator-game-simplified"
+import { useAuth } from "@/lib/auth"
+import { Plane } from "lucide-react"
 
 export default function AviatorPage() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [stars, setStars] = useState<{ left: string; top: string; delay: string; duration: string }[]>([]);
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [stars, setStars] = useState<{ left: string; top: string; delay: string; duration: string }[]>([])
 
   // Mouse tracking and stars generation (client-side only)
   useEffect(() => {
@@ -18,16 +18,17 @@ export default function AviatorPage() {
       top: `${Math.random() * 100}%`,
       delay: `${Math.random() * 3}s`,
       duration: `${2 + Math.random() * 3}s`,
-    }));
-    setStars(generatedStars);
+    }))
+    setStars(generatedStars)
 
     // Mouse tracking
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    return () => window.removeEventListener("mousemove", handleMouseMove)
+  }, [])
 
   // Show loading while authentication is being checked
   if (authLoading) {
@@ -38,7 +39,6 @@ export default function AviatorPage() {
           <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
-
         <div className="relative z-10 text-center">
           <div className="relative mb-6">
             {/* Aviator themed loading */}
@@ -56,7 +56,7 @@ export default function AviatorPage() {
           <p className="text-slate-400 text-sm sm:text-base">Checking authentication</p>
         </div>
       </div>
-    );
+    )
   }
 
   // Show login prompt if not authenticated
@@ -68,7 +68,6 @@ export default function AviatorPage() {
           <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
-
         <div className="relative z-10 text-center">
           <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center">
             <Plane className="w-8 h-8 text-white" />
@@ -85,7 +84,7 @@ export default function AviatorPage() {
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   // Main content once authenticated
@@ -125,8 +124,8 @@ export default function AviatorPage() {
 
       {/* Game content */}
       <div className="relative z-10">
-        <AviatorGame />
+        <AviatorGameSimplified />
       </div>
     </div>
-  );
+  )
 }
