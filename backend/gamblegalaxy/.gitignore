@@ -31,6 +31,7 @@ venv/
 
 # Django database and cache
 *.sqlite3-journal
+db.sqlite3
 *.cache
 *.bak
 *.swp
