@@ -2,12 +2,30 @@ import asyncio
 from decimal import Decimal
 import json
 import random
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.db import transaction
 from django.utils import timezone
 from .models import AviatorRound, AviatorBet, SureOdd, CrashMultiplierSetting
 from wallet.models import Wallet, Transaction
+
+# 🔧 CRITICAL FIX: Global game loop management
+_game_loop_task = None
+_game_loop_lock = asyncio.Lock()
+
+# 🔧 IMPROVED: Global round state tracking with better initialization
+_current_round_state = {
+    'round_id': None,
+    'crash_multiplier': None,
+    'current_multiplier': 1.0,
+    'is_active': False,
+    'is_betting': False,
+    'crashed': False,
+    'last_update': 0,
+    'round_start_time': None
+}
+_round_state_lock = asyncio.Lock()
 
 class AviatorConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -16,113 +34,260 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         print(f"[WebSocket] Client connected to {self.room_group_name} at {timezone.now()}")
 
-        if not hasattr(self.channel_layer, 'aviator_task'):
-            self.channel_layer.aviator_task = asyncio.create_task(self.run_aviator_game())
+        # 🔧 FIX: Ensure only ONE global game loop runs
+        await self.ensure_single_game_loop()
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         print(f"[WebSocket] Client disconnected from {self.room_group_name} at {timezone.now()}")
 
+    async def ensure_single_game_loop(self):
+        """Ensure only one game loop runs globally across all connections"""
+        global _game_loop_task, _game_loop_lock
+        
+        async with _game_loop_lock:
+            # Check if game loop is already running
+            if _game_loop_task is None or _game_loop_task.done():
+                print("🎮 Starting new global game loop")
+                _game_loop_task = asyncio.create_task(self.run_aviator_game())
+            else:
+                print("🎮 Game loop already running, skipping creation")
+
+    @staticmethod
+    async def get_current_round_state():
+        """Get the current round state - can be called from anywhere"""
+        global _current_round_state, _round_state_lock
+        async with _round_state_lock:
+            return _current_round_state.copy()
+
+    @staticmethod
+    async def update_round_state(**kwargs):
+        """Update the current round state - thread safe"""
+        global _current_round_state, _round_state_lock
+        async with _round_state_lock:
+            _current_round_state.update(kwargs)
+            _current_round_state['last_update'] = int(time.time() * 1000)
+        # Only log important state changes, not every multiplier update
+        if 'current_multiplier' not in kwargs or kwargs.get('current_multiplier', 0) % 1 == 0:
+            print(f"[STATE UPDATE] {kwargs}")
+
     async def receive(self, text_data):
         data = json.loads(text_data)
         action = data.get("action")
-        print(f"[WebSocket] Received: {data} at {timezone.now()}")
-
-        if action == "place_bet":
-            await self.place_bet(data)
-        elif action == "cashout":
-            await self.cashout_bet(data)
-        elif action == "get_game_state":
-            await self.send_game_state()
+        # Only log important actions, not pings
+        if action != "ping":
+            print(f"[WebSocket] Received: {data} at {timezone.now()}")
 
     async def send_to_group(self, event):
+        """Handle messages sent to the group"""
         if "type_override" in event:
             event["type"] = event.pop("type_override")
-        print(f"[WebSocket] Sending to group: {event} at {timezone.now()}")
+        
         await self.send(text_data=json.dumps(event))
 
     async def send_game_state(self):
-        latest_round = await self.get_latest_round()
+        # 🔧 IMPROVED: Send comprehensive game state
+        state = await self.get_current_round_state()
+        
+        print(f"[GAME STATE] Sending state: {state}")
+        
         await self.send(json.dumps({
             "type": "game_state",
-            "round_id": latest_round.id if latest_round else None,
-            "is_active": latest_round.is_active if latest_round else False,
-            "current_multiplier": 1.0 if not latest_round or not latest_round.is_active else latest_round.crash_multiplier
+            "round_id": state['round_id'],
+            "is_active": state['is_active'],
+            "is_betting": state['is_betting'],
+            "current_multiplier": state['current_multiplier'],
+            "crash_multiplier": state['crash_multiplier'],
+            "crashed": state['crashed'],
+            "server_time": int(time.time() * 1000),
+            "round_start_time": state.get('round_start_time')
         }))
 
     async def run_aviator_game(self):
+        """Global game loop - runs once for all connections"""
+        print("🚀 GLOBAL GAME LOOP STARTED")
+        
         while True:
-            print(f"[WebSocket] Sending betting_open at {timezone.now()}")
-            await self.channel_layer.group_send(self.room_group_name, {
-                'type': 'send_to_group',
-                'type_override': 'betting_open',
-                'message': 'Place your bets now!',
-                'countdown': 5
-            })
-            await asyncio.sleep(5)
+            try:
+                # 🔧 PHASE 1: BETTING
+                print(f"[GAME] Starting betting phase at {timezone.now()}")
+                
+                await self.update_round_state(
+                    is_betting=True,
+                    is_active=False,
+                    crashed=False,
+                    current_multiplier=1.0,
+                    crash_multiplier=None,
+                    round_id=None,
+                    round_start_time=None
+                )
+                
+                await self.channel_layer.group_send(self.room_group_name, {
+                    'type': 'send_to_group',
+                    'type_override': 'betting_open',
+                    'message': 'Place your bets now!',
+                    'countdown': 5,
+                    'server_time': int(time.time() * 1000)
+                })
+                await asyncio.sleep(5)
 
-            crash_multiplier = await self.generate_crash_multiplier()
-            aviator_round = await database_sync_to_async(AviatorRound.objects.create)(
-                crash_multiplier=crash_multiplier
-            )
-            print(f"[WebSocket] New round {aviator_round.id} created with crash_multiplier {crash_multiplier}")
+                # 🔧 PHASE 2: CREATE ROUND WITH PROPER ACTIVATION
+                crash_multiplier = await self.generate_crash_multiplier()
+                
+                # 🔧 CRITICAL: Create round and mark as active immediately
+                aviator_round = await database_sync_to_async(AviatorRound.objects.create)(
+                    crash_multiplier=crash_multiplier,
+                    is_active=True  # 🔧 ENSURE ROUND IS ACTIVE
+                )
+                
+                print(f"[GAME] Round {aviator_round.id} created - CRASH AT: {crash_multiplier}x - ACTIVE: {aviator_round.is_active}")
 
-            multiplier = 1.00
-            delay = 0.05  # Reduced delay for smoother updates
+                # 🔧 CRITICAL: Update global state with new round IMMEDIATELY
+                round_start_time = int(time.time() * 1000)
+                await self.update_round_state(
+                    round_id=aviator_round.id,
+                    crash_multiplier=crash_multiplier,
+                    is_betting=False,
+                    is_active=True,
+                    crashed=False,
+                    current_multiplier=1.0,
+                    round_start_time=round_start_time
+                )
 
-            await self.channel_layer.group_send(self.room_group_name, {
-                'type': 'send_to_group',
-                'type_override': 'round_started',
-                'multiplier': multiplier,
-                'round_id': aviator_round.id,
-            })
-
-            while multiplier < crash_multiplier:
-                await asyncio.sleep(delay)
-                step = 0.05 if multiplier < 2 else 0.08 if multiplier < 5 else 0.12 if multiplier < 20 else 0.2
-                delay = 0.05 if multiplier < 2 else 0.04 if multiplier < 5 else 0.03 if multiplier < 20 else 0.02
-                multiplier = round(multiplier + step * random.uniform(0.95, 1.05), 2)
+                # 🔧 PHASE 3: ROUND START - SEND ROUND ID TO FRONTEND
+                multiplier = 1.00
+                sequence_number = 0
 
                 await self.channel_layer.group_send(self.room_group_name, {
                     'type': 'send_to_group',
-                    'type_override': 'multiplier',
+                    'type_override': 'round_started',
                     'multiplier': multiplier,
-                    'round_id': aviator_round.id,
+                    'round_id': aviator_round.id,  # 🔧 CRITICAL: Send round ID
+                    'crash_multiplier': crash_multiplier,  # 🔧 Send crash multiplier
+                    'sequence': sequence_number,
+                    'server_time': int(time.time() * 1000),
+                    'is_active': True  # 🔧 Confirm round is active
                 })
 
-                await self.auto_cashout(multiplier, aviator_round)
+                print(f"[GAME] Round {aviator_round.id} started - sent to frontend")
 
-            await self.channel_layer.group_send(self.room_group_name, {
-                'type': 'send_to_group',
-                'type_override': 'crash',
-                'multiplier': crash_multiplier,
-                'round_id': aviator_round.id,
-            })
+                # 🔧 PHASE 4: MULTIPLIER UPDATES
+                while multiplier < crash_multiplier:
+                    sequence_number += 1
+                    
+                    # Fixed step progression based on current multiplier
+                    if multiplier < 2:
+                        step = 0.01
+                        delay = 0.1
+                    elif multiplier < 5:
+                        step = 0.02
+                        delay = 0.08
+                    elif multiplier < 20:
+                        step = 0.05
+                        delay = 0.06
+                    else:
+                        step = 0.1
+                        delay = 0.04
 
-            await self.end_round(aviator_round.id)
+                    await asyncio.sleep(delay)
+                    
+                    # 🔧 FIX: Ensure we don't overshoot the crash multiplier
+                    next_multiplier = round(multiplier + step, 2)
+                    if next_multiplier >= crash_multiplier:
+                        break
+                        
+                    multiplier = next_multiplier
 
-            await self.channel_layer.group_send(self.room_group_name, {
-                'type': 'send_to_group',
-                'type_override': 'round_summary',
-                'crash_multiplier': crash_multiplier,
-                'message': 'Round complete. Preparing next...',
-            })
+                    # 🔧 CRITICAL: Update global state with current multiplier
+                    await self.update_round_state(current_multiplier=multiplier)
+                    # Only log every 1.0x milestone to reduce noise
+                    if multiplier % 1.0 == 0:
+                        print(f"[MULTIPLIER] Round {aviator_round.id} reached {multiplier}x")
 
-            await asyncio.sleep(3)
+                    await self.channel_layer.group_send(self.room_group_name, {
+                        'type': 'send_to_group',
+                        'type_override': 'multiplier',
+                        'multiplier': multiplier,
+                        'round_id': aviator_round.id,
+                        'sequence': sequence_number,
+                        'server_time': int(time.time() * 1000)
+                    })
+
+                    await self.auto_cashout(multiplier, aviator_round)
+
+                # 🔧 PHASE 5: CRASH
+                sequence_number += 1
+                print(f"[GAME] CRASH! Round {aviator_round.id} crashed at {crash_multiplier}x")
+                
+                # 🔧 CRITICAL: Mark as crashed in global state
+                await self.update_round_state(
+                    crashed=True,
+                    is_active=False,
+                    current_multiplier=crash_multiplier
+                )
+                
+                await self.channel_layer.group_send(self.room_group_name, {
+                    'type': 'send_to_group',
+                    'type_override': 'crash',
+                    'multiplier': crash_multiplier,
+                    'round_id': aviator_round.id,
+                    'sequence': sequence_number,
+                    'server_time': int(time.time() * 1000),
+                    'final': True
+                })
+
+                await self.end_round(aviator_round.id)
+
+                await self.channel_layer.group_send(self.room_group_name, {
+                    'type': 'send_to_group',
+                    'type_override': 'round_summary',
+                    'crash_multiplier': crash_multiplier,
+                    'message': 'Round complete. Preparing next...',
+                    'server_time': int(time.time() * 1000)
+                })
+
+                await asyncio.sleep(3)
+
+            except Exception as e:
+                print(f"[GAME] Error in game loop: {e}")
+                import traceback
+                traceback.print_exc()
+                await asyncio.sleep(5)
 
     async def place_bet(self, data):
         user = self.scope["user"]
         round_id = data.get("round_id")
         amount = float(data.get("amount", 0))
 
+        print(f"[PLACE BET] User: {user.username}, Round: {round_id}, Amount: {amount}")
+
         if amount <= 0:
             await self.send(json.dumps({"error": "Invalid amount."}))
             return
 
+        # 🔧 IMPROVED: Get current round state for validation
+        current_state = await self.get_current_round_state()
+        print(f"[PLACE BET] Current state: {current_state}")
+
+        # 🔧 Use current round if provided round is invalid
+        if not round_id or round_id != current_state.get('round_id'):
+            round_id = current_state.get('round_id')
+            print(f"[PLACE BET] Using current round: {round_id}")
+
+        if not round_id:
+            await self.send(json.dumps({"error": "No active round available."}))
+            return
+
+        # 🔧 Check if betting is allowed
+        if not current_state.get('is_betting', False):
+            await self.send(json.dumps({"error": "Betting is not open."}))
+            return
+
         try:
             aviator_round = await self.get_round(round_id)
+            print(f"[PLACE BET] Found round {aviator_round.id}, active: {aviator_round.is_active}")
         except AviatorRound.DoesNotExist:
-            await self.send(json.dumps({"error": "Invalid round."}))
+            await self.send(json.dumps({"error": "Round not found."}))
             return
 
         if not aviator_round.is_active:
@@ -138,17 +303,12 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": "Insufficient balance."}))
             return
 
-        print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
-
         bet = await database_sync_to_async(AviatorBet.objects.create)(
             user=user,
             round=aviator_round,
             amount=amount,
             auto_cashout=data.get("auto_cashout")
         )
-
-        print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
-        print(f"Creating transaction for user: {user.username}, amount: {-amount}, type: withdraw")
 
         try:
             await database_sync_to_async(Transaction.objects.create)(
@@ -168,7 +328,9 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             'username': user.username,
             'amount': amount,
             'auto_cashout': data.get("auto_cashout"),
-            'round_id': round_id
+            'round_id': round_id,
+            'user_id': user.id,
+            'server_time': int(time.time() * 1000)
         })
 
         await self.send(json.dumps({
@@ -177,8 +339,12 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             "round_id": round_id,
             "amount": amount,
             "bet_id": bet.id,
-            "new_balance": float(wallet.balance)
+            "user_id": user.id,
+            "new_balance": float(wallet.balance),
+            "server_time": int(time.time() * 1000)
         }))
+
+        print(f"[PLACE BET] SUCCESS: {user.username} placed bet {bet.id} in round {round_id}")
 
     async def cashout_bet(self, data):
         user = self.scope["user"]
@@ -213,14 +379,33 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": f"Invalid multiplier format: {multiplier}"}))
             return
 
-        if multiplier >= bet.round.crash_multiplier:
-            print(f"[Cashout] Multiplier too high: {multiplier} >= {bet.round.crash_multiplier} for round {bet.round.id}")
-            await self.send(json.dumps({"error": "Too late, crashed!"}))
+        # 🔧 CRITICAL FIX: Validate against CURRENT ROUND STATE, not bet's round
+        current_state = await self.get_current_round_state()
+        
+        if current_state['crashed']:
+            print(f"[Cashout] Round already crashed at {current_state['crash_multiplier']}x")
+            await self.send(json.dumps({"error": f"Too late, round crashed at {current_state['crash_multiplier']}x!"}))
+            return
+
+        if not current_state['is_active']:
+            print(f"[Cashout] Round not active")
+            await self.send(json.dumps({"error": "Round is not active"}))
+            return
+
+        # 🔧 CRITICAL: Check against CURRENT round's crash multiplier
+        current_crash_multiplier = current_state['crash_multiplier']
+        if multiplier >= (current_crash_multiplier - 0.01):
+            print(f"[Cashout] Multiplier too high: {multiplier} >= {current_crash_multiplier} for CURRENT round {current_state['round_id']}")
+            await self.send(json.dumps({"error": f"Too late, will crash at {current_crash_multiplier}x!"}))
+            return
+
+        # 🔧 ADDITIONAL CHECK: Ensure bet is from current round
+        if bet.round.id != current_state['round_id']:
+            print(f"[Cashout] Bet from wrong round: bet round {bet.round.id} vs current round {current_state['round_id']}")
+            await self.send(json.dumps({"error": "Bet is from a different round"}))
             return
 
         win_amount = round(float(bet.amount) * multiplier, 2)
-
-        print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
 
         bet.cash_out_multiplier = multiplier
         bet.final_multiplier = multiplier
@@ -228,9 +413,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         await database_sync_to_async(bet.save)()
 
         wallet = await self.deposit_wallet(user, win_amount)
-
-        print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
-        print(f"Creating transaction for user: {user.username}, amount: {win_amount}, type: winning")
 
         try:
             await database_sync_to_async(Transaction.objects.create)(
@@ -250,7 +432,8 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             'username': user.username,
             'multiplier': multiplier,
             'amount': float(bet.amount),
-            'win_amount': win_amount
+            'win_amount': win_amount,
+            'server_time': int(time.time() * 1000)
         })
 
         await self.send(json.dumps({
@@ -258,8 +441,12 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             "message": "Cashout successful",
             "win_amount": win_amount,
             "multiplier": multiplier,
-            "new_balance": float(wallet.balance)
+            "new_balance": float(wallet.balance),
+            "user_id": user.id,
+            "server_time": int(time.time() * 1000)
         }))
+
+        print(f"[Cashout] SUCCESS: {user.username} cashed out at {multiplier}x for {win_amount} from round {current_state['round_id']}")
 
     async def auto_cashout(self, current_multiplier, aviator_round):
         bets = await database_sync_to_async(list)(aviator_round.bets.filter(
@@ -270,17 +457,12 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         for bet in bets:
             win_amount = round(float(bet.amount) * bet.auto_cashout, 2)
 
-            print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
-
             bet.cash_out_multiplier = bet.auto_cashout
             bet.final_multiplier = bet.auto_cashout
             bet.is_winner = True
             await database_sync_to_async(bet.save)()
 
             wallet = await self.deposit_wallet(bet.user, win_amount)
-
-            print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
-            print(f"Creating transaction for user: {bet.user.username}, amount: {win_amount}, type: winning")
 
             try:
                 await database_sync_to_async(Transaction.objects.create)(
@@ -299,7 +481,8 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                 'username': bet.user.username,
                 'multiplier': bet.auto_cashout,
                 'amount': float(bet.amount),
-                'win_amount': win_amount
+                'win_amount': win_amount,
+                'server_time': int(time.time() * 1000)
             })
 
     @database_sync_to_async
@@ -337,6 +520,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             aviator_round.is_active = False
             aviator_round.ended_at = timezone.now()
             aviator_round.save()
+            print(f"[END ROUND] Round {round_id} marked as inactive")
 
             for bet in aviator_round.bets.filter(cash_out_multiplier__isnull=True):
                 bet.final_multiplier = aviator_round.crash_multiplier

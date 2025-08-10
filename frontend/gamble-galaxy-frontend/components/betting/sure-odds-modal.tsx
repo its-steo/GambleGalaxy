@@ -5,8 +5,24 @@ import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { Button } from "../ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Lock, Unlock, DollarSign, Eye, EyeOff, Star, Trophy, Crown, Sparkles, X, CheckCircle, AlertTriangle, Timer, Wallet } from 'lucide-react'
-import type { SureOddSlip, Match } from "@/lib/types"
+import {
+  Clock,
+  Lock,
+  Unlock,
+  DollarSign,
+  Eye,
+  EyeOff,
+  Star,
+  Trophy,
+  Crown,
+  Sparkles,
+  X,
+  CheckCircle,
+  AlertTriangle,
+  Timer,
+  Wallet,
+} from "lucide-react"
+import type { Match } from "@/lib/types"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth"
@@ -16,10 +32,31 @@ interface SureOddsModalProps {
   onClose: () => void
 }
 
-// Sure odds match interface (extends Match with prediction)
-interface SureOddsMatch extends Match {
+// Sure odds match interface - simplified for sure odds display
+interface SureOddsMatch {
+  id: number
+  home_team: string
+  away_team: string
+  match_time: string
+  start_time: string
+  status: "upcoming" | "live" | "finished" | "first_half" | "second_half" | "halftime" | "fulltime"
   prediction?: string
   confidence?: number
+  odds: string
+}
+
+// Sure odds slip interface
+interface SureOddSlip {
+  id: number
+  code: string
+  paid: boolean
+  show_predictions: boolean
+  allow_payment: boolean
+  dismiss: boolean
+  matches: SureOddsMatch[]
+  total_odds?: number
+  cost?: number
+  expires_at?: string
 }
 
 export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
@@ -49,34 +86,71 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
 
   // Generate random predictions for matches
   const generateSureOddsPredictions = (matches: Match[]): SureOddsMatch[] => {
-    const predictions = ['home_win', 'draw', 'away_win', 'over_2.5', 'under_2.5', 'btts_yes', 'btts_no']
+    const predictions = ["home_win", "draw", "away_win", "over_2.5", "under_2.5", "btts_yes", "btts_no"]
     const predictionLabels: Record<string, string> = {
-      home_win: 'Home Win',
-      draw: 'Draw', 
-      away_win: 'Away Win',
-      'over_2.5': 'Over 2.5 Goals',
-      'under_2.5': 'Under 2.5 Goals',
-      btts_yes: 'Both Teams to Score - Yes',
-      btts_no: 'Both Teams to Score - No'
+      home_win: "Home Win",
+      draw: "Draw",
+      away_win: "Away Win",
+      "over_2.5": "Over 2.5 Goals",
+      "under_2.5": "Under 2.5 Goals",
+      btts_yes: "Both Teams to Score - Yes",
+      btts_no: "Both Teams to Score - No",
     }
 
     // Randomly select 3-5 matches
     const shuffled = [...matches].sort(() => 0.5 - Math.random())
     const selectedMatches = shuffled.slice(0, Math.min(5, Math.max(3, matches.length)))
 
-    return selectedMatches.map(match => {
+    return selectedMatches.map((match) => {
       // Randomly select a prediction
       const randomPrediction = predictions[Math.floor(Math.random() * predictions.length)]
-      
+
       // Generate confidence (85-98%)
       const confidence = Math.floor(Math.random() * (98 - 85 + 1)) + 85
 
+      // Get odds value - try multiple sources
+      const getOddsValue = (): string => {
+        // Try to get odds from the match object
+        if (match.odds?.home) return match.odds.home.toString()
+        if (match.odds_home_win) return match.odds_home_win
+        if (match.odds_draw) return match.odds_draw
+        if (match.odds_away_win) return match.odds_away_win
+        if (match.odds_over_2_5) return match.odds_over_2_5
+        if (match.odds_under_2_5) return match.odds_under_2_5
+        if (match.odds_btts_yes) return match.odds_btts_yes
+        if (match.odds_btts_no) return match.odds_btts_no
+
+        // Generate random odds between 1.5 and 4.0
+        return (1.5 + Math.random() * 2.5).toFixed(2)
+      }
+
       return {
-        ...match,
+        id: match.id,
+        home_team: match.home_team,
+        away_team: match.away_team,
+        match_time: match.match_time || match.start_time,
+        start_time: match.start_time,
+        status: match.status,
         prediction: predictionLabels[randomPrediction],
-        confidence
+        confidence,
+        odds: getOddsValue(),
       }
     })
+  }
+
+  // Type guard to check if API response is valid
+  const isValidSureOddsResponse = (data: unknown): data is Partial<SureOddSlip> => {
+    if (!data || typeof data !== "object" || data === null) {
+      return false
+    }
+
+    const obj = data as Record<string, unknown>
+    return (
+      typeof obj.id === "number" ||
+      Array.isArray(obj.matches) ||
+      typeof obj.code === "string" ||
+      typeof obj.paid === "boolean"
+    )
   }
 
   // Load sure odds from available matches
@@ -84,27 +158,98 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
     console.log("🎯 Loading sure odds from available matches...")
     setLoading(true)
     setError(null)
-    
+
     try {
       // First, try to get existing sure odds from API
       const sureOddsResponse = await api.getSureOdds()
-      
-      if (sureOddsResponse.data) {
+
+      if (sureOddsResponse.data && isValidSureOddsResponse(sureOddsResponse.data)) {
         console.log("✅ Found existing sure odds:", sureOddsResponse.data)
-        setSureOdds(sureOddsResponse.data)
+
+        // Work directly with the Partial<SureOddSlip> type
+        const apiData = sureOddsResponse.data
+        const transformedSureOdds: SureOddSlip = {
+          id: typeof apiData.id === "number" ? apiData.id : Date.now(),
+          code:
+            typeof apiData.code === "string"
+              ? apiData.code
+              : `GALAXY${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          paid: typeof apiData.paid === "boolean" ? apiData.paid : false,
+          show_predictions: typeof apiData.show_predictions === "boolean" ? apiData.show_predictions : false,
+          allow_payment: typeof apiData.allow_payment === "boolean" ? apiData.allow_payment : true,
+          dismiss: typeof apiData.dismiss === "boolean" ? apiData.dismiss : false,
+          matches: Array.isArray(apiData.matches)
+            ? apiData.matches.map((match: unknown) => {
+                // Type guard to ensure match is an object
+                if (!match || typeof match !== "object") {
+                  return {
+                    id: 0,
+                    home_team: "Unknown",
+                    away_team: "Unknown",
+                    match_time: new Date().toISOString(),
+                    start_time: new Date().toISOString(),
+                    status: "upcoming" as const,
+                    prediction: undefined,
+                    confidence: undefined,
+                    odds: "2.0",
+                  }
+                }
+
+                const matchObj = match as Record<string, unknown>
+                return {
+                  id: typeof matchObj.id === "number" ? matchObj.id : 0,
+                  home_team: typeof matchObj.home_team === "string" ? matchObj.home_team : "Unknown",
+                  away_team: typeof matchObj.away_team === "string" ? matchObj.away_team : "Unknown",
+                  match_time:
+                    typeof matchObj.match_time === "string"
+                      ? matchObj.match_time
+                      : typeof matchObj.start_time === "string"
+                        ? matchObj.start_time
+                        : new Date().toISOString(),
+                  start_time:
+                    typeof matchObj.start_time === "string"
+                      ? matchObj.start_time
+                      : typeof matchObj.match_time === "string"
+                        ? matchObj.match_time
+                        : new Date().toISOString(),
+                  status: (typeof matchObj.status === "string" ? matchObj.status : "upcoming") as
+                    | "upcoming"
+                    | "live"
+                    | "finished"
+                    | "first_half"
+                    | "second_half"
+                    | "halftime"
+                    | "fulltime",
+                  prediction: typeof matchObj.prediction === "string" ? matchObj.prediction : undefined,
+                  confidence: typeof matchObj.confidence === "number" ? matchObj.confidence : undefined,
+                  odds: typeof matchObj.odds === "string" ? matchObj.odds : "2.0",
+                }
+              })
+            : [],
+          total_odds: typeof apiData.total_odds === "number" ? apiData.total_odds : undefined,
+          cost: typeof apiData.cost === "number" ? apiData.cost : SURE_ODDS_PRICE,
+          expires_at: typeof apiData.expires_at === "string" ? apiData.expires_at : undefined,
+        }
+
+        setSureOdds(transformedSureOdds)
         return
       }
 
       // If no existing sure odds, create from available matches
       console.log("📋 No existing sure odds, creating from available matches...")
       const matchesResponse = await api.getMatches()
-      
+
       if (matchesResponse.data && matchesResponse.data.length > 0) {
         console.log(`📊 Found ${matchesResponse.data.length} available matches`)
-        
+
         // Generate sure odds from available matches
         const sureOddsMatches = generateSureOddsPredictions(matchesResponse.data)
-        
+
+        // Calculate total odds
+        const totalOdds = sureOddsMatches.reduce((acc, match) => {
+          return acc * Number.parseFloat(match.odds)
+        }, 1)
+
         // Create sure odds slip
         const generatedSureOdds: SureOddSlip = {
           id: Date.now(), // Use timestamp as ID
@@ -113,24 +258,18 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
           show_predictions: false,
           allow_payment: true,
           dismiss: false,
-          matches: sureOddsMatches.map(match => ({
-            id: match.id,
-            home_team: match.home_team,
-            away_team: match.away_team,
-            match_time: match.match_time,
-            prediction: match.prediction || '',
-            odds: match.odds_home_win || '2.0' // Use actual odds or default
-          }))
+          matches: sureOddsMatches,
+          total_odds: totalOdds,
+          cost: SURE_ODDS_PRICE,
+          expires_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
         }
-        
+
         console.log("✅ Generated sure odds:", generatedSureOdds)
         setSureOdds(generatedSureOdds)
-        
       } else {
         console.log("❌ No matches available")
         setError("No matches available for sure odds")
       }
-      
     } catch (error) {
       console.error("💥 Error loading sure odds:", error)
       setError("Failed to load sure odds. Please try again.")
@@ -185,18 +324,22 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
       console.log("💳 Processing payment...")
       const response = await api.paySureOdds()
       console.log("💳 Payment response:", response)
-      
+
       if (response.data || response.status === 200) {
         // Update wallet balance immediately
         setWalletBalance((prev) => prev - SURE_ODDS_PRICE)
-        
+
         // Update sure odds to show as paid and reveal predictions
-        setSureOdds(prev => prev ? {
-          ...prev,
-          paid: true,
-          show_predictions: true
-        } : null)
-        
+        setSureOdds((prev) =>
+          prev
+            ? {
+                ...prev,
+                paid: true,
+                show_predictions: true,
+              }
+            : null,
+        )
+
         toast.success("🎉 Payment Successful!", {
           description: `KES ${SURE_ODDS_PRICE.toLocaleString()} deducted. Premium predictions unlocked!`,
           className: "bg-green-500/90 text-white border-green-400 backdrop-blur-md",
@@ -286,7 +429,7 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
               <Button
                 onClick={onClose}
                 variant="outline"
-                className="flex-1 border-white/20 text-white hover:bg-white/10"
+                className="flex-1 border-white/20 text-white hover:bg-white/10 bg-transparent"
               >
                 Close
               </Button>
@@ -335,6 +478,7 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
               <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </div>
+
           {/* Compact Timer */}
           {timeLeft > 0 && (
             <div className="mt-2 sm:mt-3 bg-white/10 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 border border-white/20">
@@ -356,7 +500,8 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
             <div className="flex items-center space-x-2">
               <Star className="w-4 h-4 text-blue-400 flex-shrink-0" />
               <p className="text-blue-300 text-sm">
-                <strong>Expert Analysis:</strong> These predictions are generated from today's available matches using advanced algorithms.
+                <strong>Expert Analysis:</strong> These predictions are generated from todays available matches using
+                advanced algorithms.
               </p>
             </div>
           </div>
@@ -411,6 +556,7 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                 </div>
               </div>
             </Card>
+
             <Card className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3">
               <div className="flex items-center space-x-2">
                 <div
@@ -438,6 +584,27 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
             </Card>
           </div>
 
+          {/* Total Odds Display */}
+          {sureOdds.total_odds && (
+            <Card className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/30 rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Star className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-xs sm:text-sm">Combined Odds</h3>
+                    <p className="text-gray-400 text-xs">All predictions combined</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-bold text-lg sm:text-xl">{sureOdds.total_odds.toFixed(2)}x</div>
+                  <div className="text-purple-400 text-xs">High Value</div>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Matches */}
           <div className="space-y-2 sm:space-y-3">
             <div className="flex items-center justify-between">
@@ -446,6 +613,7 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                 Selected Matches ({sureOdds.matches.length})
               </h3>
             </div>
+
             <div className="space-y-2">
               {sureOdds.matches.map((match, index) => (
                 <Card
@@ -470,6 +638,7 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                       </div>
                     </div>
                   </div>
+
                   {/* Prediction */}
                   {sureOdds.show_predictions && match.prediction ? (
                     <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-md sm:rounded-lg p-2 border border-green-500/30">
@@ -483,6 +652,9 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                           <div className="min-w-0 flex-1">
                             <p className="text-white font-medium text-xs">Expert Prediction</p>
                             <p className="text-green-400 font-bold text-xs sm:text-sm truncate">{match.prediction}</p>
+                            {match.confidence && (
+                              <p className="text-yellow-400 text-xs">Confidence: {match.confidence}%</p>
+                            )}
                           </div>
                         </div>
                         <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs px-2 py-0.5 flex-shrink-0 ml-2">
@@ -530,6 +702,12 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                       KES {(walletBalance - SURE_ODDS_PRICE).toLocaleString()}
                     </span>
                   </div>
+                  {sureOdds.total_odds && (
+                    <div className="flex items-center justify-between text-xs sm:text-sm mt-1">
+                      <span className="text-gray-300">Combined Odds:</span>
+                      <span className="text-purple-400 font-bold">{sureOdds.total_odds.toFixed(2)}x</span>
+                    </div>
+                  )}
                 </div>
                 {walletBalance < SURE_ODDS_PRICE && (
                   <div className="bg-red-500/20 border border-red-500/30 rounded-md sm:rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
@@ -572,7 +750,9 @@ export function SureOddsModal({ isOpen, onClose }: SureOddsModalProps) {
                   <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <h4 className="text-base sm:text-lg font-bold text-green-400 mb-1">Premium Access Unlocked!</h4>
-                <p className="text-green-300 text-xs sm:text-sm">You now have access to expert predictions for all selected matches</p>
+                <p className="text-green-300 text-xs sm:text-sm">
+                  You now have access to expert predictions for all selected matches
+                </p>
               </div>
             </Card>
           )}

@@ -64,22 +64,56 @@ class AviatorBet(models.Model):
         return f"{self.user.username} - Bet: {self.amount} on Round {self.round.id}"
 
     def is_win(self):
+        """Check if this bet is a winning bet"""
         if self.cash_out_multiplier is not None:
             return self.cash_out_multiplier < self.round.crash_multiplier
         return False
 
     def win_amount(self):
-        if self.is_win():
+        """Calculate the win amount for this bet"""
+        if self.is_win() and self.cash_out_multiplier:
             return round(float(self.amount) * self.cash_out_multiplier, 2)
         return 0.0
 
     @classmethod
-    def top_winners_today(cls):
+    def get_top_winners_today(cls, limit=10):
+        """
+        🔧 NEW: Get top winners for today with proper calculation
+        """
         today = timezone.now().date()
-        return cls.objects.filter(
+        
+        # Get all winning bets from today
+        winning_bets = cls.objects.filter(
             created_at__date=today,
-            is_winner=True
-        ).order_by('-win_amount')[:10]
+            is_winner=True,
+            cash_out_multiplier__isnull=False
+        ).select_related('user', 'round')
+        
+        # Calculate win amounts and create list
+        winners_data = []
+        for bet in winning_bets:
+            win_amount = bet.win_amount()
+            if win_amount > 0:
+                winners_data.append({
+                    'id': bet.id,
+                    'username': bet.user.username,
+                    'amount': float(bet.amount),
+                    'win_amount': win_amount,
+                    'multiplier': float(bet.cash_out_multiplier),
+                    'cashout_multiplier': float(bet.cash_out_multiplier),
+                    'timestamp': int(bet.created_at.timestamp()),
+                    'is_bot': getattr(bet.user, 'is_bot', False),
+                    'round_id': bet.round.id
+                })
+        
+        # Sort by win amount and return top winners
+        winners_data.sort(key=lambda x: x['win_amount'], reverse=True)
+        return winners_data[:limit]
+
+    @classmethod
+    def top_winners_today(cls):
+        """Legacy method for backward compatibility"""
+        return cls.get_top_winners_today()
 
 
 class SureOdd(models.Model):

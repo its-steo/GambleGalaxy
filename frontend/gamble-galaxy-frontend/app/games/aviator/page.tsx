@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { AviatorGameSimplified } from "@/components/games/aviator-game-simplified"
 import { useAuth } from "@/lib/auth"
-import { Plane } from 'lucide-react'
+import { Plane } from "lucide-react"
 
 export default function AviatorPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()

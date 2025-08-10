@@ -1,51 +1,167 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DollarSign, TrendingUp, Trophy, Activity, Plane, Target, ArrowUpCircle, ArrowDownCircle, History, Star, Zap, Crown, Award, Clock, Menu } from 'lucide-react'
+import {
+  DollarSign,
+  TrendingUp,
+  Trophy,
+  Activity,
+  Plane,
+  Target,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  History,
+  Star,
+  Zap,
+  Crown,
+  Award,
+  Clock,
+  Menu,
+} from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { toast } from "sonner"
 import Link from "next/link"
 import GlassSideNav from "@/components/layout/glass-side-nav"
-import { api } from "@/lib/api" // Import the API client
+import { api } from "@/lib/api"
 
-interface DashboardStats {
-  totalBalance: number
+// Create a flexible interface for the actual API response
+interface ApiResponseData {
+  totalBets?: number
+  activeBets?: number
+  totalWinnings?: number
+  winRate?: number
+  totalBalance?: number
+  walletBalance?: number
+  totalLosses?: number
+  netProfit?: number
+  recentActivities?: Array<{
+    id: number
+    activity_type: string
+    description: string
+    amount: number
+    timestamp: string
+    game_type?: string
+    multiplier?: number
+  }>
+  topWinners?: Array<{
+    id?: number
+    username?: string
+    user?: string
+    amount: number | string
+    game_type?: string
+    multiplier?: number
+    cash_out_multiplier?: number
+  }>
+  recentTransactions?: Array<{
+    id: number
+    amount: number
+    transaction_type: string
+    description: string
+    created_at: string
+    status: string
+  }>
+  recentBets?: Array<{
+    id: number
+    amount: number | string
+    total_odds: number | string
+    status: string
+    created_at: string
+  }>
+  monthlyStats?: {
+    totalBets: number
+    totalWinnings: number
+    totalLosses: number
+  }
+  weeklyStats?: {
+    totalBets: number
+    totalWinnings: number
+    totalLosses: number
+  }
+  favoriteGames?: Array<{
+    name: string
+    count: number
+    winRate: number
+  }>
+  achievements?: Array<{
+    id: number
+    name: string
+    description: string
+    unlocked: boolean
+    unlockedAt?: string
+  }>
+}
+
+// Local interface for transformed data
+interface DashboardApiResponse {
   totalBets: number
-  totalWinnings: number
-  totalLosses: number
-  winRate: number
   activeBets: number
+  totalWinnings: number
+  winRate: number
+  totalBalance: number
+  walletBalance: number
+  totalLosses: number
   netProfit: number
-  recentActivities: RecentActivity[]
-  topWinners: TopWinner[]
-}
-
-interface RecentActivity {
-  id: number
-  activity_type: string
-  game_type?: string
-  amount: number
-  multiplier?: number
-  description: string
-  status: string
-  timestamp: string
-}
-
-interface TopWinner {
-  id: number
-  username: string
-  amount: number
-  game_type: string
-  multiplier?: number
-  timestamp: string
+  recentActivities: Array<{
+    id: number
+    activity_type: string
+    description: string
+    amount: number
+    timestamp: string
+    game_type?: string
+    multiplier?: number
+  }>
+  topWinners: Array<{
+    id: number
+    username: string
+    amount: number
+    game_type?: string
+    multiplier?: number
+  }>
+  recentTransactions: Array<{
+    id: number
+    amount: number
+    transaction_type: string
+    description: string
+    created_at: string
+    status: string
+  }>
+  recentBets: Array<{
+    id: number
+    amount: number | string
+    total_odds: number | string
+    status: string
+    created_at: string
+  }>
+  monthlyStats: {
+    totalBets: number
+    totalWinnings: number
+    totalLosses: number
+  }
+  weeklyStats: {
+    totalBets: number
+    totalWinnings: number
+    totalLosses: number
+  }
+  favoriteGames: Array<{
+    name: string
+    count: number
+    winRate: number
+  }>
+  achievements: Array<{
+    id: number
+    name: string
+    description: string
+    unlocked: boolean
+    unlockedAt?: string
+  }>
 }
 
 export default function DashboardPage() {
   const { isAuthenticated, user, isLoading: authLoading } = useAuth()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [stats, setStats] = useState<DashboardApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [refreshing, setRefreshing] = useState(false)
@@ -60,32 +176,130 @@ export default function DashboardPage() {
     return () => window.removeEventListener("mousemove", handleMouseMove)
   }, [])
 
+  // Transform TopWinner data to match expected structure
+  const transformTopWinners = (
+    winners: Array<{
+      id?: number
+      username?: string
+      user?: string
+      amount: number | string
+      game_type?: string
+      multiplier?: number
+      cash_out_multiplier?: number
+    }>,
+  ): Array<{
+    id: number
+    username: string
+    amount: number
+    game_type?: string
+    multiplier?: number
+  }> => {
+    return winners.map((winner, index) => ({
+      id: winner.id || index + 1,
+      username: winner.username || winner.user || `Player ${index + 1}`,
+      amount: typeof winner.amount === "string" ? Number.parseFloat(winner.amount) : winner.amount || 0,
+      game_type: winner.game_type || "Unknown",
+      multiplier: winner.multiplier || winner.cash_out_multiplier || undefined,
+    }))
+  }
+
+  const loadDashboardData = useCallback(async () => {
+    try {
+      setLoading(true)
+
+      // Use the API client and handle the response more flexibly
+      const response = await api.getDashboardStats()
+
+      if (response.data) {
+        // Cast the response data to our flexible interface
+        const apiData = response.data as ApiResponseData
+
+        // Transform the API response to match our expected structure
+        const transformedStats: DashboardApiResponse = {
+          totalBets: apiData.totalBets || 0,
+          activeBets: apiData.activeBets || 0,
+          totalWinnings: apiData.totalWinnings || 0,
+          winRate: apiData.winRate || 0,
+          // Handle both walletBalance and totalBalance properties
+          totalBalance: apiData.walletBalance || apiData.totalBalance || 0,
+          walletBalance: apiData.walletBalance || apiData.totalBalance || 0,
+          totalLosses: apiData.totalLosses || 0,
+          netProfit: apiData.netProfit || (apiData.totalWinnings || 0) - (apiData.totalLosses || 0),
+          recentActivities: apiData.recentActivities || [],
+          // Transform topWinners to match expected structure
+          topWinners: transformTopWinners(apiData.topWinners || []),
+          recentTransactions: apiData.recentTransactions || [],
+          recentBets: apiData.recentBets || [],
+          monthlyStats: apiData.monthlyStats || {
+            totalBets: 0,
+            totalWinnings: 0,
+            totalLosses: 0,
+          },
+          weeklyStats: apiData.weeklyStats || {
+            totalBets: 0,
+            totalWinnings: 0,
+            totalLosses: 0,
+          },
+          favoriteGames: apiData.favoriteGames || [],
+          achievements: apiData.achievements || [],
+        }
+
+        setStats(transformedStats)
+      } else {
+        toast.error(response.error || "Failed to load dashboard data")
+        // Set default empty stats to prevent crashes
+        setStats({
+          totalBets: 0,
+          activeBets: 0,
+          totalWinnings: 0,
+          winRate: 0,
+          totalBalance: 0,
+          walletBalance: 0,
+          totalLosses: 0,
+          netProfit: 0,
+          recentActivities: [],
+          topWinners: [],
+          recentTransactions: [],
+          recentBets: [],
+          monthlyStats: { totalBets: 0, totalWinnings: 0, totalLosses: 0 },
+          weeklyStats: { totalBets: 0, totalWinnings: 0, totalLosses: 0 },
+          favoriteGames: [],
+          achievements: [],
+        })
+      }
+    } catch (error) {
+      console.error("Dashboard error:", error)
+      toast.error("Error loading dashboard")
+      // Set default empty stats on error
+      setStats({
+        totalBets: 0,
+        activeBets: 0,
+        totalWinnings: 0,
+        winRate: 0,
+        totalBalance: 0,
+        walletBalance: 0,
+        totalLosses: 0,
+        netProfit: 0,
+        recentActivities: [],
+        topWinners: [],
+        recentTransactions: [],
+        recentBets: [],
+        monthlyStats: { totalBets: 0, totalWinnings: 0, totalLosses: 0 },
+        weeklyStats: { totalBets: 0, totalWinnings: 0, totalLosses: 0 },
+        favoriteGames: [],
+        achievements: [],
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   // Load dashboard data
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       loadDashboardData()
     }
-  }, [isAuthenticated, authLoading])
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true)
-      
-      // Use the API client instead of direct fetch
-      const response = await api.getDashboardStats()
-      
-      if (response.data) {
-        setStats(response.data)
-      } else {
-        toast.error(response.error || "Failed to load dashboard data")
-      }
-    } catch (error) {
-      console.error("Dashboard error:", error)
-      toast.error("Error loading dashboard")
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [isAuthenticated, authLoading, loadDashboardData])
 
   const refreshData = async () => {
     setRefreshing(true)
@@ -279,7 +493,7 @@ export default function DashboardPage() {
             {[
               {
                 title: "Wallet Balance",
-                value: formatCurrency(stats?.totalBalance || 0),
+                value: formatCurrency(stats?.totalBalance || stats?.walletBalance || 0),
                 icon: DollarSign,
                 color: "from-green-500 to-emerald-500",
                 change: "+12.5%",

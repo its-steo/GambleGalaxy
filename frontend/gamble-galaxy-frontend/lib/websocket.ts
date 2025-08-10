@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import { toast } from "sonner"
-import type { WebSocketMessage, RecentCashout } from "./types"
+import type { RecentCashout, CashoutResponse } from "./types"
 
 interface BetInfo {
   id: number
@@ -10,92 +10,112 @@ interface BetInfo {
   auto_cashout?: number
   username?: string
   is_bot?: boolean
-  placed_at?: number // Timestamp when bet was placed
+  placed_at?: number
 }
 
 interface WebSocketState {
   socket: WebSocket | null
   isConnected: boolean
+  // 🔧 CRITICAL: Server-controlled values only
   currentMultiplier: number
+  serverCrashMultiplier: number | null
   currentRoundId: number | null
   isRoundActive: boolean
   isBettingPhase: boolean
+  roundCrashed: boolean
+  // Other state
   roundStartTime: number | null
   serverTime: number
   lastCrashMultiplier: number
   livePlayers: number
   recentCashouts: RecentCashout[]
   activeBets: Map<number, BetInfo>
-  botBets: Map<string, BetInfo>
   pastCrashes: number[]
   retryCount: number
   gamePhase: "waiting" | "betting" | "flying" | "crashed"
   bettingTimeLeft: number
+  // 🔧 SIMPLIFIED: Remove complex message sequencing
+  lastServerSync: number
   connect: () => void
   disconnect: () => void
-  cashOut: (userId: number) => Promise<any>
+  cashOut: (userId: number) => Promise<CashoutResponse>
   setPastCrashes: (crashes: number[]) => void
   addCrashToHistory: (crashMultiplier: number) => void
   canPlaceBet: () => boolean
   canCashOut: (userId: number) => boolean
   addBetToState: (userId: number, betInfo: BetInfo) => void
   removeBetFromState: (userId: number) => void
-  // Bot simulation methods
-  simulateBotActivity: () => void
-  generateBotBets: () => void
-  processBotCashouts: (currentMultiplier: number) => void
 }
 
-let multiplierUpdateInterval: NodeJS.Timeout | null = null
+// Type-safe pending request interface
+interface TypedPendingRequest {
+  resolve: (value: CashoutResponse) => void
+  reject: (reason?: unknown) => void
+  timeout: NodeJS.Timeout
+}
+
+// Extend window interface for type safety
+declare global {
+  interface Window {
+    pendingRequests?: Map<string, TypedPendingRequest>
+  }
+}
+
 let bettingCountdownInterval: NodeJS.Timeout | null = null
-let botSimulationInterval: NodeJS.Timeout | null = null
-
-// 🤖 BOT CONFIGURATION
-const BOT_NAMES = [
-  "CryptoKing", "LuckyAce", "BetMaster", "WinnerX", "ProGamer", "RiskTaker", 
-  "CashFlow", "BigWin", "FastBet", "GoldRush", "DiamondHands", "MoonShot",
-  "BullRun", "QuickCash", "HighRoller", "SafeBet", "WildCard", "JackpotJoe",
-  "BetBeast", "CoinFlip", "RocketMan", "SkyHigh", "StarPlayer", "VegasPro",
-  "LuckyStar", "BetBoss", "WinWave", "CashCow", "GoldMiner", "BetShark"
-]
-
-const BOT_BET_AMOUNTS = [50, 100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000]
-const BOT_CASHOUT_MULTIPLIERS = [1.2, 1.5, 1.8, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 7.5, 10.0]
+let syncCheckInterval: NodeJS.Timeout | null = null
 
 export const useWebSocket = create<WebSocketState>((set, get) => ({
   socket: null,
   isConnected: false,
+  // 🔧 CRITICAL: Server-controlled values
   currentMultiplier: 1.0,
+  serverCrashMultiplier: null,
   currentRoundId: null,
   isRoundActive: false,
   isBettingPhase: false,
+  roundCrashed: false,
+  // Other state
   roundStartTime: null,
   serverTime: Date.now(),
   lastCrashMultiplier: 1.0,
   livePlayers: 0,
   recentCashouts: [],
-  activeBets: new Map(),
-  botBets: new Map(),
+  activeBets: new Map<number, BetInfo>(),
   pastCrashes: [],
   retryCount: 0,
   gamePhase: "waiting",
   bettingTimeLeft: 0,
+  lastServerSync: 0,
 
   canPlaceBet: () => {
     const state = get()
-    return state.isConnected && 
-           state.isBettingPhase && 
-           !state.isRoundActive && 
-           state.bettingTimeLeft > 0
+    return (
+      state.isConnected &&
+      state.isBettingPhase &&
+      !state.isRoundActive &&
+      !state.roundCrashed &&
+      state.bettingTimeLeft > 0
+    )
   },
 
   canCashOut: (userId: number) => {
     const state = get()
-    const hasBet = state.activeBets.has(userId)
-    return state.isConnected && 
-           state.isRoundActive && 
-           hasBet && 
-           state.currentMultiplier >= 1.01
+    const hasBet = state.activeBets?.has(userId) || false
+    const isValidState = state.isConnected && state.isRoundActive && !state.roundCrashed
+    const isValidMultiplier = state.currentMultiplier >= 1.01
+    const isBeforeCrash = state.serverCrashMultiplier === null || state.currentMultiplier < state.serverCrashMultiplier
+
+    console.log("🔍 canCashOut check:", {
+      userId,
+      hasBet,
+      isValidState,
+      isValidMultiplier,
+      isBeforeCrash,
+      activeBetsSize: state.activeBets?.size || 0,
+      activeBetsEntries: state.activeBets ? Array.from(state.activeBets.entries()) : [],
+    })
+
+    return hasBet && isValidState && isValidMultiplier && isBeforeCrash
   },
 
   setPastCrashes: (crashes: number[]) => {
@@ -114,222 +134,79 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
     return currentState.pastCrashes
   },
 
-  // 🤖 BOT SIMULATION METHODS
-  simulateBotActivity: () => {
-    const state = get()
-    
-    // Clear existing bot simulation
-    if (botSimulationInterval) {
-      clearInterval(botSimulationInterval)
-    }
-
-    // Start bot simulation
-    botSimulationInterval = setInterval(() => {
-      const currentState = get()
-      
-      if (currentState.isBettingPhase) {
-        currentState.generateBotBets()
-      }
-      
-      if (currentState.isRoundActive) {
-        currentState.processBotCashouts(currentState.currentMultiplier)
-      }
-    }, 500) // Check every 500ms
-  },
-
-  generateBotBets: () => {
-    const state = get()
-    
-    // Don't generate bots if not in betting phase
-    if (!state.isBettingPhase || state.bettingTimeLeft <= 0) return
-
-    // Generate 3-8 bot bets during betting phase
-    const numBots = Math.floor(Math.random() * 6) + 3
-    const currentBotCount = state.botBets.size
-    
-    // Don't exceed reasonable number of bots
-    if (currentBotCount >= 15) return
-
-    for (let i = 0; i < numBots && currentBotCount + i < 15; i++) {
-      // Random delay to make it look natural
-      setTimeout(() => {
-        const currentState = get()
-        if (!currentState.isBettingPhase) return
-
-        const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]
-        
-        // Don't add duplicate bot names
-        if (currentState.botBets.has(botName)) return
-
-        const betAmount = BOT_BET_AMOUNTS[Math.floor(Math.random() * BOT_BET_AMOUNTS.length)]
-        const autoCashout = Math.random() > 0.6 ? 
-          BOT_CASHOUT_MULTIPLIERS[Math.floor(Math.random() * BOT_CASHOUT_MULTIPLIERS.length)] : 
-          undefined
-
-        const botBet: BetInfo = {
-          id: Math.random() * 1000000,
-          amount: betAmount,
-          auto_cashout: autoCashout,
-          username: botName,
-          is_bot: true,
-          placed_at: Date.now()
-        }
-
-        console.log("🤖 Bot placed bet:", botBet)
-
-        // Add bot bet to state
-        const newBotBets = new Map(currentState.botBets)
-        newBotBets.set(botName, botBet)
-        set({ botBets: newBotBets })
-
-      }, Math.random() * 2000) // Random delay 0-2 seconds
-    }
-  },
-
-  processBotCashouts: (currentMultiplier: number) => {
-    const state = get()
-    
-    if (!state.isRoundActive || currentMultiplier < 1.2) return
-
-    const newBotBets = new Map(state.botBets)
-    const newRecentCashouts = [...state.recentCashouts]
-
-    // Process auto cashouts
-    for (const [botName, botBet] of state.botBets.entries()) {
-      if (botBet.auto_cashout && currentMultiplier >= botBet.auto_cashout) {
-        // Auto cashout triggered
-        const winAmount = botBet.amount * botBet.auto_cashout
-        
-        const cashout: RecentCashout = {
-          username: botName,
-          multiplier: botBet.auto_cashout,
-          amount: botBet.amount,
-          win_amount: winAmount,
-          timestamp: new Date().toISOString(),
-          is_bot: true
-        }
-
-        console.log("🤖 Bot auto cashout:", cashout)
-
-        newRecentCashouts.unshift(cashout)
-        newBotBets.delete(botName)
-      }
-    }
-
-    // Random manual cashouts (bots without auto cashout)
-    for (const [botName, botBet] of state.botBets.entries()) {
-      if (!botBet.auto_cashout) {
-        // Calculate cashout probability based on multiplier
-        let cashoutChance = 0
-        
-        if (currentMultiplier >= 1.5) cashoutChance = 0.02  // 2% chance per check
-        if (currentMultiplier >= 2.0) cashoutChance = 0.05  // 5% chance
-        if (currentMultiplier >= 3.0) cashoutChance = 0.08  // 8% chance
-        if (currentMultiplier >= 5.0) cashoutChance = 0.15  // 15% chance
-        if (currentMultiplier >= 10.0) cashoutChance = 0.25 // 25% chance
-
-        if (Math.random() < cashoutChance) {
-          const winAmount = botBet.amount * currentMultiplier
-          
-          const cashout: RecentCashout = {
-            username: botName,
-            multiplier: parseFloat(currentMultiplier.toFixed(2)),
-            amount: botBet.amount,
-            win_amount: winAmount,
-            timestamp: new Date().toISOString(),
-            is_bot: true
-          }
-
-          console.log("🤖 Bot manual cashout:", cashout)
-
-          newRecentCashouts.unshift(cashout)
-          newBotBets.delete(botName)
-        }
-      }
-    }
-
-    // Update state if there were changes
-    if (newBotBets.size !== state.botBets.size || newRecentCashouts.length !== state.recentCashouts.length) {
-      set({ 
-        botBets: newBotBets, 
-        recentCashouts: newRecentCashouts.slice(0, 20) // Keep only recent 20
-      })
-    }
-  },
-
   connect: () => {
     const state = get()
     if (state.socket?.readyState === WebSocket.OPEN) return
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws/aviator/"
     console.log("🔌 Connecting to WebSocket:", wsUrl)
-
     const newSocket = new WebSocket(wsUrl)
     let pingInterval: NodeJS.Timeout
 
     newSocket.onopen = () => {
       console.log("✅ WebSocket connected successfully")
-      set({ 
-        socket: newSocket, 
-        isConnected: true, 
+      set({
+        socket: newSocket,
+        isConnected: true,
         retryCount: 0,
-        serverTime: Date.now()
+        serverTime: Date.now(),
+        lastServerSync: Date.now(),
       })
 
-      // Start bot simulation
-      const currentState = get()
-      currentState.simulateBotActivity()
-
-      // Keep connection alive
       pingInterval = setInterval(() => {
         if (newSocket.readyState === WebSocket.OPEN) {
           newSocket.send(JSON.stringify({ action: "ping" }))
         }
       }, 30000)
 
-      // Request initial game state
       setTimeout(() => {
         if (newSocket.readyState === WebSocket.OPEN) {
           newSocket.send(JSON.stringify({ action: "get_game_state" }))
         }
       }, 100)
+
+      syncCheckInterval = setInterval(() => {
+        const currentState = get()
+        if (Date.now() - currentState.lastServerSync > 10000) {
+          console.warn("⚠️ No server sync for 10 seconds, requesting state")
+          if (newSocket.readyState === WebSocket.OPEN) {
+            newSocket.send(JSON.stringify({ action: "get_game_state" }))
+          }
+        }
+      }, 5000)
     }
 
     newSocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log("📨 WebSocket:", data.type, data)
-        
+        console.log("📨 WebSocket message:", data.type, data)
         const currentState = get()
-        const now = Date.now()
+        const now = data.server_time || Date.now()
 
         switch (data.type) {
           case "betting_open":
-            console.log("🎰 Betting phase started")
-            
-            // Clear any existing intervals
+            console.log("🎰 BETTING PHASE - Server authoritative")
             if (bettingCountdownInterval) clearInterval(bettingCountdownInterval)
-            if (multiplierUpdateInterval) clearInterval(multiplierUpdateInterval)
-            
+
             set({
               gamePhase: "betting",
               isBettingPhase: true,
               isRoundActive: false,
+              roundCrashed: false,
               currentMultiplier: 1.0,
+              serverCrashMultiplier: null,
+              currentRoundId: null,
               bettingTimeLeft: data.countdown || 5,
-              currentRoundId: data.round_id || currentState.currentRoundId,
               activeBets: new Map(),
-              botBets: new Map(), // Clear bot bets for new round
-              recentCashouts: [], // Clear recent cashouts for new round
-              serverTime: now
+              recentCashouts: [],
+              serverTime: now,
+              lastServerSync: now,
             })
 
-            // Start betting countdown
             let timeLeft = data.countdown || 5
             bettingCountdownInterval = setInterval(() => {
               timeLeft -= 1
               set({ bettingTimeLeft: Math.max(0, timeLeft) })
-              
               if (timeLeft <= 0) {
                 clearInterval(bettingCountdownInterval!)
                 set({ isBettingPhase: false })
@@ -338,119 +215,122 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
             break
 
           case "round_started":
-            console.log("🚀 Round started:", data.round_id)
-            
+            console.log("🚀 ROUND STARTED - Server authoritative")
+            console.log(`🎯 Round ID: ${data.round_id}, Server crash point: ${data.crash_multiplier}x`)
             if (bettingCountdownInterval) clearInterval(bettingCountdownInterval)
-            
+
             set({
               gamePhase: "flying",
               currentRoundId: data.round_id,
               isRoundActive: true,
               isBettingPhase: false,
+              roundCrashed: false,
               currentMultiplier: data.multiplier || 1.0,
+              serverCrashMultiplier: data.crash_multiplier,
               roundStartTime: now,
               bettingTimeLeft: 0,
-              serverTime: now
+              serverTime: now,
+              lastServerSync: now,
             })
             break
 
           case "multiplier":
-            const newMultiplier = parseFloat((data.multiplier || 1.0).toFixed(2))
-            
-            set({
-              currentMultiplier: newMultiplier,
-              isRoundActive: true,
-              gamePhase: "flying",
-              serverTime: now
-            })
+          case "multiplier_update":
+            if (!currentState.roundCrashed) {
+              console.log(`📈 Server multiplier: ${data.multiplier}x`)
+              set({
+                currentMultiplier: Number.parseFloat((data.multiplier || 1.0).toFixed(2)),
+                isRoundActive: true,
+                gamePhase: "flying",
+                serverTime: now,
+                lastServerSync: now,
+              })
 
-            // Update live players count
-            const totalBets = currentState.activeBets.size + currentState.botBets.size
-            set({ livePlayers: totalBets })
+              const totalBets = currentState.activeBets?.size || 0
+              set({ livePlayers: totalBets })
+            }
             break
 
           case "crash":
-            console.log("💥 Round crashed at:", data.multiplier)
-            
-            if (multiplierUpdateInterval) clearInterval(multiplierUpdateInterval)
-            
-            const crashMultiplier = parseFloat((data.multiplier || 1.0).toFixed(2))
+          case "round_crashed":
+            console.log("💥 ROUND CRASHED - Server authoritative")
+            console.log(`🎯 Final crash: ${data.multiplier}x`)
+            const crashMultiplier = Number.parseFloat((data.multiplier || 1.0).toFixed(2))
             const newPastCrashes = currentState.addCrashToHistory(crashMultiplier)
-            
+
             set({
               gamePhase: "crashed",
               isRoundActive: false,
               isBettingPhase: false,
+              roundCrashed: true,
               lastCrashMultiplier: crashMultiplier,
               currentMultiplier: crashMultiplier,
               livePlayers: 0,
-              serverTime: now
+              serverTime: now,
+              lastServerSync: now,
             })
-            
-            // Trigger crash event
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('planeCrashed', { 
-                detail: { crashMultiplier, pastCrashes: newPastCrashes } 
-              }))
+
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("planeCrashed", {
+                  detail: { crashMultiplier, pastCrashes: newPastCrashes },
+                }),
+              )
             }
-            
             playSound("crash")
             break
 
+          case "game_state":
+          case "game_state_sync":
+            console.log("🔄 GAME STATE SYNC from server")
+            console.log(
+              `📊 Server state: round=${data.round_id}, multiplier=${data.current_multiplier}, crashed=${data.crashed}, crash_at=${data.crash_multiplier}, betting=${data.is_betting}`,
+            )
+
+            set({
+              currentRoundId: data.round_id,
+              currentMultiplier: data.current_multiplier || 1.0,
+              serverCrashMultiplier: data.crash_multiplier,
+              isRoundActive: data.is_active || false,
+              isBettingPhase: data.is_betting || false,
+              roundCrashed: data.crashed || false,
+              serverTime: now,
+              lastServerSync: now,
+            })
+            break
+
           case "bet_placed":
-            console.log("✅ Bet placed:", data)
-            
-            // Handle pending request resolution
-            if (data.request_id && (window as any).pendingRequests) {
-              const pending = (window as any).pendingRequests.get(data.request_id)
-              if (pending) {
-                clearTimeout(pending.timeout)
-                pending.resolve(data)
-                ;(window as any).pendingRequests.delete(data.request_id)
-              }
-            }
-            
-            // Update local state
+            console.log("✅ Bet placed via WebSocket:", data)
             if (data.user_id && data.bet_id) {
-              const newBets = new Map(currentState.activeBets)
+              const currentBets = currentState.activeBets || new Map<number, BetInfo>()
+              const newBets = new Map(currentBets)
               newBets.set(data.user_id, {
                 id: data.bet_id,
                 amount: data.amount,
                 auto_cashout: data.auto_cashout,
-                placed_at: now
+                placed_at: now,
               })
               set({ activeBets: newBets })
+
+              console.log("📥 Updated activeBets via WebSocket:", {
+                userId: data.user_id,
+                betId: data.bet_id,
+                totalBets: newBets.size,
+                allBets: Array.from(newBets.entries()),
+              })
             }
-            
-            // Update balance
-            if (typeof data.new_balance === "number" && typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('walletBalanceUpdate', { 
-                detail: { balance: data.new_balance } 
-              }))
+
+            if (typeof data.new_balance === "number" && typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("walletBalanceUpdate", {
+                  detail: { balance: data.new_balance },
+                }),
+              )
             }
             break
 
-          case "cash_out_success":
-            console.log("💰 Cashout successful:", data)
-            
-            // Handle pending request resolution
-            if (data.request_id && (window as any).pendingRequests) {
-              const pending = (window as any).pendingRequests.get(data.request_id)
-              if (pending) {
-                clearTimeout(pending.timeout)
-                pending.resolve(data)
-                ;(window as any).pendingRequests.delete(data.request_id)
-              }
-            }
-            
-            // Remove bet from active bets
-            if (data.user_id) {
-              const newBets = new Map(currentState.activeBets)
-              newBets.delete(data.user_id)
-              set({ activeBets: newBets })
-            }
-            
-            // Add to recent cashouts
+          case "cash_out":
+            console.log("💰 Cash out:", data)
             if (data.username) {
               const newCashout: RecentCashout = {
                 username: data.username,
@@ -458,50 +338,49 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
                 amount: data.amount,
                 win_amount: data.win_amount,
                 timestamp: new Date().toISOString(),
-                is_bot: false
+                is_bot: false,
               }
-              
               const newRecentCashouts = [newCashout, ...currentState.recentCashouts].slice(0, 20)
               set({ recentCashouts: newRecentCashouts })
             }
-            
-            // Update balance
-            if (typeof data.new_balance === "number" && typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('walletBalanceUpdate', { 
-                detail: { balance: data.new_balance } 
-              }))
+            break
+
+          case "cash_out_success":
+            console.log("💰 Cashout successful:", data)
+            if (data.user_id) {
+              const currentBets = currentState.activeBets || new Map<number, BetInfo>()
+              const newBets = new Map(currentBets)
+              newBets.delete(data.user_id)
+              set({ activeBets: newBets })
             }
-            
+
+            if (typeof data.new_balance === "number" && typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("walletBalanceUpdate", {
+                  detail: { balance: data.new_balance },
+                }),
+              )
+            }
             playSound("cashout")
             break
 
-          // Remove bot_bet and bot_cashout cases since we're simulating locally
           case "bet_error":
           case "cashout_error":
-            console.error("❌ Error:", data.message)
-            
-            if (data.request_id && (window as any).pendingRequests) {
-              const pending = (window as any).pendingRequests.get(data.request_id)
-              if (pending) {
-                clearTimeout(pending.timeout)
-                pending.reject(new Error(data.message || "Operation failed"))
-                ;(window as any).pendingRequests.delete(data.request_id)
-              }
+            console.error("❌ Server error:", data.message)
+            if (data.server_crash) {
+              console.error(`🚨 Server says round crashed at ${data.server_crash}x`)
             }
-            break
-
-          case "game_state":
-            console.log("🎮 Game state:", data)
-            set({
-              currentRoundId: data.round_id,
-              isRoundActive: data.is_active || false,
-              currentMultiplier: data.current_multiplier || 1.0,
-              serverTime: now
+            toast.error("Game Error", {
+              description: data.message || "An error occurred",
             })
             break
 
+          case "round_summary":
+            console.log("📊 Round summary:", data)
+            break
+
           case "pong":
-            set({ serverTime: now })
+            set({ serverTime: now, lastServerSync: now })
             break
 
           default:
@@ -517,12 +396,10 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
       console.log("🔌 WebSocket disconnected:", event.code)
       clearInterval(pingInterval)
       if (bettingCountdownInterval) clearInterval(bettingCountdownInterval)
-      if (multiplierUpdateInterval) clearInterval(multiplierUpdateInterval)
-      if (botSimulationInterval) clearInterval(botSimulationInterval)
-      
+      if (syncCheckInterval) clearInterval(syncCheckInterval)
+
       set({ socket: null, isConnected: false })
 
-      // Auto-reconnect logic
       if (event.code !== 1000) {
         const currentState = get()
         const maxRetries = 5
@@ -552,26 +429,41 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
     if (socket) {
       socket.close(1000, "User disconnected")
     }
-    
-    // Clear intervals
     if (bettingCountdownInterval) clearInterval(bettingCountdownInterval)
-    if (multiplierUpdateInterval) clearInterval(multiplierUpdateInterval)
-    if (botSimulationInterval) clearInterval(botSimulationInterval)
-    
-    set({ 
-      socket: null, 
-      isConnected: false, 
-      retryCount: 0 
+    if (syncCheckInterval) clearInterval(syncCheckInterval)
+
+    set({
+      socket: null,
+      isConnected: false,
+      retryCount: 0,
     })
   },
 
   cashOut: async (userId: number) => {
-    return new Promise((resolve, reject) => {
-      const { socket, canCashOut, activeBets, currentMultiplier } = get()
+    return new Promise<CashoutResponse>((resolve, reject) => {
+      const { socket, canCashOut, activeBets, currentMultiplier, roundCrashed, serverCrashMultiplier } = get()
 
-      // Validate before sending
+      console.log("💰 WebSocket cashOut attempt:", {
+        userId,
+        canCashOut: canCashOut(userId),
+        activeBets: activeBets ? Array.from(activeBets.entries()) : [],
+        currentMultiplier,
+        roundCrashed,
+        serverCrashMultiplier,
+      })
+
       if (!socket || socket.readyState !== WebSocket.OPEN) {
         reject(new Error("Not connected to game server"))
+        return
+      }
+
+      if (roundCrashed) {
+        reject(new Error(`Round already crashed at ${serverCrashMultiplier}x`))
+        return
+      }
+
+      if (serverCrashMultiplier && currentMultiplier >= serverCrashMultiplier) {
+        reject(new Error(`Too late - plane will crash at ${serverCrashMultiplier}x`))
         return
       }
 
@@ -580,40 +472,38 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
         return
       }
 
-      const betInfo = activeBets.get(userId)
+      const betInfo = activeBets?.get(userId)
       if (!betInfo) {
         reject(new Error("No active bet found"))
         return
       }
 
       const requestId = `cashout_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
-      // Set up timeout
       const timeout = setTimeout(() => {
-        if ((window as any).pendingRequests) {
-          (window as any).pendingRequests.delete(requestId)
-        }
-        reject(new Error("Cashout timeout - plane may have crashed"))
-      }, 3000) // Shorter timeout for cashout
+        reject(new Error("Cashout timeout"))
+      }, 3000)
 
-      // Store pending request
-      if (!(window as any).pendingRequests) {
-        (window as any).pendingRequests = new Map()
+      // Initialize pendingRequests if it doesn't exist
+      if (!window.pendingRequests) {
+        window.pendingRequests = new Map<string, TypedPendingRequest>()
       }
-      (window as any).pendingRequests.set(requestId, { resolve, reject, timeout })
 
-      // Send cashout request
+      // Store the typed pending request
+      window.pendingRequests.set(requestId, { resolve, reject, timeout })
+
       try {
-        socket.send(JSON.stringify({
-          action: "cashout",
-          request_id: requestId,
-          bet_id: betInfo.id,
-          multiplier: currentMultiplier,
-        }))
+        socket.send(
+          JSON.stringify({
+            action: "cashout",
+            request_id: requestId,
+            bet_id: betInfo.id,
+            multiplier: currentMultiplier,
+          }),
+        )
       } catch (error) {
         clearTimeout(timeout)
-        if ((window as any).pendingRequests) {
-          (window as any).pendingRequests.delete(requestId)
+        if (window.pendingRequests) {
+          window.pendingRequests.delete(requestId)
         }
         reject(error)
       }
@@ -622,28 +512,40 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
 
   addBetToState: (userId: number, betInfo: BetInfo) => {
     const currentState = get()
-    const newBets = new Map(currentState.activeBets)
+    const currentBets = currentState.activeBets || new Map<number, BetInfo>()
+    const newBets = new Map(currentBets)
     newBets.set(userId, betInfo)
     set({ activeBets: newBets })
-    console.log("📥 Added bet to WebSocket state:", { userId, betInfo })
+
+    console.log("📥 Added bet to WebSocket state:", {
+      userId,
+      betInfo,
+      totalBets: newBets.size,
+      allBets: Array.from(newBets.entries()),
+    })
   },
 
   removeBetFromState: (userId: number) => {
     const currentState = get()
-    const newBets = new Map(currentState.activeBets)
+    const currentBets = currentState.activeBets || new Map<number, BetInfo>()
+    const newBets = new Map(currentBets)
     newBets.delete(userId)
     set({ activeBets: newBets })
-    console.log("🗑️ Removed bet from WebSocket state:", { userId })
+
+    console.log("🗑️ Removed bet from WebSocket state:", {
+      userId,
+      totalBets: newBets.size,
+      allBets: Array.from(newBets.entries()),
+    })
   },
 }))
 
 async function playSound(type: "cashout" | "crash") {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log(`🔊 Playing ${type} sound`)
       return
     }
-
     const audio = new Audio(`/sounds/${type}.mp3`)
     audio.volume = 0.3
     await audio.play()

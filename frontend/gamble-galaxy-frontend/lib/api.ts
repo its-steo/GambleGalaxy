@@ -2,7 +2,6 @@ import type {
   User,
   RegisterData,
   LoginResponse,
-  Wallet,
   Transaction,
   Match,
   Bet,
@@ -50,14 +49,20 @@ interface RoundStatus {
   start_time: string
 }
 
+interface ErrorResponse {
+  detail?: string
+  message?: string
+  error?: string
+}
+
 class ApiClient {
   private async getAccessToken(): Promise<string | null> {
-    if (typeof window === 'undefined') return null
+    if (typeof window === "undefined") return null
     return localStorage.getItem("access_token")
   }
 
   private getRefreshToken(): string | null {
-    if (typeof window === 'undefined') return null
+    if (typeof window === "undefined") return null
     return localStorage.getItem("refresh_token")
   }
 
@@ -118,15 +123,15 @@ class ApiClient {
 
       console.log(`📥 Response status: ${res.status}, headers:`, Object.fromEntries(res.headers.entries()))
 
-      let data: any
-      const contentType = res.headers.get('content-type')
-      
-      if (contentType && contentType.includes('application/json')) {
+      let data: unknown = null
+      const contentType = res.headers.get("content-type")
+
+      if (contentType && contentType.includes("application/json")) {
         data = await res.json()
       } else {
-        data = await res.text()
-        console.warn(`⚠️ Non-JSON response received: ${data}`)
-        data = { message: data }
+        const textData = await res.text()
+        console.warn(`⚠️ Non-JSON response received: ${textData}`)
+        data = { message: textData }
       }
 
       console.log(`🔍 Raw API response for ${endpoint}:`, data)
@@ -140,18 +145,22 @@ class ApiClient {
         }
       }
 
+      // Type-safe error handling
+      const errorData = data as ErrorResponse
       const result: ApiResponse<T> = {
-        data: res.ok ? data : undefined,
-        error: !res.ok ? data?.detail || data?.message || data?.error || `HTTP ${res.status}` : undefined,
+        data: res.ok ? (data as T) : undefined,
+        error: !res.ok
+          ? errorData?.detail || errorData?.message || errorData?.error || `HTTP ${res.status}`
+          : undefined,
         status: res.status,
       }
 
       return result
     } catch (error) {
       console.error(`💥 Network error in API request to ${endpoint}:`, error)
-      return { 
-        error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-        status: 0 
+      return {
+        error: `Network error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        status: 0,
       }
     }
   }
@@ -206,12 +215,11 @@ class ApiClient {
   async updateWalletBalance(data: {
     user_id: number
     amount: number
-    transaction_type: 'winning' | 'deposit' | 'withdraw' | 'bonus'
+    transaction_type: "winning" | "deposit" | "withdraw" | "bonus"
     description: string
     bet_id?: number
   }) {
     console.log("💾 Updating wallet balance in database:", data)
-    
     const response = await this.request<{
       success: boolean
       new_balance: number
@@ -220,7 +228,6 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(data),
     })
-
     console.log("💾 Wallet balance update response:", response)
     return response
   }
@@ -263,16 +270,26 @@ class ApiClient {
 
   async placeAviatorBet(payload: { amount: number; round_id: number; auto_cashout?: number }) {
     console.log("🎲 Placing Aviator bet:", payload)
-    const response = await this.request<{ bet: AviatorBet; new_balance: number }>("/games/aviator/bet/", {
+    const response = await this.request<{
+      bet: AviatorBet
+      new_balance: number
+      round_id: number
+    }>("/games/aviator/bet/", {
       method: "POST",
       body: JSON.stringify(payload),
     })
     console.log(`🔍 Aviator bet response:`, response)
-    // Normalize response to return bet object directly
-    if (response.data && response.data.bet) {
+
+    // 🔧 FIXED: Return the complete response with bet data and balance
+    if (response.data) {
       return {
         ...response,
-        data: response.data.bet,
+        data: {
+          ...response.data.bet,
+          new_balance: response.data.new_balance,
+          round_id: response.data.round_id,
+          bet: response.data.bet,
+        },
       }
     }
     return response
@@ -280,7 +297,12 @@ class ApiClient {
 
   async cashoutAviator(bet_id: number, multiplier: number) {
     console.log("💰 Cashing out Aviator bet:", { bet_id, multiplier })
-    const response = await this.request<{ message: string; win_amount?: number; new_balance?: number }>("/games/aviator/cashout/", {
+    const response = await this.request<{
+      message: string
+      win_amount?: number
+      new_balance?: number
+      updated_top_winners?: boolean
+    }>("/games/aviator/cashout/", {
       method: "POST",
       body: JSON.stringify({ bet_id, multiplier }),
     })
@@ -297,18 +319,45 @@ class ApiClient {
 
   async getPastCrashes() {
     console.log("📊 Fetching past crashes")
-    const response = await this.request<Array<{ id: number; multiplier: number; color: string; timestamp: string }>>(
-      "/games/aviator/past-crashes/",
-    )
+    const response =
+      await this.request<Array<{ id: number; multiplier: number; color: string; timestamp: string }>>(
+        "/games/aviator/past-crashes/",
+      )
     console.log(`🔍 Past crashes response:`, response)
     return response
   }
 
+  // 🔧 IMPROVED: Enhanced top winners fetching with better error handling
   async getTopWinners() {
     console.log("🏆 Fetching top winners")
     const response = await this.request<TopWinner[]>("/games/aviator/top-winners/")
     console.log(`🔍 Top winners response:`, response)
-    return response
+
+    // 🔧 FIXED: Ensure we always return valid data structure
+    if (response.data && Array.isArray(response.data)) {
+      // Filter and validate top winners data
+      const validWinners = response.data.filter(
+        (winner) =>
+          winner &&
+          (Number(winner.win_amount ?? 0) > 0 || Number(winner.amount ?? 0) > 0) &&
+          winner.username &&
+          ((winner.multiplier ?? 0) > 0 || (winner.cash_out_multiplier ?? 0) > 0),
+      )
+      return {
+        ...response,
+        data: validWinners,
+      }
+    }
+    return {
+      ...response,
+      data: [],
+    }
+  }
+
+  // 🔧 NEW: Refresh top winners after significant wins
+  async refreshTopWinners() {
+    console.log("🔄 Refreshing top winners data")
+    return this.getTopWinners()
   }
 
   async getUserSureOdds() {
@@ -371,6 +420,15 @@ class ApiClient {
     console.log("📊 Fetching dashboard stats")
     const response = await this.request<DashboardStats>("/dashboard/stats/")
     console.log(`🔍 Dashboard stats response:`, response)
+
+    // 🔧 FIXED: Ensure top winners are included in dashboard stats
+    if (response.data && !response.data.topWinners) {
+      console.log("🔄 Dashboard missing top winners, fetching separately...")
+      const winnersResponse = await this.getTopWinners()
+      if (winnersResponse.data) {
+        response.data.topWinners = winnersResponse.data
+      }
+    }
     return response
   }
 

@@ -2,41 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Clock, Loader2 } from 'lucide-react'
-
-interface Particle {
-  x: number
-  y: number
-  vx: number
-  vy: number
-  life: number
-  maxLife: number
-}
-
-interface TrailPoint {
-  x: number
-  y: number
-  opacity: number
-  size: number
-}
-
-interface StarType {
-  x: number
-  y: number
-  size: number
-  opacity: number
-  twinkle: number
-}
-
-interface Position {
-  x: number
-  y: number
-}
-
-interface Velocity {
-  x: number
-  y: number
-}
+import { Clock, Loader2 } from "lucide-react"
 
 interface AviatorCanvasProps {
   currentMultiplier: number
@@ -51,390 +17,538 @@ interface AviatorCanvasProps {
 
 export function AviatorCanvas({
   currentMultiplier,
-  isRoundActive,
+  //isRoundActive,
   isBettingPhase,
   roundCountdown,
   isInitialized,
   gamePhase,
   showCrashScreen,
-  crashMultiplier
+  crashMultiplier,
 }: AviatorCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number>(0)
-  const planePositionRef = useRef<Position>({ x: 80, y: 300 })
-  const trailPointsRef = useRef<TrailPoint[]>([])
-  const particlesRef = useRef<Particle[]>([])
-  const starsRef = useRef<StarType[]>([])
-  const velocityRef = useRef<Velocity>({ x: 0, y: 0 })
-  const smoothMultiplierRef = useRef<number>(1.0)
-  const isAnimatingRef = useRef<boolean>(false)
+  const planePositionRef = useRef({ x: 60, y: 300 })
+  const curvePointsRef = useRef<Array<{ x: number; y: number }>>([])
+  const trailPointsRef = useRef<Array<{ x: number; y: number; age: number }>>([])
+  const startTimeRef = useRef(0)
+  const isAnimatingRef = useRef(false)
+  const planeAngleRef = useRef(0)
 
-  const getMultiplierColor = useCallback((multiplier: number) => {
-    if (multiplier < 1.5) return "#ff4757"
-    if (multiplier < 2) return "#ff6b35"
-    if (multiplier < 5) return "#ffa502"
-    if (multiplier < 10) return "#2ed573"
-    if (multiplier < 20) return "#1e90ff"
-    if (multiplier < 50) return "#a55eea"
-    return "#ff6b6b"
+  // Calculate plane position
+  const calculatePlanePosition = useCallback((elapsedTime: number, canvasWidth: number, canvasHeight: number) => {
+    const timeInSeconds = elapsedTime / 1000
+    const multiplier = Math.max(1.0, 1 + timeInSeconds * 0.1 * Math.pow(1.0008, timeInSeconds * 10))
+
+    // X: Linear progression from left to right
+    const progress = Math.min(timeInSeconds / 20, 0.9)
+    const x = canvasWidth * 0.08 + progress * (canvasWidth * 0.84)
+
+    // Y: Exponential curve from bottom to top
+    const baseY = canvasHeight * 0.85
+    const curveHeight = Math.log(multiplier) * (canvasHeight * 0.12)
+    const y = Math.max(canvasHeight * 0.1, baseY - curveHeight)
+
+    return { x, y, multiplier }
   }, [])
 
-  const adjustColorBrightness = useCallback((color: string, amount: number) => {
-    const hex = color.replace("#", "")
-    const r = Math.max(0, Math.min(255, Number.parseInt(hex.substring(0, 2), 16) + amount))
-    const g = Math.max(0, Math.min(255, Number.parseInt(hex.substring(2, 4), 16) + amount))
-    const b = Math.max(0, Math.min(255, Number.parseInt(hex.substring(4, 6), 16) + amount))
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`
+  // Draw background
+  const drawBackground = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.clearRect(0, 0, width, height)
+
+    // Dark gradient background
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, height)
+    bgGradient.addColorStop(0, "#0f172a")
+    bgGradient.addColorStop(0.5, "#1e293b")
+    bgGradient.addColorStop(1, "#334155")
+
+    ctx.fillStyle = bgGradient
+    ctx.fillRect(0, 0, width, height)
+
+    // Grid
+    const gridSize = Math.max(25, Math.min(50, width / 20))
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)"
+    ctx.lineWidth = 1
+    ctx.setLineDash([2, 8])
+
+    for (let x = 0; x <= width; x += gridSize) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, height)
+      ctx.stroke()
+    }
+
+    for (let y = 0; y <= height; y += gridSize) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(width, y)
+      ctx.stroke()
+    }
+
+    ctx.setLineDash([])
   }, [])
 
-  const initializeStars = useCallback(() => {
-    const stars: StarType[] = []
-    for (let i = 0; i < 80; i++) {
-      stars.push({
-        x: Math.random() * 800,
-        y: Math.random() * 300,
-        size: Math.random() * 1.5 + 0.5,
-        opacity: Math.random() * 0.6 + 0.2,
-        twinkle: Math.random() * Math.PI * 2,
+  // Draw plane trail/traces
+  const drawPlaneTrail = useCallback((ctx: CanvasRenderingContext2D, width: number) => {
+    if (trailPointsRef.current.length < 2) return
+
+    const points = trailPointsRef.current
+    const lineWidth = Math.max(3, width / 200)
+
+    ctx.save()
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+
+    // Draw trail with fading effect
+    for (let i = 1; i < points.length; i++) {
+      const point = points[i]
+      const prevPoint = points[i - 1]
+      const alpha = Math.max(0, 1 - point.age / 100) // Fade over 100 frames
+
+      if (alpha > 0) {
+        // Outer glow
+        ctx.shadowColor = "#ff6b6b"
+        ctx.shadowBlur = lineWidth * 4
+        ctx.lineWidth = lineWidth * 2
+        ctx.strokeStyle = `rgba(255, 107, 107, ${alpha * 0.3})`
+
+        ctx.beginPath()
+        ctx.moveTo(prevPoint.x, prevPoint.y)
+        ctx.lineTo(point.x, point.y)
+        ctx.stroke()
+
+        // Main trail
+        ctx.shadowBlur = lineWidth * 2
+        ctx.lineWidth = lineWidth
+        ctx.strokeStyle = `rgba(255, 71, 87, ${alpha * 0.8})`
+        ctx.stroke()
+
+        // Inner bright line
+        ctx.shadowBlur = 0
+        ctx.lineWidth = Math.max(1, lineWidth / 2)
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`
+        ctx.stroke()
+      }
+    }
+
+    ctx.restore()
+  }, [])
+
+  // Draw curve
+  const drawCurve = useCallback((ctx: CanvasRenderingContext2D, width: number) => {
+    if (curvePointsRef.current.length < 2) return
+
+    const points = curvePointsRef.current
+    const lineWidth = Math.max(4, width / 150)
+
+    ctx.save()
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+
+    // Outer glow
+    ctx.shadowColor = "#ff4757"
+    ctx.shadowBlur = lineWidth * 6
+    ctx.lineWidth = lineWidth * 2.5
+    ctx.strokeStyle = "rgba(255, 71, 87, 0.4)"
+
+    ctx.beginPath()
+    ctx.moveTo(points[0].x, points[0].y)
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y)
+    }
+    ctx.stroke()
+
+    // Main curve
+    ctx.shadowBlur = lineWidth * 3
+    ctx.lineWidth = lineWidth * 1.5
+    ctx.strokeStyle = "#ff4757"
+    ctx.stroke()
+
+    // Inner bright line
+    ctx.shadowBlur = 0
+    ctx.lineWidth = lineWidth
+    ctx.strokeStyle = "#ffffff"
+    ctx.stroke()
+
+    ctx.restore()
+  }, [])
+
+  // Draw simple common plane design
+  const drawSimplePlane = useCallback(
+    (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+      const plane = planePositionRef.current
+      const baseScale = Math.min(width / 800, height / 500)
+      const scale = Math.max(0.5, Math.min(1.2, baseScale))
+
+      ctx.save()
+      ctx.translate(plane.x, plane.y)
+      ctx.rotate(planeAngleRef.current)
+      ctx.scale(scale, scale)
+
+      const crashed = gamePhase === "crashed"
+
+      // SIMPLE COMMON PLANE DESIGN
+
+      // Main body - simple fuselage
+      const bodyGradient = ctx.createLinearGradient(-25, -8, -25, 8)
+      if (crashed) {
+        bodyGradient.addColorStop(0, "#ff4757")
+        bodyGradient.addColorStop(0.5, "#ff3742")
+        bodyGradient.addColorStop(1, "#ff1e2d")
+      } else {
+        bodyGradient.addColorStop(0, "#ffd700")
+        bodyGradient.addColorStop(0.5, "#ffed4e")
+        bodyGradient.addColorStop(1, "#ffc048")
+      }
+
+      // Main fuselage
+      ctx.fillStyle = bodyGradient
+      ctx.beginPath()
+      ctx.ellipse(0, 0, 30, 8, 0, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Nose
+      ctx.fillStyle = crashed ? "#ff1e2d" : "#ffb700"
+      ctx.beginPath()
+      ctx.ellipse(25, 0, 10, 6, 0, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Wings - simple design
+      const wingGradient = ctx.createLinearGradient(-15, -25, -15, 25)
+      wingGradient.addColorStop(0, crashed ? "#ff4757" : "#ffd700")
+      wingGradient.addColorStop(0.5, crashed ? "#ff3742" : "#ffed4e")
+      wingGradient.addColorStop(1, crashed ? "#ff4757" : "#ffd700")
+
+      ctx.fillStyle = wingGradient
+      ctx.beginPath()
+      ctx.ellipse(-10, 0, 25, 12, 0, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Cockpit window
+      ctx.fillStyle = crashed ? "rgba(255, 0, 0, 0.8)" : "rgba(70, 130, 180, 0.9)"
+      ctx.beginPath()
+      ctx.ellipse(15, -2, 8, 4, 0, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Window frame
+      ctx.strokeStyle = crashed ? "#8B0000" : "#4682B4"
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.ellipse(15, -2, 8, 4, 0, 0, Math.PI * 2)
+      ctx.stroke()
+
+      // Tail
+      ctx.fillStyle = bodyGradient
+      ctx.beginPath()
+      ctx.moveTo(-30, 0)
+      ctx.lineTo(-45, -12)
+      ctx.lineTo(-40, -12)
+      ctx.lineTo(-28, -3)
+      ctx.lineTo(-28, 3)
+      ctx.lineTo(-40, 12)
+      ctx.lineTo(-45, 12)
+      ctx.closePath()
+      ctx.fill()
+
+      // Propeller (spinning when flying)
+      if (gamePhase === "flying") {
+        const propSpeed = Date.now() * 0.05
+        ctx.save()
+        ctx.translate(35, 0)
+        ctx.rotate(propSpeed)
+
+        ctx.strokeStyle = "rgba(150, 150, 150, 0.7)"
+        ctx.lineWidth = 3
+        ctx.lineCap = "round"
+
+        // Propeller blades
+        for (let i = 0; i < 3; i++) {
+          ctx.save()
+          ctx.rotate((i * Math.PI * 2) / 3)
+          ctx.beginPath()
+          ctx.moveTo(0, 0)
+          ctx.lineTo(0, -15)
+          ctx.stroke()
+          ctx.restore()
+        }
+
+        ctx.restore()
+      }
+
+      // Engine exhaust trail (when flying)
+      if (gamePhase === "flying") {
+        for (let i = 0; i < 8; i++) {
+          const exhaustX = -35 - i * 4
+          const exhaustY = (Math.random() - 0.5) * 6
+          const alpha = 0.8 - i * 0.1
+
+          const exhaustGradient = ctx.createRadialGradient(exhaustX, exhaustY, 0, exhaustX, exhaustY, 3)
+          exhaustGradient.addColorStop(0, `rgba(255, 165, 0, ${alpha})`)
+          exhaustGradient.addColorStop(0.7, `rgba(255, 69, 0, ${alpha * 0.6})`)
+          exhaustGradient.addColorStop(1, `rgba(255, 0, 0, 0)`)
+
+          ctx.fillStyle = exhaustGradient
+          ctx.beginPath()
+          ctx.arc(exhaustX, exhaustY, 2, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      // Highlight on body
+      ctx.fillStyle = crashed ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.5)"
+      ctx.beginPath()
+      ctx.ellipse(5, -5, 20, 2, 0, 0, Math.PI * 2)
+      ctx.fill()
+
+      ctx.restore()
+    },
+    [gamePhase],
+  )
+
+  // Draw BIG multiplier
+  const drawMultiplier = useCallback(
+    (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+      const displayMultiplier = gamePhase === "crashed" ? crashMultiplier : currentMultiplier
+      const multiplierText = `${displayMultiplier.toFixed(2)}x`
+
+      // MUCH BIGGER font sizing
+      const fontSize = Math.max(32, Math.min(width * 0.15, height * 0.2)) // Increased from 0.08 to 0.15
+      ctx.font = `bold ${fontSize}px Arial`
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+
+      // Color based on multiplier
+      let color = "#ff4757"
+      if (displayMultiplier >= 2) color = "#ffa502"
+      if (displayMultiplier >= 5) color = "#2ed573"
+      if (displayMultiplier >= 10) color = "#1e90ff"
+      if (displayMultiplier >= 20) color = "#a55eea"
+
+      const x = width / 2
+      const y = height * 0.15
+
+      // Strong glow effect
+      ctx.shadowColor = color
+      ctx.shadowBlur = fontSize / 2
+      ctx.fillStyle = color
+      ctx.fillText(multiplierText, x, y)
+
+      // Main text - white and bold
+      ctx.shadowBlur = fontSize / 4
+      ctx.fillStyle = "#ffffff"
+      ctx.fillText(multiplierText, x, y)
+
+      // Status text - also bigger
+      const statusFontSize = Math.max(16, fontSize * 0.35) // Increased from 0.3 to 0.35
+      ctx.font = `bold ${statusFontSize}px Arial`
+      let statusText = ""
+      switch (gamePhase) {
+        case "flying":
+          statusText = "FLYING..."
+          break
+        case "crashed":
+          statusText = "FLEW AWAY!"
+          break
+        default:
+          statusText = "WAITING..."
+      }
+
+      ctx.shadowBlur = statusFontSize / 3
+      ctx.fillStyle = color
+      ctx.fillText(statusText, x, y + fontSize * 0.7)
+    },
+    [gamePhase, currentMultiplier, crashMultiplier],
+  )
+
+  // Main animation loop
+  const animate = useCallback(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx || !isAnimatingRef.current) return
+
+    const currentTime = Date.now()
+    const elapsedTime = currentTime - startTimeRef.current
+
+    const rect = canvas.getBoundingClientRect()
+    const width = rect.width
+    const height = rect.height
+
+    drawBackground(ctx, width, height)
+
+    if (gamePhase === "flying") {
+      const position = calculatePlanePosition(elapsedTime, width, height)
+
+      const prevPosition = planePositionRef.current
+      planePositionRef.current = { x: position.x, y: position.y }
+
+      // Calculate smooth angle
+      const deltaX = position.x - prevPosition.x
+      const deltaY = position.y - prevPosition.y
+      if (deltaX !== 0 || deltaY !== 0) {
+        const targetAngle = Math.atan2(deltaY, deltaX) * 0.3
+        planeAngleRef.current += (targetAngle - planeAngleRef.current) * 0.15
+      }
+
+      // Add to curve
+      curvePointsRef.current.push({ x: position.x, y: position.y })
+      if (curvePointsRef.current.length > 300) {
+        curvePointsRef.current.shift()
+      }
+
+      // Add to trail with age tracking
+      trailPointsRef.current.push({ x: position.x, y: position.y, age: 0 })
+      if (trailPointsRef.current.length > 150) {
+        trailPointsRef.current.shift()
+      }
+
+      // Age the trail points
+      trailPointsRef.current.forEach((point) => {
+        point.age++
+      })
+    } else if (gamePhase === "crashed") {
+      // Plane flies away smoothly
+      planePositionRef.current.x += 4
+      planePositionRef.current.y -= 3
+      planeAngleRef.current += 0.03
+
+      // Continue aging trail points during crash
+      trailPointsRef.current.forEach((point) => {
+        point.age++
       })
     }
-    starsRef.current = stars
-  }, [])
 
-  const initCanvas = useCallback(() => {
-    if (!canvasRef.current) return
+    // Draw everything in order
+    drawPlaneTrail(ctx, width)
+    drawCurve(ctx, width)
+    if (gamePhase !== "waiting") {
+      drawSimplePlane(ctx, width, height)
+    }
+    drawMultiplier(ctx, width, height)
 
+    if (gamePhase === "flying" || gamePhase === "crashed") {
+      animationRef.current = requestAnimationFrame(animate)
+    }
+  }, [gamePhase, drawBackground, calculatePlanePosition, drawPlaneTrail, drawCurve, drawSimplePlane, drawMultiplier])
+
+  // Start game
+  const startGame = useCallback(() => {
     const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
+    if (!canvas) return
 
-    // Reset animation state
-    planePositionRef.current = { x: 80, y: canvas.height - 80 }
+    const rect = canvas.getBoundingClientRect()
+    startTimeRef.current = Date.now()
+    planePositionRef.current = { x: rect.width * 0.08, y: rect.height * 0.85 }
+    planeAngleRef.current = 0
+    curvePointsRef.current = []
     trailPointsRef.current = []
-    particlesRef.current = []
-    velocityRef.current = { x: 0, y: 0 }
     isAnimatingRef.current = true
 
+    animate()
+  }, [animate])
+
+  // Stop game
+  const stopGame = useCallback(() => {
+    isAnimatingRef.current = false
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current)
     }
+  }, [])
 
-    const drawGame = () => {
-      if (!ctx || !canvas || !isAnimatingRef.current) return
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      // Background gradient
-      const gradient = ctx.createRadialGradient(
-        canvas.width / 2,
-        canvas.height / 2,
-        0,
-        canvas.width / 2,
-        canvas.height / 2,
-        canvas.width,
-      )
-      gradient.addColorStop(0, "#1a1a2e")
-      gradient.addColorStop(0.4, "#16213e")
-      gradient.addColorStop(0.8, "#0f3460")
-      gradient.addColorStop(1, "#0e2954")
-
-      ctx.fillStyle = gradient
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      // Stars
-      starsRef.current.forEach((star) => {
-        star.twinkle += 0.03
-        const twinkleOpacity = star.opacity * (0.4 + 0.6 * Math.sin(star.twinkle))
-        ctx.fillStyle = `rgba(255, 255, 255, ${twinkleOpacity})`
-        ctx.beginPath()
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2)
-        ctx.fill()
-      })
-
-      // Update multiplier smoothing
-      if (gamePhase === "flying") {
-        const targetMultiplier = Number.isFinite(currentMultiplier) ? currentMultiplier : 1.0
-        const smoothingFactor = 0.3
-        smoothMultiplierRef.current += (targetMultiplier - smoothMultiplierRef.current) * smoothingFactor
-
-        if (Math.abs(targetMultiplier - smoothMultiplierRef.current) > 0.05) {
-          smoothMultiplierRef.current = targetMultiplier * 0.9 + smoothMultiplierRef.current * 0.1
-        }
-      }
-
-      // Plane movement and animation
-      if (gamePhase === "flying") {
-        const targetSpeed = 1.5 + smoothMultiplierRef.current * 0.8
-        const acceleration = 0.15
-        velocityRef.current.x += (targetSpeed - velocityRef.current.x) * acceleration
-        planePositionRef.current.x += velocityRef.current.x
-
-        const baseY = canvas.height - 80
-        const multiplierFactor = Math.log(Math.max(1, smoothMultiplierRef.current)) * 60
-        const targetY = Math.max(30, baseY - multiplierFactor)
-        const yDiff = targetY - planePositionRef.current.y
-        velocityRef.current.y += yDiff * 0.03
-        velocityRef.current.y *= 0.9
-        planePositionRef.current.y += velocityRef.current.y
-
-        if (planePositionRef.current.x > canvas.width - 60) {
-          planePositionRef.current.x = canvas.width - 60
-        }
-
-        // Generate particles
-        if (Math.random() < 0.7) {
-          const angle = Math.atan2(velocityRef.current.y, velocityRef.current.x)
-          particlesRef.current.push({
-            x: planePositionRef.current.x - 30 + Math.cos(angle + Math.PI) * 15,
-            y: planePositionRef.current.y + Math.sin(angle + Math.PI) * 15 + (Math.random() - 0.5) * 6,
-            vx: -2 - Math.random() * 1.5 + Math.cos(angle + Math.PI) * 1.5,
-            vy: (Math.random() - 0.5) * 2 + Math.sin(angle + Math.PI) * 1.5,
-            life: 45,
-            maxLife: 45,
-          })
-        }
-
-        // Add trail points
-        trailPointsRef.current.push({
-          x: planePositionRef.current.x,
-          y: planePositionRef.current.y,
-          opacity: 1,
-          size: 2 + smoothMultiplierRef.current * 0.2,
-        })
-
-        if (trailPointsRef.current.length > 150) {
-          trailPointsRef.current.shift()
-        }
-      } else if (gamePhase === "crashed") {
-        velocityRef.current.y += 0.5
-        velocityRef.current.x *= 0.98
-        planePositionRef.current.x += velocityRef.current.x
-        planePositionRef.current.y += velocityRef.current.y
-
-        if (Math.random() < 0.8) {
-          particlesRef.current.push({
-            x: planePositionRef.current.x + (Math.random() - 0.5) * 40,
-            y: planePositionRef.current.y + (Math.random() - 0.5) * 40,
-            vx: (Math.random() - 0.5) * 8,
-            vy: (Math.random() - 0.5) * 8,
-            life: 60,
-            maxLife: 60,
-          })
-        }
-      }
-
-      // Update and render particles
-      particlesRef.current = particlesRef.current.filter((particle: Particle) => {
-        particle.x += particle.vx
-        particle.y += particle.vy
-        particle.vx *= 0.98
-        particle.vy *= 0.98
-        particle.life--
-
-        const alpha = (particle.life / particle.maxLife) * 0.9
-        const size = (particle.life / particle.maxLife) * 3
-
-        const particleGradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, size * 2)
-        if (gamePhase === "crashed") {
-          particleGradient.addColorStop(0, `rgba(255, ${60 + alpha * 100}, ${20 + alpha * 40}, ${alpha})`)
-          particleGradient.addColorStop(0.7, `rgba(255, ${40 + alpha * 80}, ${10 + alpha * 20}, ${alpha * 0.6})`)
-          particleGradient.addColorStop(1, `rgba(255, 20, 0, 0)`)
-        } else {
-          particleGradient.addColorStop(0, `rgba(255, ${120 + alpha * 135}, ${60 + alpha * 60}, ${alpha})`)
-          particleGradient.addColorStop(0.7, `rgba(255, ${80 + alpha * 100}, ${40 + alpha * 40}, ${alpha * 0.6})`)
-          particleGradient.addColorStop(1, `rgba(255, 60, 20, 0)`)
-        }
-
-        ctx.fillStyle = particleGradient
-        ctx.beginPath()
-        ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2)
-        ctx.fill()
-
-        return particle.life > 0
-      })
-
-      // Update trail opacity
-      trailPointsRef.current.forEach((point, index) => {
-        point.opacity = (index / trailPointsRef.current.length) * 0.95
-      })
-
-      // Draw trail
-       if (trailPointsRef.current.length > 2) {
-         const trailColor = getMultiplierColor(Number(smoothMultiplierRef.current))
-         ctx.lineWidth = 10
-         ctx.lineCap = "round"
-         ctx.lineJoin = "round"
-         ctx.shadowColor = trailColor
-         ctx.shadowBlur = 20
-         ctx.globalAlpha = gamePhase === "crashed" ? 0.3 : 0.6
-         ctx.strokeStyle = trailColor
-         ctx.beginPath()
-         ctx.moveTo(trailPointsRef.current[0].x, trailPointsRef.current[0].y)
-         for (let i = 1; i < trailPointsRef.current.length - 1; i++) {
-           const current = trailPointsRef.current[i]
-           const next = trailPointsRef.current[i + 1]
-           const cpx = (current.x + next.x) / 2
-           const cpy = (current.y + next.y) / 2
-           ctx.quadraticCurveTo(current.x, current.y, cpx, cpy)
-         }
-         ctx.stroke       
-         ctx.lineWidth = 4
-         ctx.shadowBlur = 10
-         ctx.globalAlpha = gamePhase === "crashed" ? 0.5 : 0.8
-         ctx.stroke       
-         ctx.lineWidth = 2
-         ctx.shadowBlur = 5
-         ctx.globalAlpha = 1
-         ctx.strokeStyle = `rgba(255, 255, 255, ${gamePhase === "crashed" ? 0.6 : 0.95})`
-         ctx.stroke       
-         ctx.shadowBlur = 0
-         ctx.globalAlpha = 1
-       }
-      // Draw plane
-      const planeSize = 60
-      ctx.save()
-      ctx.translate(planePositionRef.current.x, planePositionRef.current.y)
-      const angle = Math.atan2(velocityRef.current.y, velocityRef.current.x) * 0.4
-      ctx.rotate(angle)
-
-      // Plane body
-      const planeGradient = ctx.createLinearGradient(-planeSize / 2, -12, -planeSize / 2, 12)
-      if (gamePhase === "crashed") {
-        planeGradient.addColorStop(0, "#8b0000")
-        planeGradient.addColorStop(0.3, "#a52a2a")
-        planeGradient.addColorStop(0.7, "#dc143c")
-        planeGradient.addColorStop(1, "#ff0000")
-      } else {
-        planeGradient.addColorStop(0, "#ff6b6b")
-        planeGradient.addColorStop(0.3, "#ff5252")
-        planeGradient.addColorStop(0.7, "#f44336")
-        planeGradient.addColorStop(1, "#d32f2f")
-      }
-      ctx.fillStyle = planeGradient
-      ctx.fillRect(-planeSize / 2, -12, planeSize, 24)
-
-      // Plane highlights
-      ctx.fillStyle = `rgba(255, 255, 255, ${gamePhase === "crashed" ? 0.2 : 0.4})`
-      ctx.fillRect(-planeSize / 2, -10, planeSize, 6)
-
-      // Wings
-      const wingGradient = ctx.createLinearGradient(-planeSize / 4, -30, -planeSize / 4, 30)
-      wingGradient.addColorStop(0, gamePhase === "crashed" ? "#8b0000" : "#d32f2f")
-      wingGradient.addColorStop(1, gamePhase === "crashed" ? "#ff0000" : "#a00000")
-      ctx.fillStyle = wingGradient
-      ctx.fillRect(-planeSize / 4, -30, planeSize / 2, 60)
-
-      ctx.restore()
-
-      // Display multiplier
-      const displayMultiplier = gamePhase === "crashed" ? crashMultiplier : smoothMultiplierRef.current
-      const multiplierText = `${displayMultiplier.toFixed(2)}x`
-      const fontSize = Math.min(80, 50 + displayMultiplier * 1.5)
-      ctx.font = `bold ${fontSize}px 'Inter', 'Arial', sans-serif`
-      const textGradient = ctx.createLinearGradient(0, 50, 0, 120)
-      const color = getMultiplierColor(displayMultiplier)
-      textGradient.addColorStop(0, color)
-      textGradient.addColorStop(1, adjustColorBrightness(color, -40))
-      ctx.fillStyle = textGradient
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.9)"
-      ctx.lineWidth = 5
-      ctx.textAlign = "center"
-      ctx.shadowColor = color
-      ctx.shadowBlur = 40
-      ctx.strokeText(multiplierText, canvas.width / 2, 90)
-      ctx.fillText(multiplierText, canvas.width / 2, 90)
-
-      ctx.shadowBlur = 0
-
-      // Status text
-      ctx.font = "bold 18px 'Inter', 'Arial', sans-serif"
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)"
-      const statusText =
-        gamePhase === "flying" ? "🚀 FLYING..." : gamePhase === "crashed" ? "💥 CRASHED!" : "⏳ WAITING..."
-      ctx.fillText(statusText, canvas.width / 2, 115)
-
-      animationRef.current = requestAnimationFrame(drawGame)
-    }
-
-    drawGame()
-  }, [gamePhase, currentMultiplier, getMultiplierColor, adjustColorBrightness, crashMultiplier])
-
-  // Initialize stars on mount
+  // Handle game state changes
   useEffect(() => {
-    initializeStars()
-  }, [initializeStars])
+    if (gamePhase === "flying" && isInitialized) {
+      startGame()
+    } else if (gamePhase === "waiting") {
+      stopGame()
+    }
+    return stopGame
+  }, [gamePhase, isInitialized, startGame, stopGame])
 
-  // Handle canvas initialization
+  // Canvas setup
   useEffect(() => {
-    if (isRoundActive && isInitialized) {
-      initCanvas()
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const setupCanvas = () => {
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+
+      const rect = canvas.getBoundingClientRect()
+      canvas.width = rect.width
+      canvas.height = rect.height
+
+      drawBackground(ctx, rect.width, rect.height)
+      drawMultiplier(ctx, rect.width, rect.height)
     }
 
-    return () => {
-      isAnimatingRef.current = false
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-      }
+    setupCanvas()
+
+    const handleResize = () => {
+      setTimeout(setupCanvas, 100)
     }
-  }, [isRoundActive, isInitialized, initCanvas])
+
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [drawBackground, drawMultiplier])
 
   return (
-    <Card className="bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl overflow-hidden rounded-2xl">
-      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-2xl"></div>
-      <CardContent className="p-0 relative z-10">
+    <Card className="bg-gradient-to-br from-slate-900/20 via-slate-800/10 to-slate-900/20 backdrop-blur-sm border border-slate-700/30 shadow-2xl overflow-hidden rounded-2xl">
+      <CardContent className="p-0 relative">
         {isBettingPhase || !isInitialized ? (
-          <div className="flex flex-col items-center justify-center h-[250px] sm:h-[300px] bg-gradient-to-br from-slate-900/50 via-purple-900/30 to-slate-800/50 relative overflow-hidden rounded-2xl backdrop-blur-xl">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/10 to-pink-500/5 animate-pulse"></div>
-            <div className="relative z-10 text-center">
+          <div className="flex flex-col items-center justify-center h-[200px] sm:h-[300px] md:h-[350px] lg:h-[400px] bg-gradient-to-br from-slate-900/95 via-slate-800/50 to-slate-900/95 relative overflow-hidden rounded-2xl">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/5 via-transparent to-transparent"></div>
+
+            <div className="relative z-10 text-center px-4">
               {!isInitialized ? (
                 <>
-                  <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-3 animate-pulse">
-                    Connecting...
+                  <div className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4 animate-pulse">
+                    AVIATOR
                   </div>
-                  <div className="text-base sm:text-xl text-white/90 mb-3 font-semibold">Initializing game</div>
-                  <div className="flex items-center justify-center gap-2 text-sm text-white/70">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Please wait...</span>
-                  </div>
+                  <div className="text-sm sm:text-lg text-white/80 mb-4">Connecting...</div>
+                  <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-blue-400 mx-auto" />
                 </>
               ) : (
                 <>
-                  <div className="text-5xl sm:text-7xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent mb-3 animate-pulse">
+                  <div className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black bg-gradient-to-r from-red-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent mb-4 animate-pulse">
                     {roundCountdown}
                   </div>
-                  <div className="text-base sm:text-xl text-white/90 mb-3 font-semibold">
-                    Next round starting...
-                  </div>
-                  <div className="flex items-center justify-center gap-2 text-sm text-white/70">
-                    <Clock className="w-5 h-5 animate-spin" />
-                    <span>Get ready!</span>
+                  <div className="text-lg sm:text-xl md:text-2xl text-white font-bold mb-4">NEXT ROUND</div>
+                  <div className="flex items-center justify-center gap-3 text-white/70">
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
+                    <span className="text-sm sm:text-base font-medium">Place your bets!</span>
                   </div>
                 </>
               )}
             </div>
+
             {isInitialized && (
-              <div
-                className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 transition-all duration-1000 ease-linear rounded-full"
-                style={{ width: `${((5 - roundCountdown) / 5) * 100}%` }}
-              ></div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 sm:h-2 bg-slate-700/50">
+                <div
+                  className="h-full bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 transition-all duration-1000 ease-linear"
+                  style={{ width: `${((5 - roundCountdown) / 5) * 100}%` }}
+                />
+              </div>
             )}
           </div>
         ) : (
           <div className="relative">
             <canvas
               ref={canvasRef}
-              width={800}
-              height={300}
-              className="w-full h-[250px] sm:h-[300px] rounded-2xl"
-            ></canvas>
+              className="w-full h-[200px] sm:h-[300px] md:h-[350px] lg:h-[400px] rounded-2xl bg-slate-900"
+              style={{
+                width: "100%",
+                height: "auto",
+                display: "block",
+              }}
+            />
+
             {showCrashScreen && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-red-500/20 via-red-600/10 to-red-500/20 backdrop-blur-xl rounded-2xl">
-                <div className="text-center">
-                  <div className="text-4xl sm:text-6xl font-bold bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent mb-3 animate-pulse">
-                    CRASHED!
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-red-500/20 via-orange-500/10 to-red-500/20 backdrop-blur-sm rounded-2xl">
+                <div className="text-center animate-pulse px-4">
+                  <div className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black bg-gradient-to-r from-red-400 to-orange-500 bg-clip-text text-transparent mb-3">
+                    FLEW AWAY!
                   </div>
-                  <div className="text-lg sm:text-2xl text-white/90 font-semibold">
-                    at {crashMultiplier.toFixed(2)}x
+                  <div className="text-xl sm:text-2xl md:text-3xl text-white font-bold">
+                    @ {crashMultiplier.toFixed(2)}x
                   </div>
                 </div>
               </div>

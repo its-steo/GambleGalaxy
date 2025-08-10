@@ -9,7 +9,21 @@ import { MatchCard } from "@/components/betting/match-card"
 import { BetSlip } from "@/components/betting/bet_slip"
 import { SureOddsModal } from "@/components/betting/sure-odds-modal"
 import { Navbar } from "@/components/ui/navbar"
-import { Trophy, History, Star, Search, Filter, TrendingUp, Users, Clock, Zap, Target, Award, Crown, Coins } from 'lucide-react'
+import {
+  Trophy,
+  History,
+  Star,
+  Search,
+  Filter,
+  TrendingUp,
+  Users,
+  Clock,
+  Zap,
+  Target,
+  Award,
+  Crown,
+  Coins,
+} from "lucide-react"
 import type { Match, Bet } from "@/lib/types"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
@@ -20,7 +34,16 @@ interface BetSlipItem {
   selectedOption: string // Changed from limited union to string to support all markets
 }
 
-export default function BettingPage() {
+// Utility function to safely format numbers
+const formatCurrency = (value: number): string => {
+  return isNaN(value) ? "0.00" : value.toFixed(2)
+}
+
+const formatOdds = (value: number): string => {
+  return isNaN(value) ? "1.00" : value.toFixed(2)
+}
+
+const BettingPage = () => {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [matches, setMatches] = useState<Match[]>([])
   const [betHistory, setBetHistory] = useState<Bet[]>([])
@@ -95,17 +118,17 @@ export default function BettingPage() {
         console.error("Failed to load bet history:", response.error)
       }
     } catch (error) {
-      console.error("Failed to load bet history:", error)
+      console.error("Error loading bet history:", error)
     }
   }
 
   const handleAddToBetSlip = (match: Match, option: string) => {
     console.log(`Adding to bet slip: ${match.home_team} vs ${match.away_team} - ${option}`)
-    
+
     try {
       // Check if this match is already in the bet slip
       const existingIndex = betSlip.findIndex((item) => item.match.id === match.id)
-      
+
       if (existingIndex >= 0) {
         // Update existing selection
         const updatedSlip = [...betSlip]
@@ -117,10 +140,10 @@ export default function BettingPage() {
         setBetSlip([...betSlip, { match, selectedOption: option }])
         console.log("Added new selection to bet slip")
       }
-      
+
       // Update selected options for UI feedback
       setSelectedOptions((prev) => ({ ...prev, [match.id]: option }))
-      
+
       // Success feedback is handled by MatchCard component
     } catch (error) {
       console.error("Error adding to bet slip:", error)
@@ -151,7 +174,7 @@ export default function BettingPage() {
   }
 
   // Enhanced bet placement function with detailed debugging
-  const handlePlaceBet = async (amount: number) => {
+  const handlePlaceBet = async (amount: number): Promise<void> => {
     console.log("🎯 Starting bet placement process...")
     console.log("User authenticated:", isAuthenticated)
     console.log("Bet amount:", amount)
@@ -216,18 +239,17 @@ export default function BettingPage() {
         console.log("✅ Bet placed successfully:", response.data)
         toast.success("Bet placed successfully!", {
           description: `Bet ID: #${response.data.id}`,
-          className: "bg-gradient-to-r from-green-500/90 to-emerald-500/90 text-white border-green-400 backdrop-blur-md",
+          className:
+            "bg-gradient-to-r from-green-500/90 to-emerald-500/90 text-white border-green-400 backdrop-blur-md",
         })
-        
+
         // Clear bet slip and reload data
         handleClearBetSlip()
         await loadBetHistory()
-        
-        return response.data
       } else {
         console.error("❌ Bet placement failed:", response.error)
         console.error("❌ Full response:", response)
-        
+
         // Show more specific error messages
         let errorMessage = "Failed to place bet"
         if (response.status === 401) {
@@ -255,30 +277,6 @@ export default function BettingPage() {
       toast.error("Network error. Please check your connection and try again.", {
         description: "Check console for detailed error information",
         className: "bg-gradient-to-r from-red-500/90 to-pink-500/90 text-white border-red-400 backdrop-blur-md",
-      })
-    }
-  }
-
-  const handleShare = () => {
-    if (betSlip.length === 0) {
-      toast.error("Add some bets to your slip first!", {
-        className: "bg-gradient-to-r from-red-500/90 to-pink-500/90 text-white border-red-400 backdrop-blur-md",
-      })
-      return
-    }
-    const shareText = `Check out my bet slip on Gamble Galaxy!\n${betSlip
-      .map((item) => `${item.match.home_team} vs ${item.match.away_team} - ${item.selectedOption.replace("_", " ")}`)
-      .join("\n")}`
-    if (navigator.share) {
-      navigator.share({
-        title: "My Bet Slip - Gamble Galaxy",
-        text: shareText,
-        url: window.location.href,
-      })
-    } else {
-      navigator.clipboard.writeText(shareText)
-      toast.success("Bet slip copied to clipboard!", {
-        className: "bg-gradient-to-r from-purple-500/90 to-pink-500/90 text-white border-purple-400 backdrop-blur-md",
       })
     }
   }
@@ -436,7 +434,7 @@ export default function BettingPage() {
             {showPromotion && (
               <div className="relative max-w-4xl mx-auto mb-8 sm:mb-10 px-4 animate-in fade-in duration-500">
                 <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-red-500/20 rounded-2xl blur-xl"></div>
-                <div className="relative bg-gradient-to-r from-yellow-900/40 via-orange-900/40 to-red-900/40 backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-4 sm:p-6 overflow-hidden">
+                <div className="relative bg-gradient-to-r from-yellow-900/40 via-orange-900/40 to-red-900/40 backdrop-blur-xl border border-yellow-500/30 hover:border-yellow-400/50 transition-all duration-300 rounded-2xl sm:rounded-2xl p-4 sm:p-6 overflow-hidden">
                   {/* Animated particles */}
                   <div className="absolute inset-0 overflow-hidden">
                     {[...Array(5)].map((_, i) => (
@@ -485,7 +483,7 @@ export default function BettingPage() {
                       </div>
                     </div>
                     <Button
-                      className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold px-4 py-2 rounded-xl shadow-lg hover:shadow-yellow-500/25 transition-all duration-300 hover:scale-105"
+                      className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold px-4 py-2 rounded-xl text-sm sm:text-base"
                       onClick={() => {
                         toast.success("Promo code copied!", {
                           description: "Use GALAXY200 during deposit",
@@ -652,15 +650,12 @@ export default function BettingPage() {
                             </div>
                             <div className="text-right">
                               <div className="text-white font-bold text-base sm:text-lg">
-                                KES {parseFloat(bet.amount).toFixed(2)}
+                                KES {formatCurrency(Number(bet.amount))}
                               </div>
-                              <div className="text-gray-400 text-xs sm:text-sm">
-                                Odds: {parseFloat(bet.total_odds).toFixed(2)}
-                              </div>
+                              <div className="text-gray-400 text-xs sm:text-sm">Odds: {formatOdds(Number(bet.total_odds))}</div>
                               {bet.status === "pending" && (
                                 <div className="text-yellow-400 text-xs sm:text-sm mt-1 font-semibold">
-                                  Expected: KES{" "}
-                                  {(parseFloat(bet.amount) * parseFloat(bet.total_odds)).toFixed(2)}
+                                  Expected: KES {formatCurrency(Number(bet.amount) * Number(bet.total_odds))}
                                 </div>
                               )}
                             </div>
@@ -682,7 +677,7 @@ export default function BettingPage() {
                           </div>
                           <div className="text-xs text-gray-400 mt-3 sm:mt-4 flex items-center relative z-10">
                             <Clock className="w-3 h-3 mr-1" />
-                            {new Date(bet.placed_at).toLocaleString()}
+                            {new Date(bet.created_at).toLocaleString()}
                           </div>
                         </div>
                       ))}
@@ -821,3 +816,5 @@ export default function BettingPage() {
     </div>
   )
 }
+
+export default BettingPage

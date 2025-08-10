@@ -46,6 +46,12 @@ const GlassSideNav = ({ onShare, onClose }: SideNavProps) => {
     if (onClose) onClose()
   }
 
+  // Check if user is verified - using optional chaining and type assertion
+  const isUserVerified =
+    user && typeof user === "object" && user !== null && "is_verified" in user
+      ? Boolean((user as Record<string, unknown>).is_verified)
+      : false
+
   const navItems = [
     {
       name: "Dashboard",
@@ -197,19 +203,19 @@ const GlassSideNav = ({ onShare, onClose }: SideNavProps) => {
               <div className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-3">
                 <div className="w-6 h-6 xs:w-8 xs:h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500/80 to-cyan-500/80 backdrop-blur-sm rounded-md xs:rounded-lg sm:rounded-xl flex items-center justify-center border border-white/20">
                   <span className="text-white font-bold text-xs sm:text-sm">
-                    {user.username.charAt(0).toUpperCase()}
+                    {user.username?.charAt(0).toUpperCase() || "U"}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-1 sm:space-x-2">
-                    <p className="font-semibold text-white text-xs sm:text-sm truncate">{user.username}</p>
-                    {user.is_verified && (
+                    <p className="font-semibold text-white text-xs sm:text-sm truncate">{user.username || "User"}</p>
+                    {isUserVerified && (
                       <div className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-green-500/80 to-emerald-500/80 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0 border border-white/30">
                         <Crown className="w-1 h-1 xs:w-1.5 xs:h-1.5 sm:w-2 sm:h-2 text-white" />
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-300">Premium Member</p>
+                  <p className="text-xs text-gray-300">{isUserVerified ? "Verified Member" : "Premium Member"}</p>
                 </div>
               </div>
             </div>
@@ -404,12 +410,16 @@ const GlassSideNav = ({ onShare, onClose }: SideNavProps) => {
         {/* Enhanced Bottom Section */}
         <div className="p-3 xs:p-4 sm:p-6 border-t border-white/20 bg-white/5 backdrop-blur-sm">
           <div className="space-y-1.5 xs:space-y-2 sm:space-y-3">
-            <button className="w-full flex items-center gap-1.5 xs:gap-2 sm:gap-3 px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 text-gray-300 hover:text-white hover:bg-white/10 backdrop-blur-sm rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300 hover:shadow-sm border border-white/10 hover:border-white/20 group">
+            <Link
+              href="/settings"
+              onClick={handleNavClick}
+              className="w-full flex items-center gap-1.5 xs:gap-2 sm:gap-3 px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 text-gray-300 hover:text-white hover:bg-white/10 backdrop-blur-sm rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300 hover:shadow-sm border border-white/10 hover:border-white/20 group"
+            >
               <Settings className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 group-hover:rotate-90 transition-transform duration-300" />
               <span className="font-medium text-xs xs:text-sm sm:text-base text-gray-200 group-hover:text-white">
                 Settings
               </span>
-            </button>
+            </Link>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-1.5 xs:gap-2 sm:gap-3 px-2 xs:px-3 sm:px-4 py-2 xs:py-2.5 sm:py-3 text-red-400 hover:text-white hover:bg-gradient-to-r hover:from-red-500/80 hover:to-pink-500/80 backdrop-blur-sm rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300 hover:shadow-lg group border border-white/10 hover:border-white/20"

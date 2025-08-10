@@ -15,4 +15,6 @@ urlpatterns = [
     path('aviator/sure-odds/status/', views.sure_odd_status, name='sure_odd_status'),
     path('aviator/sure-odds/history/', views.sure_odd_history, name='sure_odd_history'),
     path('wallet/balance/', views.get_balance, name='get_balance'),
+    # 🔧 NEW: Add the missing wallet update endpoint
+    path('wallet/update-balance/', views.update_wallet_balance, name='update_wallet_balance'),
 ]
