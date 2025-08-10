@@ -34,8 +34,9 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://gamblegalaxy.onrender.com",
-    "https://gamble-galaxy.vercel.app/"
+    "https://gamblegalaxy.onrender.com"
+    
+
 ]
 
 # Application definition
@@ -94,7 +95,8 @@ CSRF_COOKIE_HTTPONLY = False  # if you're using CSRF
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',  # Add your frontend URL
     'http://192.168.100.12',
-    'https://gamble-galaxy.vercel.app/'
+    'https://gamblegalaxy.onrender.com',  # Add your production frontend URL
+    'https://gamble-galaxy.vercel.app/',
 ]
 
 ROOT_URLCONF = 'gamblegalaxy.urls'
