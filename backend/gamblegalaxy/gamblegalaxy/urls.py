@@ -26,9 +26,8 @@ urlpatterns = [
     path('api/betting/', include('betting.urls')),
     path('api/games/', include('games.urls')),
     path('api/dashboard/', include('dashboard.urls')),
-
-
-    
+    path('', include('core.urls')),  # or your frontend app's urls
 ]
+
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
