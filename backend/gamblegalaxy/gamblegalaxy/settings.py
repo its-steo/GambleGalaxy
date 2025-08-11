@@ -21,6 +21,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-(t0hacm!ebtpu_p=ugo0lvd9%k
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'False'
+#DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
 
@@ -123,22 +125,22 @@ FOOTBALL_API_KEY = os.getenv('FOOTBALL_API_KEY', '433af63d5d2af7799890c753a53fe7
 WSGI_APPLICATION = 'gamblegalaxy.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 #DATABASES = {
 #    'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': os.getenv('DB_NAME', 'gamblebackend'),
-#        'USER': os.getenv('DB_USER', 'gamblebackend_user'),
-#        'PASSWORD': os.getenv('DB_PASSWORD', 'SmvAI5Vip1mF0oED8UoB2MRTDbHof6Mh'),
-#        'HOST': os.getenv('DB_HOST', 'dpg-d2cgj3pr0fns73duitng-a.oregon-postgres.render.com'),
-#        'PORT': os.getenv('DB_PORT', '5432'),
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
 #    }
 #}
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'gamblebackend'),
+        'USER': os.getenv('DB_USER', 'gamblebackend_user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'SmvAI5Vip1mF0oED8UoB2MRTDbHof6Mh'),
+        'HOST': os.getenv('DB_HOST', 'dpg-d2cgj3pr0fns73duitng-a.oregon-postgres.render.com'),
+        'PORT': os.getenv('DB_PORT', '5432'),
+    }
+}
 #
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
