@@ -26,7 +26,7 @@ urlpatterns = [
     path('api/betting/', include('betting.urls')),
     path('api/games/', include('games.urls')),
     path('api/dashboard/', include('dashboard.urls')),
-    path('', include('core.urls')),  # or your frontend app's urls
+
 ]
 
 if settings.DEBUG:
