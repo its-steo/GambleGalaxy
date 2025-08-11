@@ -163,9 +163,9 @@ interface AuthState {
   checkUsername: (username: string) => Promise<boolean>;
 }
 
-interface AuthApiResponse {
-  detail?: string;
-}
+//interface AuthApiResponse {
+//  detail?: string;
+//}
 
 export const useAuth = create<AuthState>()(
   persist(
