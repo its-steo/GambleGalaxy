@@ -35,7 +35,7 @@ export function AviatorSidebar({
   showSidebar,
   topWinners,
   livePlayers,
-  recentCashouts,
+  //recentCashouts,
   pastCrashes,
   //setBetAmount1,
   //setBetAmount2,
