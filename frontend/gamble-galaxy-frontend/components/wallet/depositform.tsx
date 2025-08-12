@@ -21,6 +21,7 @@ export function DepositForm() {
 
     // Validate amount
     if (!amount || isNaN(depositAmount) || depositAmount <= 0) {
+      console.error("Invalid amount entered:", amount);
       toast.error("Invalid amount", {
         description: "Please enter a valid positive number for deposit.",
         className: "bg-red-500/90 text-white border-red-400",
@@ -30,6 +31,7 @@ export function DepositForm() {
 
     // Validate phone number (must start with 254 and be 12 digits)
     if (!phoneNumber || !phoneNumber.match(/^254\d{9}$/)) {
+      console.error("Invalid phone number entered:", phoneNumber);
       toast.error("Invalid phone number", {
         description: "Please enter a valid phone number starting with '254' (e.g., 254712345678).",
         className: "bg-red-500/90 text-white border-red-400",
@@ -39,6 +41,7 @@ export function DepositForm() {
 
     setIsLoading(true);
     try {
+      console.log("Initiating STK Push deposit:", { amount: depositAmount, phone_number: phoneNumber });
       const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
         method: "POST",
         headers: {
@@ -52,7 +55,9 @@ export function DepositForm() {
         }),
       });
 
+      console.log("Deposit response:", { status: res.status, statusText: res.statusText });
       const data = await res.json();
+      console.log("Deposit response data:", data);
 
       if (res.status === 202) {
         // STK Push initiated
@@ -65,13 +70,16 @@ export function DepositForm() {
         setPhoneNumber("");
         // Poll for balance update after a delay
         setTimeout(async () => {
+          console.log("Polling for balance update after STK Push...");
           await refreshBalance();
+          console.log("Updated balance:", balance);
           toast.success("Balance Updated", {
             description: `Your wallet balance is now KES ${balance.toLocaleString()}.`,
             className: "bg-green-500/90 text-white border-green-400",
           });
         }, 30000); // Wait 30 seconds for callback
       } else {
+        console.error("Deposit failed:", data);
         toast.error("Deposit Failed", {
           description: data.error || data.detail || "Please try again later.",
           className: "bg-red-500/90 text-white border-red-400",
