@@ -1,3 +1,4 @@
+# wallet/views.py
 import uuid
 from django.db import transaction as db_transaction
 from rest_framework import generics, permissions, status
@@ -56,7 +57,7 @@ class DepositView(generics.CreateAPIView):
                 payment_transaction_id=checkout_request_id,
                 description='pending'
             )
-            logger.debug(f"STK Push initiated for user {user.id}: CheckoutRequestID={checkout_request_id}")
+            logger.info(f"STK Push initiated for user {user.id}: CheckoutRequestID={checkout_request_id}")
             return Response({
                 'message': 'STK Push sent. Please enter your MPESA PIN to complete the deposit.',
                 'checkout_request_id': checkout_request_id
