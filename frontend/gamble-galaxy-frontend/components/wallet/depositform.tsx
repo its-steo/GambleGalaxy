@@ -39,7 +39,7 @@ export function DepositForm() {
 
     setIsLoading(true);
     try {
-      const res = await fetch("https://gamblegalaxy.onrender.com/api/v1/wallet/deposit/", {
+      const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
