@@ -1,25 +1,30 @@
 from rest_framework import serializers
 from .models import Wallet, Transaction
-
+from django.db import transaction as db_transaction
 
 class WalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = ['balance']
 
-
 class TransactionSerializer(serializers.ModelSerializer):
-    # Optional description field for context
     description = serializers.CharField(required=False, allow_blank=True)
+    payment_transaction_id = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Transaction
-        fields = ['id', 'transaction_type', 'amount', 'timestamp', 'description']
-        read_only_fields = ['id', 'timestamp']
+        fields = ['id', 'transaction_type', 'amount', 'timestamp', 'description', 'payment_transaction_id']
+        read_only_fields = ['id', 'timestamp', 'payment_transaction_id']
 
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero.")
+        return value
+
+    def validate_transaction_type(self, value):
+        valid_types = ['deposit', 'withdraw', 'winning', 'bonus', 'penalty']
+        if value not in valid_types:
+            raise serializers.ValidationError(f"Invalid transaction type. Must be one of: {valid_types}")
         return value
 
     def create(self, validated_data):
@@ -27,23 +32,22 @@ class TransactionSerializer(serializers.ModelSerializer):
         amount = validated_data['amount']
         tx_type = validated_data['transaction_type']
         description = validated_data.get('description', '')
+        payment_transaction_id = validated_data.get('payment_transaction_id', '')
 
-        wallet, created = Wallet.objects.get_or_create(user=user)
+        with db_transaction.atomic():
+            wallet, created = Wallet.objects.get_or_create(user=user)
 
-        # Handle wallet logic based on type
-        if tx_type == 'deposit' or tx_type == 'winning' or tx_type == 'bonus':
-            wallet.deposit(amount)
-        elif tx_type == 'withdraw' or tx_type == 'penalty':
-            if not wallet.withdraw(amount):
-                raise serializers.ValidationError("Insufficient balance for withdrawal.")
-        else:
-            raise serializers.ValidationError("Invalid transaction type.")
+            if tx_type in ['deposit', 'winning', 'bonus']:
+                wallet.deposit(amount)
+            elif tx_type in ['withdraw', 'penalty']:
+                if not wallet.withdraw(amount):
+                    raise serializers.ValidationError("Insufficient balance for withdrawal.")
 
-        # Save the transaction
-        transaction = Transaction.objects.create(
-            user=user,
-            amount=amount,
-            transaction_type=tx_type,
-            description=description
-        )
-        return transaction
+            transaction = Transaction.objects.create(
+                user=user,
+                amount=amount,
+                transaction_type=tx_type,
+                description=description,
+                payment_transaction_id=payment_transaction_id
+            )
+            return transaction
