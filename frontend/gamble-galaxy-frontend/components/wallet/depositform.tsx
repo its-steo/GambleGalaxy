@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,58 +12,8 @@ export function DepositForm() {
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
   const { refreshBalance, balance } = useWallet();
   const quickAmounts = [500, 1000, 2000, 5000, 10000];
-
-  // Polling for transaction status
-  useEffect(() => {
-    let pollingInterval: NodeJS.Timeout | null = null;
-
-    if (checkoutRequestId) {
-      pollingInterval = setInterval(async () => {
-        try {
-          const res = await fetch(
-            `https://gamblegalaxy.onrender.com/api/wallet/transaction-status/${checkoutRequestId}/`,
-            {
-              method: "GET",
-              headers: {
-                ...getAuthHeader(),
-              },
-            }
-          );
-          const data = await res.json();
-          console.log("Transaction status:", data);
-
-          if (res.status === 200 && data.status !== "pending") {
-            clearInterval(pollingInterval!);
-            setCheckoutRequestId(null);
-            await refreshBalance();
-
-            if (data.status === "completed") {
-              toast.success("Deposit Successful", {
-                description: data.message || `Deposit of KES ${Number(amount).toLocaleString()} successful.`,
-                className: "bg-green-500/90 text-white border-green-400",
-                duration: 5000,
-              });
-            } else if (data.status === "failed") {
-              toast.error("Deposit Failed", {
-                description: data.message || "Deposit could not be processed. Please try again.",
-                className: "bg-red-500/90 text-white border-red-400",
-                duration: 5000,
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error polling transaction status:", error);
-        }
-      }, 5000); // Poll every 5 seconds
-    }
-
-    return () => {
-      if (pollingInterval) clearInterval(pollingInterval);
-    };
-  }, [checkoutRequestId, amount, refreshBalance]);
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +41,7 @@ export function DepositForm() {
 
     setIsLoading(true);
     try {
-      console.log("Initiating STK Push deposit:", { amount: depositAmount, phone_number: phoneNumber });
+      console.log("Initiating STK Push deposit:", { amount: depositAmount, phone_number: phoneNumber, transaction_type: "deposit" });
       const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
         method: "POST",
         headers: {
@@ -101,6 +51,8 @@ export function DepositForm() {
         body: JSON.stringify({
           amount: depositAmount,
           phone_number: phoneNumber,
+          transaction_type: "deposit", // Added to match backend requirements
+          description: `Deposit of KES ${depositAmount.toLocaleString()}`,
         }),
       });
 
@@ -111,13 +63,22 @@ export function DepositForm() {
       if (res.status === 202) {
         // STK Push initiated
         toast.info("STK Push Initiated", {
-          description: data.message || `Please check your phone (${phoneNumber}) and enter your MPESA PIN to complete the deposit.`,
+          description: `Please check your phone (${phoneNumber}) and complete the payment prompt to deposit KES ${depositAmount.toLocaleString()}.`,
           className: "bg-blue-500/90 text-white border-blue-400",
           duration: 10000,
         });
-        setCheckoutRequestId(data.checkout_request_id);
         setAmount("");
         setPhoneNumber("");
+        // Poll for balance update after a delay
+        setTimeout(async () => {
+          console.log("Polling for balance update after STK Push...");
+          await refreshBalance();
+          console.log("Updated balance:", balance);
+          toast.success("Balance Updated", {
+            description: `Your wallet balance is now KES ${balance.toLocaleString()}.`,
+            className: "bg-green-500/90 text-white border-green-400",
+          });
+        }, 30000); // Wait 30 seconds for callback
       } else {
         console.error("Deposit failed:", data);
         toast.error("Deposit Failed", {
