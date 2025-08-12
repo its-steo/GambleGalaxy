@@ -12,7 +12,7 @@ export function DepositForm() {
   const [amount, setAmount] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { refreshBalance, balance } = useWallet(); // Use WalletContext
+  const { refreshBalance, balance } = useWallet();
   const quickAmounts = [500, 1000, 2000, 5000, 10000];
 
   const handleDeposit = async (e: React.FormEvent) => {
@@ -39,7 +39,7 @@ export function DepositForm() {
 
     setIsLoading(true);
     try {
-      const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
+      const res = await fetch("https://gamblegalaxy.onrender.com/api/v1/wallet/deposit/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -63,7 +63,7 @@ export function DepositForm() {
         });
         setAmount("");
         setPhoneNumber("");
-        // Poll for balance update after a delay to allow callback processing
+        // Poll for balance update after a delay
         setTimeout(async () => {
           await refreshBalance();
           toast.success("Balance Updated", {
