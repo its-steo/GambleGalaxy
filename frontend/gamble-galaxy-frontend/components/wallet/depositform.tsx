@@ -14,7 +14,7 @@ export function DepositForm() {
     const [phoneNumber, setPhoneNumber] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
-    const { refreshBalance, balance } = useWallet();
+    const { refreshBalance } = useWallet();
     const quickAmounts = [500, 1000, 2000, 5000, 10000];
 
     useEffect(() => {
