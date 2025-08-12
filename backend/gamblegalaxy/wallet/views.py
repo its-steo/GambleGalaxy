@@ -1,4 +1,3 @@
-# wallet/views.py
 import uuid
 from django.db import transaction as db_transaction
 from rest_framework import generics, permissions, status
@@ -17,7 +16,6 @@ class WalletView(generics.RetrieveAPIView):
 
     def get_object(self):
         wallet, created = Wallet.objects.get_or_create(user=self.request.user)
-        logger.debug(f"Fetching wallet for user {self.request.user.id}: Balance {wallet.balance}")
         return wallet
 
 class DepositView(generics.CreateAPIView):
@@ -30,27 +28,27 @@ class DepositView(generics.CreateAPIView):
         phone_number = self.request.data.get('phone_number')
 
         if not phone_number or not phone_number.startswith('254'):
-            logger.error(f"Invalid phone number for user {user.id}: {phone_number}")
-            raise ValidationError({"error": "Valid phone number starting with '254' is required."})
+            raise ValidationError("Valid phone number starting with '254' is required.")
 
-        if amount <= 0:
-            logger.error(f"Invalid amount for user {user.id}: {amount}")
-            raise ValidationError({"error": "Amount must be positive."})
-
+        # Generate unique transaction ID
         transaction_id = f"TXN-{uuid.uuid4().hex[:10]}"
+
+        # Initialize PaymentClient
         payment_client = PaymentClient(callback_url='https://gamblegalaxy.onrender.com/api/v1/wallet/callback/')
         try:
+            # Initiate STK Push
             response = payment_client.initiate_stk_push(phone_number, amount, transaction_id)
             if response.get('ResponseCode') != '0':
                 error_msg = response.get('error', 'Failed to initiate STK Push.')
                 logger.error(f"STK Push initiation failed for user {user.id}: {error_msg}")
-                raise ValidationError({"error": error_msg})
+                raise ValidationError(error_msg)
 
             checkout_request_id = response.get('CheckoutRequestID')
             if not checkout_request_id:
                 logger.error(f"No CheckoutRequestID in response for user {user.id}: {response}")
-                raise ValidationError({"error": "Failed to get CheckoutRequestID from payment service."})
+                raise ValidationError("Failed to get CheckoutRequestID from payment service.")
 
+            # Save pending transaction with CheckoutRequestID
             serializer.save(
                 user=user,
                 transaction_type='deposit',
@@ -64,7 +62,7 @@ class DepositView(generics.CreateAPIView):
             }, status=status.HTTP_202_ACCEPTED)
         except Exception as e:
             logger.error(f"Error in DepositView for user {user.id}: {str(e)}")
-            raise ValidationError({"error": f"Failed to initiate deposit: {str(e)}"})
+            raise ValidationError(f"Failed to initiate deposit: {str(e)}")
 
 class WithdrawView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -80,43 +78,13 @@ class TransactionHistoryView(generics.ListAPIView):
     def get_queryset(self):
         return Transaction.objects.filter(user=self.request.user).order_by('-timestamp')
 
-class TransactionStatusView(generics.RetrieveAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, checkout_request_id, *args, **kwargs):
-        try:
-            transaction = Transaction.objects.get(
-                payment_transaction_id=checkout_request_id,
-                user=request.user
-            )
-            status = transaction.description
-            message = (
-                f"Deposit of KES {transaction.amount} successful."
-                if status == "completed"
-                else (
-                    f"Deposit failed: {status.split('failed: ')[1]}"
-                    if status.startswith("failed")
-                    else "Transaction is still pending."
-                )
-            )
-            return Response({
-                "status": "completed" if status == "completed" else "failed" if status.startswith("failed") else "pending",
-                "message": message
-            }, status=status.HTTP_200_OK)
-        except Transaction.DoesNotExist:
-            logger.error(f"No transaction found for CheckoutRequestID: {checkout_request_id} for user {request.user.id}")
-            return Response(
-                {"status": "error", "message": "Transaction not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
 class CallbackView(generics.GenericAPIView):
     permission_classes = []
 
     def post(self, request, *args, **kwargs):
         try:
             data = request.data.get('Body', {}).get('stkCallback', {})
-            logger.debug(f"Callback received: {data}")
+            logger.info(f"Callback received: {data}")
 
             checkout_request_id = data.get('CheckoutRequestID')
             result_code = data.get('ResultCode')
@@ -137,10 +105,10 @@ class CallbackView(generics.GenericAPIView):
                     return Response({'status': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
 
                 if transaction.description == 'completed':
-                    logger.debug(f"Transaction {checkout_request_id} already processed")
+                    logger.info(f"Transaction {checkout_request_id} already processed")
                     return Response({'status': 'Transaction already processed'}, status=status.HTTP_200_OK)
 
-                if result_code == '0':
+                if result_code == '0':  # Success
                     callback_metadata = data.get('CallbackMetadata', {}).get('Item', [])
                     payment_receipt = next((item['Value'] for item in callback_metadata if item['Name'] == 'MpesaReceiptNumber'), None)
                     amount = next((float(item['Value']) for item in callback_metadata if item['Name'] == 'Amount'), None)
@@ -150,14 +118,18 @@ class CallbackView(generics.GenericAPIView):
                         logger.error(f"Incomplete callback metadata: {callback_metadata}")
                         return Response({'status': 'Incomplete callback data'}, status=status.HTTP_400_BAD_REQUEST)
 
+                    # Verify amount matches
                     if amount != float(transaction.amount):
                         logger.error(f"Amount mismatch for {checkout_request_id}: Expected {transaction.amount}, Got {amount}")
                         transaction.description = 'failed: Amount mismatch'
                         transaction.save()
                         return Response({'status': 'Amount mismatch'}, status=status.HTTP_400_BAD_REQUEST)
 
+                    # Update wallet balance
                     wallet = Wallet.objects.select_for_update().get(user=transaction.user)
                     wallet.deposit(amount)
+
+                    # Update transaction
                     transaction.description = 'completed'
                     transaction.payment_transaction_id = payment_receipt
                     transaction.save()
@@ -165,9 +137,10 @@ class CallbackView(generics.GenericAPIView):
                     logger.info(f"Deposit completed for user {transaction.user.id}: {payment_receipt}")
                     return Response({
                         'status': 'Deposit processed successfully',
-                        'message': f'Deposit of KES {amount} successful for user {transaction.user.id}'
+                        'message': f'Deposit of {amount} successful for user {transaction.user.id}'
                     }, status=status.HTTP_200_OK)
                 else:
+                    # Transaction failed
                     transaction.description = f'failed: {result_desc}'
                     transaction.save()
                     logger.error(f"Deposit failed for {checkout_request_id}: {result_desc}")

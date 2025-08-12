@@ -1,11 +1,6 @@
-# wallet/models.py
 from django.db import models
 from django.conf import settings
 from django.db.models import F
-import logging
-import traceback
-
-logger = logging.getLogger('wallet')
 
 class Wallet(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wallet')
@@ -13,24 +8,18 @@ class Wallet(models.Model):
 
     def deposit(self, amount):
         """Atomically increase wallet balance."""
-        logger.info(f"Depositing {amount} to wallet for user {self.user.id}. Old balance: {self.balance}")
-        logger.debug(f"Call stack: {''.join(traceback.format_stack())}")
         self.balance = F('balance') + amount
         self.save()
-        self.refresh_from_db()
-        logger.info(f"New balance for user {self.user.id}: {self.balance}")
+        self.refresh_from_db()  # Ensure balance is updated
         return True
 
     def withdraw(self, amount):
         """Atomically decrease wallet balance if sufficient funds."""
         if self.balance >= amount:
-            logger.info(f"Withdrawing {amount} from wallet for user {self.user.id}. Old balance: {self.balance}")
             self.balance = F('balance') - amount
             self.save()
-            self.refresh_from_db()
-            logger.info(f"New balance for user {self.user.id}: {self.balance}")
+            self.refresh_from_db()  # Ensure balance is updated
             return True
-        logger.warning(f"Insufficient funds for user {self.user.id}. Attempted withdrawal: {amount}, Balance: {self.balance}")
         return False
 
     def __str__(self):
