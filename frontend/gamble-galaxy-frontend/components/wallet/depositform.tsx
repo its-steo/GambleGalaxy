@@ -14,7 +14,7 @@ export function DepositForm() {
     const [phoneNumber, setPhoneNumber] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
-    const { refreshBalance, } = useWallet();
+    const { refreshBalance, balance } = useWallet();
     const quickAmounts = [500, 1000, 2000, 5000, 10000];
 
     useEffect(() => {
@@ -132,7 +132,7 @@ export function DepositForm() {
 
             if (res.status === 202 && data.checkout_request_id) {
                 toast.info("STK Push Initiated", {
-                    description: data.message,
+                    description: data.message || "Please check your phone and enter your MPESA PIN to complete the deposit.",
                     className: "bg-blue-500/90 text-white border-blue-400",
                     duration: 10000,
                 });
@@ -142,7 +142,11 @@ export function DepositForm() {
             } else {
                 console.error("Deposit failed:", data);
                 toast.error("Deposit Failed", {
-                    description: data.error || data.detail || "Failed to initiate STK Push. Please try again.",
+                    description:
+                        data.error ||
+                        (data.transaction_type && data.transaction_type[0]) ||
+                        data.detail ||
+                        "Failed to initiate STK Push. Please try again.",
                     className: "bg-red-500/90 text-white border-red-400",
                 });
             }
