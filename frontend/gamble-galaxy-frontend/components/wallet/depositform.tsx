@@ -41,7 +41,7 @@ export function DepositForm() {
 
     setIsLoading(true);
     try {
-      console.log("Initiating STK Push deposit:", { amount: depositAmount, phone_number: phoneNumber });
+      console.log("Initiating STK Push deposit:", { amount: depositAmount, phone_number: phoneNumber, transaction_type: "deposit" });
       const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
         method: "POST",
         headers: {
@@ -51,6 +51,7 @@ export function DepositForm() {
         body: JSON.stringify({
           amount: depositAmount,
           phone_number: phoneNumber,
+          transaction_type: "deposit", // Added to match backend requirements
           description: `Deposit of KES ${depositAmount.toLocaleString()}`,
         }),
       });
