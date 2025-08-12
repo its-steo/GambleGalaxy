@@ -138,7 +138,7 @@ async function getRefreshedAccessToken(): Promise<string | null> {
     //  `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/token/refresh/`,
     //  { refresh: refreshToken }
     //);
-     const response = await axios.post<{ access: string }>(
+    const response = await axios.post<{ access: string }>(
       `${process.env.NEXT_PUBLIC_API_URL || "https://gamblegalaxy.onrender.com"}/api/token/refresh/`,
       { refresh: refreshToken }
     );

@@ -1,74 +1,98 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner" // Using sonner for toasts
-import { PiggyBank, DollarSign, Plus, Minus, Sparkles } from "lucide-react"
-import { useWallet } from "@/context/WalletContext" // Assuming this context exists and provides refreshBalance
-import { getAuthHeader } from "@/lib/auth" // Assuming this utility exists
+import React, { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { PiggyBank, DollarSign, Plus, Minus, Sparkles } from "lucide-react";
+import { useWallet } from "@/context/WalletContext";
+import { getAuthHeader } from "@/lib/auth";
 
 export function DepositForm() {
-  const [amount, setAmount] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const { refreshBalance } = useWallet() // Assuming useWallet is correctly implemented
-  const quickAmounts = [500, 1000, 2000, 5000, 10000]
+  const [amount, setAmount] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { refreshBalance, balance } = useWallet(); // Use WalletContext
+  const quickAmounts = [500, 1000, 2000, 5000, 10000];
 
   const handleDeposit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const depositAmount = Number(amount)
+    e.preventDefault();
+    const depositAmount = Number(amount);
 
+    // Validate amount
     if (!amount || isNaN(depositAmount) || depositAmount <= 0) {
       toast.error("Invalid amount", {
         description: "Please enter a valid positive number for deposit.",
         className: "bg-red-500/90 text-white border-red-400",
-      })
-      return
+      });
+      return;
     }
 
-    setIsLoading(true)
+    // Validate phone number (must start with 254 and be 12 digits)
+    if (!phoneNumber || !phoneNumber.match(/^254\d{9}$/)) {
+      toast.error("Invalid phone number", {
+        description: "Please enter a valid phone number starting with '254' (e.g., 254712345678).",
+        className: "bg-red-500/90 text-white border-red-400",
+      });
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/wallet/deposit/", {
+      const res = await fetch("https://gamblegalaxy.onrender.com/api/v1/wallet/deposit/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...getAuthHeader(),
         },
-        body: JSON.stringify({ amount: depositAmount }),
-      })
-      const data = await res.json()
+        body: JSON.stringify({
+          amount: depositAmount,
+          phone_number: phoneNumber,
+          description: `Deposit of KES ${depositAmount.toLocaleString()}`,
+        }),
+      });
 
-      if (res.ok) {
-        toast.success("Deposit Successful!", {
-          description: `✅ KES ${depositAmount.toLocaleString()} has been added to your wallet.`,
-          className: "bg-green-500/90 text-white border-green-400",
-        })
-        setAmount("")
-        await refreshBalance()
+      const data = await res.json();
+
+      if (res.status === 202) {
+        // STK Push initiated
+        toast.info("STK Push Initiated", {
+          description: `Please check your phone (${phoneNumber}) and complete the payment prompt to deposit KES ${depositAmount.toLocaleString()}.`,
+          className: "bg-blue-500/90 text-white border-blue-400",
+          duration: 10000,
+        });
+        setAmount("");
+        setPhoneNumber("");
+        // Poll for balance update after a delay to allow callback processing
+        setTimeout(async () => {
+          await refreshBalance();
+          toast.success("Balance Updated", {
+            description: `Your wallet balance is now KES ${balance.toLocaleString()}.`,
+            className: "bg-green-500/90 text-white border-green-400",
+          });
+        }, 30000); // Wait 30 seconds for callback
       } else {
         toast.error("Deposit Failed", {
-          description: data.detail || "Please try again later.",
+          description: data.error || data.detail || "Please try again later.",
           className: "bg-red-500/90 text-white border-red-400",
-        })
+        });
       }
     } catch (error) {
-      console.error("Deposit network error:", error)
+      console.error("Deposit network error:", error);
       toast.error("Network Error", {
         description: "Could not connect to the server. Please check your internet connection.",
         className: "bg-red-500/90 text-white border-red-400",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const adjustAmount = (increment: boolean) => {
-    const current = Number.parseFloat(amount) || 0
-    const newAmount = increment ? current + 100 : Math.max(0, current - 100)
-    setAmount(newAmount.toString())
-  }
+    const current = Number.parseFloat(amount) || 0;
+    const newAmount = increment ? current + 100 : Math.max(0, current - 100);
+    setAmount(newAmount.toString());
+  };
 
   return (
     <form onSubmit={handleDeposit} className="space-y-4 sm:space-y-6 text-white">
@@ -138,6 +162,21 @@ export function DepositForm() {
         </div>
       </div>
 
+      {/* Phone Number Input */}
+      <div>
+        <label htmlFor="phone-number" className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5 sm:mb-2">
+          Phone Number (e.g., 254712345678)
+        </label>
+        <Input
+          id="phone-number"
+          type="text"
+          placeholder="254XXXXXXXXX"
+          className="w-full bg-white/10 border-white/20 placeholder:text-gray-400 text-white text-base sm:text-lg rounded-lg sm:rounded-xl h-10 sm:h-12 focus:border-purple-400 transition-all duration-300"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+        />
+      </div>
+
       <Button
         type="submit"
         disabled={isLoading}
@@ -157,5 +196,5 @@ export function DepositForm() {
         )}
       </Button>
     </form>
-  )
+  );
 }

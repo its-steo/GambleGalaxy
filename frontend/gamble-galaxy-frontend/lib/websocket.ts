@@ -138,7 +138,8 @@ export const useWebSocket = create<WebSocketState>((set, get) => ({
     const state = get()
     if (state.socket?.readyState === WebSocket.OPEN) return
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws/aviator/"
+    //const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws/aviator/"
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "wss://gamblegalaxy.onrender.com/ws/aviator/"
     console.log("🔌 Connecting to WebSocket:", wsUrl)
     const newSocket = new WebSocket(wsUrl)
     let pingInterval: NodeJS.Timeout
