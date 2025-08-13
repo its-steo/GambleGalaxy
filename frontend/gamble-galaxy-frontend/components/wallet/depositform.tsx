@@ -29,7 +29,7 @@ export function DepositForm() {
       return;
     }
 
-    // Validate phone number (must start with 254 and be 12 digits)
+    // Validate phone number
     if (!phoneNumber || !phoneNumber.match(/^254\d{9}$/)) {
       console.error("Invalid phone number entered:", phoneNumber);
       toast.error("Invalid phone number", {
@@ -41,27 +41,26 @@ export function DepositForm() {
 
     setIsLoading(true);
     try {
-      console.log("Initiating STK Push deposit:", { amount: depositAmount, phone_number: phoneNumber, transaction_type: "deposit" });
+      const payload = {
+        amount: depositAmount,
+        phone_number: phoneNumber,
+        description: `Deposit of KES ${depositAmount.toLocaleString()}`,
+      };
+      console.log("Sending deposit request with payload:", payload);
+
       const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...getAuthHeader(),
         },
-        body: JSON.stringify({
-          amount: depositAmount,
-          phone_number: phoneNumber,
-          transaction_type: "deposit", // Added to match backend requirements
-          description: `Deposit of KES ${depositAmount.toLocaleString()}`,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      console.log("Deposit response:", { status: res.status, statusText: res.statusText });
       const data = await res.json();
-      console.log("Deposit response data:", data);
+      console.log("Deposit response:", { status: res.status, statusText: res.statusText, data });
 
       if (res.status === 202) {
-        // STK Push initiated
         toast.info("STK Push Initiated", {
           description: `Please check your phone (${phoneNumber}) and complete the payment prompt to deposit KES ${depositAmount.toLocaleString()}.`,
           className: "bg-blue-500/90 text-white border-blue-400",
@@ -69,7 +68,6 @@ export function DepositForm() {
         });
         setAmount("");
         setPhoneNumber("");
-        // Poll for balance update after a delay
         setTimeout(async () => {
           console.log("Polling for balance update after STK Push...");
           await refreshBalance();
@@ -78,11 +76,12 @@ export function DepositForm() {
             description: `Your wallet balance is now KES ${balance.toLocaleString()}.`,
             className: "bg-green-500/90 text-white border-green-400",
           });
-        }, 30000); // Wait 30 seconds for callback
+        }, 30000);
       } else {
-        console.error("Deposit failed:", data);
+        console.error("Deposit failed with status:", res.status, "data:", data);
+        const errorMsg = data.detail || data.amount?.[0] || data.phone_number?.[0] || "Please try again later.";
         toast.error("Deposit Failed", {
-          description: data.error || data.detail || "Please try again later.",
+          description: errorMsg,
           className: "bg-red-500/90 text-white border-red-400",
         });
       }
@@ -112,7 +111,6 @@ export function DepositForm() {
         <h3 className="text-lg sm:text-xl font-bold">Deposit Funds</h3>
       </div>
 
-      {/* Quick Amount Buttons */}
       <div>
         <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5 sm:mb-2">
           Quick Amounts (KES)
@@ -136,7 +134,6 @@ export function DepositForm() {
         </div>
       </div>
 
-      {/* Amount Input with Controls */}
       <div>
         <label htmlFor="deposit-amount" className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5 sm:mb-2">
           Enter Amount (KES)
@@ -171,7 +168,6 @@ export function DepositForm() {
         </div>
       </div>
 
-      {/* Phone Number Input */}
       <div>
         <label htmlFor="phone-number" className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5 sm:mb-2">
           Phone Number (e.g., 254712345678)
