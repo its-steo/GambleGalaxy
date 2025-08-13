@@ -35,7 +35,7 @@ export default function WithdrawForm() {
     setIsLoading(true);
     try {
       const res = await axios.post(
-        //"http://127.0.0.1:8000/api/wallet/withdraw/",
+        // "http://127.0.0.1:8000/api/wallet/withdraw/",
         `${process.env.NEXT_PUBLIC_API_URL || "https://gamblegalaxy.onrender.com"}/api/wallet/withdraw/`,
         {
           amount: parsedAmount,

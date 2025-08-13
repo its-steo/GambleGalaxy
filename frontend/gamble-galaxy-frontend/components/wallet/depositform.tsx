@@ -57,6 +57,15 @@ export function DepositForm() {
         body: JSON.stringify(payload),
       });
 
+      //const res = await fetch("http://localhost:8000/api/wallet/deposit/", {
+      //  method: "POST",
+      //  headers: {
+      //    "Content-Type": "application/json",
+      //    ...getAuthHeader(),
+      //  },
+      //  body: JSON.stringify(payload),
+      //});
+
       const data = await res.json();
       console.log("Deposit response:", { status: res.status, statusText: res.statusText, data });
 
