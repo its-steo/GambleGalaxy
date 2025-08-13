@@ -25,7 +25,7 @@ class DepositView(generics.CreateAPIView):
     def perform_create(self, serializer):
         user = self.request.user
         amount = serializer.validated_data['amount']
-        phone_number = self.request.data.get('phone_number')
+        phone_number = self.request.data.get('phone_number')  # Expect phone number in request data
 
         if not phone_number or not phone_number.startswith('254'):
             raise ValidationError("Valid phone number starting with '254' is required.")
@@ -52,17 +52,16 @@ class DepositView(generics.CreateAPIView):
             serializer.save(
                 user=user,
                 transaction_type='deposit',
-                payment_transaction_id=checkout_request_id,
-                description='pending'
+                payment_transaction_id=checkout_request_id
             )
             logger.info(f"STK Push initiated for user {user.id}: CheckoutRequestID={checkout_request_id}")
             return Response({
-                'message': 'STK Push sent. Please enter your MPESA PIN to complete the deposit.',
+                'message': 'STK Push initiated. Please complete the payment on your phone.',
                 'checkout_request_id': checkout_request_id
             }, status=status.HTTP_202_ACCEPTED)
         except Exception as e:
             logger.error(f"Error in DepositView for user {user.id}: {str(e)}")
-            raise ValidationError(f"Failed to initiate deposit: {str(e)}")
+            raise ValidationError(f"Failed to process deposit: {str(e)}")
 
 class WithdrawView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -79,7 +78,7 @@ class TransactionHistoryView(generics.ListAPIView):
         return Transaction.objects.filter(user=self.request.user).order_by('-timestamp')
 
 class CallbackView(generics.GenericAPIView):
-    permission_classes = []
+    permission_classes = []  # No authentication required for payment callbacks
 
     def post(self, request, *args, **kwargs):
         try:
@@ -121,37 +120,26 @@ class CallbackView(generics.GenericAPIView):
                     # Verify amount matches
                     if amount != float(transaction.amount):
                         logger.error(f"Amount mismatch for {checkout_request_id}: Expected {transaction.amount}, Got {amount}")
-                        transaction.description = 'failed: Amount mismatch'
-                        transaction.save()
                         return Response({'status': 'Amount mismatch'}, status=status.HTTP_400_BAD_REQUEST)
 
                     # Update wallet balance
-                    wallet = Wallet.objects.select_for_update().get(user=transaction.user)
+                    wallet = Wallet.objects.get(user=transaction.user)
                     wallet.deposit(amount)
 
                     # Update transaction
                     transaction.description = 'completed'
-                    transaction.payment_transaction_id = payment_receipt
+                    transaction.payment_transaction_id = payment_receipt  # Update to payment receipt number
                     transaction.save()
 
                     logger.info(f"Deposit completed for user {transaction.user.id}: {payment_receipt}")
-                    return Response({
-                        'status': 'Deposit processed successfully',
-                        'message': f'Deposit of {amount} successful for user {transaction.user.id}'
-                    }, status=status.HTTP_200_OK)
+                    return Response({'status': 'Deposit processed successfully'}, status=status.HTTP_200_OK)
                 else:
                     # Transaction failed
                     transaction.description = f'failed: {result_desc}'
                     transaction.save()
                     logger.error(f"Deposit failed for {checkout_request_id}: {result_desc}")
-                    return Response({
-                        'status': 'Deposit failed',
-                        'message': f'Deposit failed: {result_desc}'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'status': f'Deposit failed: {result_desc}'}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             logger.error(f"Error processing callback for {checkout_request_id}: {str(e)}")
-            return Response({
-                'status': 'Error processing callback',
-                'message': f'Error processing callback: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'status': f'Error processing callback: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
