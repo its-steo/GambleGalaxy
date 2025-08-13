@@ -101,7 +101,7 @@ const GlassSideNav = ({ onShare, onClose }: SideNavProps) => {
     {
       name: "Bet History",
       icon: <History className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4" />,
-      href: "/betting?tab=history",
+      href: "/betting/history",
       color: "text-gray-300",
       hoverColor: "hover:text-white",
       bgHover: "hover:bg-gray-500/10",
