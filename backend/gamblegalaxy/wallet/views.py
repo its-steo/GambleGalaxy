@@ -22,12 +22,17 @@ class DepositView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = TransactionSerializer
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        logger.info(f"Received deposit request: {request.data}")
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
         user = self.request.user
         amount = serializer.validated_data['amount']
-        phone_number = self.request.data.get('phone_number')  # Expect phone number in request data
-
+        phone_number = request.data.get('phone_number')
+        
         if not phone_number or not phone_number.startswith('254'):
+            logger.error(f"Invalid phone number: {phone_number}")
             raise ValidationError("Valid phone number starting with '254' is required.")
 
         # Generate unique transaction ID
@@ -48,7 +53,7 @@ class DepositView(generics.CreateAPIView):
                 logger.error(f"No CheckoutRequestID in response for user {user.id}: {response}")
                 raise ValidationError("Failed to get CheckoutRequestID from payment service.")
 
-            # Save pending transaction with CheckoutRequestID
+            # Save pending transaction
             serializer.save(
                 user=user,
                 transaction_type='deposit',
@@ -117,24 +122,20 @@ class CallbackView(generics.GenericAPIView):
                         logger.error(f"Incomplete callback metadata: {callback_metadata}")
                         return Response({'status': 'Incomplete callback data'}, status=status.HTTP_400_BAD_REQUEST)
 
-                    # Verify amount matches
                     if amount != float(transaction.amount):
                         logger.error(f"Amount mismatch for {checkout_request_id}: Expected {transaction.amount}, Got {amount}")
                         return Response({'status': 'Amount mismatch'}, status=status.HTTP_400_BAD_REQUEST)
 
-                    # Update wallet balance
                     wallet = Wallet.objects.get(user=transaction.user)
                     wallet.deposit(amount)
 
-                    # Update transaction
                     transaction.description = 'completed'
-                    transaction.payment_transaction_id = payment_receipt  # Update to payment receipt number
+                    transaction.payment_transaction_id = payment_receipt
                     transaction.save()
 
                     logger.info(f"Deposit completed for user {transaction.user.id}: {payment_receipt}")
                     return Response({'status': 'Deposit processed successfully'}, status=status.HTTP_200_OK)
                 else:
-                    # Transaction failed
                     transaction.description = f'failed: {result_desc}'
                     transaction.save()
                     logger.error(f"Deposit failed for {checkout_request_id}: {result_desc}")
