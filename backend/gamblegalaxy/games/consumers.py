@@ -727,7 +727,12 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                 while multiplier < crash_multiplier:
                     current_time = time.time()
                     elapsed_total = current_time - (round_start_time / 1000)
-                    new_multiplier = round(math.exp(0.25 * elapsed_total), 2)
+                    # Adjusted multiplier calculation: slower start, accelerates later
+                    if elapsed_total < 5:  # Slow phase for first 5 seconds
+                        new_multiplier = 1.0 + 0.02 * elapsed_total ** 2
+                    else:  # Faster phase after 5 seconds
+                        new_multiplier = 1.0 + 0.02 * 5 ** 2 + 0.15 * (elapsed_total - 5) ** 1.5
+                    new_multiplier = round(min(new_multiplier, crash_multiplier), 2)
                     if new_multiplier >= multiplier + 0.05 or new_multiplier >= crash_multiplier:
                         multiplier = new_multiplier
                         await self.update_round_state(current_multiplier=multiplier)
