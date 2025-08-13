@@ -725,28 +725,39 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
                 # PHASE 3: MULTIPLIER LOOP
                 while multiplier < crash_multiplier:
-                    current_time = time.time()
-                    elapsed_total = current_time - (round_start_time / 1000)
-                    # Adjusted multiplier calculation: slower start, accelerates later
-                    if elapsed_total < 5:  # Slow phase for first 5 seconds
-                        new_multiplier = 1.0 + 0.02 * elapsed_total ** 2
-                    else:  # Faster phase after 5 seconds
-                        new_multiplier = 1.0 + 0.02 * 5 ** 2 + 0.15 * (elapsed_total - 5) ** 1.5
-                    new_multiplier = round(min(new_multiplier, crash_multiplier), 2)
-                    if new_multiplier >= multiplier + 0.05 or new_multiplier >= crash_multiplier:
+                    # Fixed step progression based on current multiplier
+                    if multiplier < 2:
+                        step = 0.01
+                        delay = 0.1
+                    elif multiplier < 5:
+                        step = 0.02
+                        delay = 0.08
+                    elif multiplier < 20:
+                        step = 0.05
+                        delay = 0.06
+                    else:
+                        step = 0.1
+                        delay = 0.04
+
+                    # Increment multiplier
+                    new_multiplier = round(multiplier + step, 2)
+                    if new_multiplier >= crash_multiplier:
+                        multiplier = crash_multiplier
+                    else:
                         multiplier = new_multiplier
-                        await self.update_round_state(current_multiplier=multiplier)
-                        if sequence_number % 10 == 0:  # Check every ~330ms
-                            await self.auto_cashout(multiplier, aviator_round)
-                        await self.channel_layer.group_send(self.room_group_name, {
-                            'type': 'send_to_group',
-                            'type_override': 'multiplier_update',
-                            'multiplier': multiplier,
-                            'sequence': sequence_number,
-                            'server_time': int(time.time() * 1000),
-                            'elapsed': elapsed_total
-                        })
-                    await asyncio.sleep(0.033)  # 33ms for ~30 FPS
+
+                    await self.update_round_state(current_multiplier=multiplier)
+                    if sequence_number % 10 == 0:  # Check every ~10 updates
+                        await self.auto_cashout(multiplier, aviator_round)
+                    await self.channel_layer.group_send(self.room_group_name, {
+                        'type': 'send_to_group',
+                        'type_override': 'multiplier_update',
+                        'multiplier': multiplier,
+                        'sequence': sequence_number,
+                        'server_time': int(time.time() * 1000),
+                        'elapsed': (time.time() - (round_start_time / 1000))
+                    })
+                    await asyncio.sleep(delay)
                     if multiplier >= crash_multiplier:
                         break
                     sequence_number += 1
