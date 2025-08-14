@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react"
 import { AviatorGameSimplified } from "@/components/games/aviator-game-simplified"
 import { useAuth } from "@/lib/auth"
-import { Plane } from "lucide-react"
+import GlassSideNav from "@/components/layout/glass-side-nav"
+import { Plane, Menu, X } from "lucide-react"
+import { toast } from "sonner"
 
 export default function AviatorPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [stars, setStars] = useState<{ left: string; top: string; delay: string; duration: string }[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Mouse tracking and stars generation (client-side only)
   useEffect(() => {
@@ -29,6 +32,22 @@ export default function AviatorPage() {
     window.addEventListener("mousemove", handleMouseMove)
     return () => window.removeEventListener("mousemove", handleMouseMove)
   }, [])
+
+  const handleShareGame = () => {
+    const shareText = `🚀 Playing Aviator on Gamble Galaxy! Join me for some high-flying action!\n\n${window.location.origin}/aviator`
+
+    if (navigator.share) {
+      navigator.share({
+        title: "Aviator Game - Gamble Galaxy",
+        text: shareText,
+      })
+    } else {
+      navigator.clipboard.writeText(shareText)
+      toast.success("Game link copied to clipboard!", {
+        className: "bg-gradient-to-r from-green-500/90 to-emerald-500/90 text-white border-green-400 backdrop-blur-md",
+      })
+    }
+  }
 
   // Show loading while authentication is being checked
   if (authLoading) {
@@ -122,9 +141,40 @@ export default function AviatorPage() {
         ))}
       </div>
 
-      {/* Game content */}
-      <div className="relative z-10">
-        <AviatorGameSimplified />
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed top-4 left-4 z-[60] lg:hidden bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-md border border-white/30 rounded-xl p-3 text-white hover:bg-white/30 hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl"
+        style={{
+          boxShadow: "0 8px 32px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+        }}
+      >
+        <div className="relative">
+          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded blur-sm -z-10"></div>
+        </div>
+      </button>
+
+      <div className="flex relative z-10">
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <div
+          className={`fixed left-0 top-0 h-screen z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:block ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }`}
+        >
+          <GlassSideNav onShare={handleShareGame} onClose={() => setSidebarOpen(false)} />
+        </div>
+
+        <div className="flex-1 w-full lg:ml-0">
+          <div className="relative z-10 pt-16 lg:pt-0 px-2 sm:px-4 lg:px-6">
+            <AviatorGameSimplified />
+          </div>
+        </div>
       </div>
     </div>
   )

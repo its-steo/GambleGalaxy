@@ -24,11 +24,11 @@ export default function TransactionHistory() {
       setLoading(true)
       setError(null)
       try {
-        //const res = await axios.get( "https://localhost:8000/api/wallet/transactions/", { headers: getAuthHeader() })
+        //const res = await axios.get( "http://localhost:8000/api/wallet/transactions/", { headers: getAuthHeader() })
         //setTransactions(res.data)
-         const res = await axios.get( "https://gamblegalaxy.onrender.com/api/wallet/transactions/", { headers: getAuthHeader() })
+        const res = await axios.get( "https://gamblegalaxy.onrender.com/api/wallet/transactions/", { headers: getAuthHeader() })
         setTransactions(res.data)
-        
+
       } catch (err) {
         console.error("Failed to fetch transactions:", err)
         setError("Failed to load transaction history. Please try again.")
