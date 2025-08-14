@@ -33,11 +33,6 @@ class Transaction(models.Model):
         ('bonus', 'Bonus'),
         ('penalty', 'Penalty'),
     )
-    STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-    )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transactions')
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
@@ -45,13 +40,6 @@ class Transaction(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     description = models.CharField(max_length=255, blank=True)
     payment_transaction_id = models.CharField(max_length=50, blank=True, unique=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
         return f"{self.user.username} - {self.transaction_type} - {self.amount} - {self.timestamp}"
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['payment_transaction_id']),
-            models.Index(fields=['user', 'timestamp']),
-        ]
