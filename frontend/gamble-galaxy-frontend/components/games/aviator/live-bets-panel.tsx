@@ -25,10 +25,15 @@ export function LiveBetsPanel() {
   const totalBetAmount = allActiveBets.reduce((sum, bet) => sum + (bet.amount || 0), 0)
 
   return (
-    <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
-      <CardHeader className="pb-3">
+    <Card className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 backdrop-blur-3xl border border-white/10 shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-indigo-500/5 rounded-2xl sm:rounded-3xl"></div>
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+
+      <CardHeader className="pb-3 relative z-10">
         <CardTitle className="text-lg font-semibold text-white flex items-center gap-2">
-          <Users className="w-5 h-5 text-blue-400" />
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl flex items-center justify-center border border-blue-500/20 backdrop-blur-xl">
+            <Users className="w-4 h-4 text-blue-400" />
+          </div>
           Live Bets ({totalLivePlayers})
         </CardTitle>
         <div className="flex items-center gap-4 text-sm text-slate-300">
@@ -37,7 +42,7 @@ export function LiveBetsPanel() {
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className="p-0 relative z-10">
         <ScrollArea className="h-64">
           <div className="space-y-2 p-4">
             {allActiveBets.length === 0 ? (
@@ -51,23 +56,36 @@ export function LiveBetsPanel() {
                 .map((bet) => (
                   <div
                     key={`${bet.userId}-${bet.id || Date.now()}`}
-                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                    className={`flex items-center justify-between p-3 rounded-xl transition-all duration-300 hover:scale-[1.02] backdrop-blur-2xl border ${
                       bet.userId === user?.id
-                        ? "bg-blue-900/30 border border-blue-500/30"
-                        : "bg-slate-700/30 hover:bg-slate-700/50"
+                        ? "bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border-blue-500/30"
+                        : "bg-gradient-to-r from-white/5 to-white/10 border-white/10 hover:from-white/10 hover:to-white/15"
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2">
-                        {bet.is_bot ? (
-                          <Bot className="w-4 h-4 text-orange-400" />
-                        ) : (
-                          <User className="w-4 h-4 text-blue-400" />
-                        )}
+                        <div
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center backdrop-blur-xl border ${
+                            bet.is_bot
+                              ? "bg-gradient-to-br from-indigo-500/30 to-purple-500/30 border-indigo-500/20"
+                              : bet.userId === user?.id
+                                ? "bg-gradient-to-br from-amber-500/30 to-yellow-500/30 border-amber-500/20"
+                                : "bg-gradient-to-br from-blue-500/30 to-cyan-500/30 border-blue-500/20"
+                          }`}
+                        >
+                          {bet.is_bot ? (
+                            <Bot className="w-4 h-4 text-indigo-400" />
+                          ) : (
+                            <User className="w-4 h-4 text-blue-400" />
+                          )}
+                        </div>
                         <span className={`font-medium ${bet.userId === user?.id ? "text-blue-300" : "text-slate-200"}`}>
                           {bet.username}
                           {bet.userId === user?.id && (
-                            <Badge variant="secondary" className="ml-2 text-xs">
+                            <Badge
+                              variant="secondary"
+                              className="ml-2 text-xs bg-amber-500/20 text-amber-400 border-amber-500/30"
+                            >
                               You
                             </Badge>
                           )}
@@ -98,7 +116,7 @@ export function LiveBetsPanel() {
 
         {/* Recent Cashouts */}
         {recentCashouts && recentCashouts.length > 0 && (
-          <div className="border-t border-slate-700/50 p-4">
+          <div className="border-t border-white/10 p-4">
             <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-green-400" />
               Recent Cashouts
@@ -107,11 +125,11 @@ export function LiveBetsPanel() {
               {recentCashouts.slice(0, 5).map((cashout, index) => (
                 <div
                   key={`${cashout.username || "unknown"}-${cashout.timestamp || Date.now()}-${index}`}
-                  className="flex items-center justify-between text-sm"
+                  className="flex items-center justify-between text-sm p-2 rounded-lg bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20"
                 >
                   <div className="flex items-center gap-2">
                     {cashout.is_bot ? (
-                      <Bot className="w-3 h-3 text-orange-400" />
+                      <Bot className="w-3 h-3 text-indigo-400" />
                     ) : (
                       <User className="w-3 h-3 text-blue-400" />
                     )}

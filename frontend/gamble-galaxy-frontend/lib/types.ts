@@ -228,6 +228,8 @@ export interface WebSocketMessage {
   final?: boolean
 }
 
+export type BotPersonality = "conservative" | "moderate" | "aggressive" | "high_roller"
+
 export interface BotPlayer {
   username: string
   amount: number
@@ -236,6 +238,75 @@ export interface BotPlayer {
   win_amount?: number
   is_bot: true
   placed_at?: number
+  personality?: BotPersonality
+  user_id?: number
+}
+export interface EnhancedBotPlayer extends BotPlayer {
+  personality: BotPersonality
+  sessionStartTime: number
+  totalBets: number
+  totalWins: number
+  lastBetTime?: number
+  participationRate: number
+  averageBetAmount: number
+  preferredCashoutRange: [number, number]
+  balance: number
+}
+
+export interface BotConfig {
+  minBetAmount: number
+  maxBetAmount: number
+  participationRate: number
+  cashoutProbabilities: Record<string, number>
+  delayRange: [number, number]
+  personalityDistribution: Record<BotPersonality, number>
+}
+
+export interface BotBetPlacedMessage extends WebSocketMessage {
+  type: "botBetPlaced"
+  username: string
+  amount: number
+  auto_cashout?: number
+  user_id: number
+  bet_id: number
+  personality: BotPersonality
+  new_balance?: number
+}
+
+export interface BotCashoutMessage extends WebSocketMessage {
+  type: "botCashout"
+  username: string
+  multiplier: number
+  amount: number
+  win_amount: number
+  user_id: number
+  personality: BotPersonality
+  new_balance?: number
+}
+
+export interface BotActivity {
+  id: string
+  type: "bet" | "cashout"
+  username: string
+  amount: number
+  multiplier?: number
+  winAmount?: number
+  timestamp: number
+  personality: BotPersonality
+  isBot: boolean
+}
+
+export interface LiveActivityItem {
+  id: string
+  type: "bet" | "cashout"
+  username: string
+  amount: number
+  multiplier?: number
+  winAmount?: number
+  timestamp: number
+  isBot: boolean
+  isBigWin?: boolean
+  personality?: BotPersonality
 }
 
 export interface GameState {

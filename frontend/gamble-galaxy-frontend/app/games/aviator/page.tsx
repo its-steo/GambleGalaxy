@@ -15,18 +15,19 @@ export default function AviatorPage() {
 
   // Mouse tracking and stars generation (client-side only)
   useEffect(() => {
-    // Generate stars
-    const generatedStars = [...Array(20)].map(() => ({
+    const generatedStars = [...Array(35)].map(() => ({
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
-      delay: `${Math.random() * 3}s`,
-      duration: `${2 + Math.random() * 3}s`,
+      delay: `${Math.random() * 4}s`,
+      duration: `${2 + Math.random() * 4}s`,
     }))
     setStars(generatedStars)
 
-    // Mouse tracking
+    // Mouse tracking with performance optimization
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
+      requestAnimationFrame(() => {
+        setMousePosition({ x: e.clientX, y: e.clientY })
+      })
     }
 
     window.addEventListener("mousemove", handleMouseMove)
@@ -49,55 +50,54 @@ export default function AviatorPage() {
     }
   }
 
-  // Show loading while authentication is being checked
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 relative overflow-hidden flex items-center justify-center px-4">
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center px-4">
         <div className="fixed inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
-          <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-pink-900/25 to-blue-900/30" />
+          <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 sm:w-64 sm:h-64 bg-blue-500/15 rounded-full blur-3xl animate-pulse delay-500" />
         </div>
+
         <div className="relative z-10 text-center">
-          <div className="relative mb-6">
-            {/* Aviator themed loading */}
-            <div className="w-16 h-16 mx-auto mb-4 relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center animate-pulse">
-                <Plane className="w-8 h-8 text-white" />
+          <div className="relative mb-8">
+            <div className="w-20 h-20 mx-auto mb-6 relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 rounded-2xl flex items-center justify-center animate-pulse shadow-2xl shadow-purple-500/30">
+                <Plane className="w-10 h-10 text-white" />
               </div>
-              <div className="absolute inset-0 animate-spin rounded-xl border-4 border-transparent border-t-red-500/50"></div>
+              <div className="absolute inset-0 animate-spin rounded-2xl border-4 border-transparent border-t-purple-400/60 border-r-pink-400/40"></div>
             </div>
-            <div className="absolute inset-0 animate-ping rounded-full h-16 w-16 border-2 border-red-400/30 mx-auto"></div>
           </div>
-          <h2 className="text-white text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+          <h2 className="text-white text-2xl sm:text-3xl font-bold mb-3 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
             Aviator Loading...
           </h2>
-          <p className="text-slate-400 text-sm sm:text-base">Checking authentication</p>
+          <p className="text-gray-300 text-base sm:text-lg">Preparing your flight experience</p>
         </div>
       </div>
     )
   }
 
-  // Show login prompt if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 relative overflow-hidden flex items-center justify-center px-4">
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center px-4">
         <div className="fixed inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
-          <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-pink-900/25 to-blue-900/30" />
+          <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-72 sm:h-72 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
+
         <div className="relative z-10 text-center">
-          <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center">
-            <Plane className="w-8 h-8 text-white" />
+          <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-purple-500/30">
+            <Plane className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-white text-xl sm:text-2xl font-bold mb-2 bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+          <h2 className="text-white text-2xl sm:text-3xl font-bold mb-3 bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
             Login Required
           </h2>
-          <p className="text-slate-400 text-sm sm:text-base mb-4">Please log in to play Aviator</p>
+          <p className="text-gray-300 text-base sm:text-lg mb-6">Please log in to start your Aviator journey</p>
           <button
             onClick={() => (window.location.href = "/auth/login")}
-            className="bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-600 text-white font-bold py-2 px-6 rounded-lg transition-all duration-300"
+            className="bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 hover:from-purple-600 hover:via-pink-600 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-105"
           >
             Go to Login
           </button>
@@ -108,29 +108,49 @@ export default function AviatorPage() {
 
   // Main content once authenticated
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-900 relative overflow-hidden">
-      {/* Interactive background */}
+    <div className="min-h-screen bg-black relative overflow-hidden">
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-pink-900/25 to-blue-900/30" />
+
+        {/* Mouse-following gradients */}
         {mousePosition.x !== 0 || mousePosition.y !== 0 ? (
-          <div
-            className="absolute w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 bg-purple-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
-            style={{
-              left: mousePosition.x - 96,
-              top: mousePosition.y - 96,
-            }}
-          />
+          <>
+            <div
+              className="absolute w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96 bg-purple-500/20 rounded-full blur-3xl transition-all duration-700 ease-out"
+              style={{
+                left: mousePosition.x - 128,
+                top: mousePosition.y - 128,
+              }}
+            />
+            <div
+              className="absolute w-48 h-48 sm:w-64 sm:h-64 lg:w-72 lg:h-72 bg-pink-500/15 rounded-full blur-2xl transition-all duration-1000 ease-out"
+              style={{
+                left: mousePosition.x - 96,
+                top: mousePosition.y - 96,
+              }}
+            />
+          </>
         ) : null}
-        <div className="absolute top-1/4 left-1/4 w-36 h-36 sm:w-48 sm:h-48 lg:w-72 lg:h-72 bg-pink-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+
+        {/* Static background gradients */}
+        <div className="absolute top-1/4 left-1/4 w-40 h-40 sm:w-56 sm:h-56 lg:w-80 lg:h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 bg-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 sm:w-48 sm:h-48 lg:w-64 lg:h-64 bg-blue-500/15 rounded-full blur-3xl animate-pulse delay-500" />
       </div>
 
-      {/* Animated stars */}
       <div className="fixed inset-0 z-0">
         {stars.map((star, i) => (
           <div
             key={i}
-            className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
+            className={`absolute rounded-full animate-pulse ${
+              i % 4 === 0
+                ? "w-1.5 h-1.5 bg-white/40"
+                : i % 4 === 1
+                  ? "w-1 h-1 bg-purple-300/30"
+                  : i % 4 === 2
+                    ? "w-0.5 h-0.5 bg-pink-300/35"
+                    : "w-2 h-2 bg-blue-300/25"
+            }`}
             style={{
               left: star.left,
               top: star.top,
@@ -143,10 +163,7 @@ export default function AviatorPage() {
 
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed top-4 left-4 z-[60] lg:hidden bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-md border border-white/30 rounded-xl p-3 text-white hover:bg-white/30 hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl"
-        style={{
-          boxShadow: "0 8px 32px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
-        }}
+        className="fixed top-4 left-4 z-[60] lg:hidden bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white hover:bg-white/15 hover:scale-105 transition-all duration-300 shadow-lg shadow-black/25"
       >
         <div className="relative">
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -155,13 +172,15 @@ export default function AviatorPage() {
       </button>
 
       <div className="flex relative z-10">
+        {/* Mobile overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
+        {/* Sidebar */}
         <div
           className={`fixed left-0 top-0 h-screen z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:block ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -170,6 +189,7 @@ export default function AviatorPage() {
           <GlassSideNav onShare={handleShareGame} onClose={() => setSidebarOpen(false)} />
         </div>
 
+        {/* Main game content */}
         <div className="flex-1 w-full lg:ml-0">
           <div className="relative z-10 pt-16 lg:pt-0 px-2 sm:px-4 lg:px-6">
             <AviatorGameSimplified />
