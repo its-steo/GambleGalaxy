@@ -27,13 +27,13 @@ class TransactionAdmin(admin.ModelAdmin):
     actions = ['mark_as_completed', 'mark_as_failed']
 
     def mark_as_completed(self, request, queryset):
-        for transaction in queryset.filter(transaction_type='withdraw', description='pending'):
-            transaction.description = 'completed'
+        for transaction in queryset.filter(transaction_type='withdraw', description='user withdrawal: pending'):
+            transaction.description = 'user withdrawal: completed'
             transaction.save()
         self.message_user(request, "Selected withdrawals marked as completed.")
 
     def mark_as_failed(self, request, queryset):
-        for transaction in queryset.filter(transaction_type='withdraw', description='pending'):
+        for transaction in queryset.filter(transaction_type='withdraw', description='user withdrawal: pending'):
             # Refund the amount to the wallet
             wallet = transaction.user.wallet
             wallet.deposit(transaction.amount)
