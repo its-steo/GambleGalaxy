@@ -73,14 +73,7 @@ class WithdrawView(generics.CreateAPIView):
     serializer_class = TransactionSerializer
 
     def perform_create(self, serializer):
-        # Generate a unique payment_transaction_id for withdrawals
-        payment_transaction_id = f"WITHDRAW-{uuid.uuid4().hex[:10]}"
-        logger.info(f"Generating payment_transaction_id for withdrawal: {payment_transaction_id}")
-        serializer.save(
-            user=self.request.user,
-            transaction_type='withdraw',
-            payment_transaction_id=payment_transaction_id
-        )
+        serializer.save(user=self.request.user, transaction_type='withdraw')
 
 class TransactionHistoryView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -95,14 +88,14 @@ class CallbackView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         try:
             data = request.data.get('Body', {}).get('stkCallback', {})
-            logger.info(f"Callback received for processing: {data}")
+            logger.info(f"Callback received: {data}")
 
             checkout_request_id = data.get('CheckoutRequestID')
             result_code = data.get('ResultCode')
             result_desc = data.get('ResultDesc')
 
             if not checkout_request_id or not result_code:
-                logger.error(f"Invalid callback data: Missing CheckoutRequestID or ResultCode. Data: {data}")
+                logger.error(f"Invalid callback data: {data}")
                 return Response({'status': 'Invalid callback data'}, status=status.HTTP_400_BAD_REQUEST)
 
             with db_transaction.atomic():
@@ -111,14 +104,12 @@ class CallbackView(generics.GenericAPIView):
                         payment_transaction_id=checkout_request_id,
                         transaction_type='deposit'
                     )
-                    logger.info(f"Found transaction for CheckoutRequestID: {checkout_request_id}, User: {transaction.user.id}")
                 except Transaction.DoesNotExist:
                     logger.error(f"No transaction found for CheckoutRequestID: {checkout_request_id}")
                     return Response({'status': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
 
-                # Check if transaction is already processed
                 if transaction.description == 'completed':
-                    logger.info(f"Transaction {checkout_request_id} already processed as completed")
+                    logger.info(f"Transaction {checkout_request_id} already processed")
                     return Response({'status': 'Transaction already processed'}, status=status.HTTP_200_OK)
 
                 if result_code == '0':  # Success
@@ -128,28 +119,23 @@ class CallbackView(generics.GenericAPIView):
                     phone_number = next((item['Value'] for item in callback_metadata if item['Name'] == 'PhoneNumber'), None)
 
                     if not payment_receipt or not amount or not phone_number:
-                        logger.error(f"Incomplete callback metadata for {checkout_request_id}: {callback_metadata}")
+                        logger.error(f"Incomplete callback metadata: {callback_metadata}")
                         return Response({'status': 'Incomplete callback data'}, status=status.HTTP_400_BAD_REQUEST)
 
                     if amount != float(transaction.amount):
                         logger.error(f"Amount mismatch for {checkout_request_id}: Expected {transaction.amount}, Got {amount}")
                         return Response({'status': 'Amount mismatch'}, status=status.HTTP_400_BAD_REQUEST)
 
-                    # Update wallet balance
                     wallet = Wallet.objects.get(user=transaction.user)
-                    previous_balance = wallet.balance
                     wallet.deposit(amount)
-                    logger.info(f"Deposit successful for user {transaction.user.id}. Previous balance: {previous_balance}, New balance: {wallet.balance}")
 
-                    # Update transaction
                     transaction.description = 'completed'
                     transaction.payment_transaction_id = payment_receipt
                     transaction.save()
-                    logger.info(f"Transaction completed for {checkout_request_id}: M-Pesa Receipt {payment_receipt}")
 
+                    logger.info(f"Deposit completed for user {transaction.user.id}: {payment_receipt}")
                     return Response({'status': 'Deposit processed successfully'}, status=status.HTTP_200_OK)
                 else:
-                    # Mark as failed without updating balance
                     transaction.description = f'failed: {result_desc}'
                     transaction.save()
                     logger.error(f"Deposit failed for {checkout_request_id}: {result_desc}")
