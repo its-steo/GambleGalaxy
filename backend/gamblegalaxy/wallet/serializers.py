@@ -128,12 +128,12 @@ class TransactionSerializer(serializers.ModelSerializer):
 
         with db_transaction.atomic():
             wallet, created = Wallet.objects.get_or_create(user=user)
-            if description != 'pending':
-                if tx_type in ['deposit', 'winning', 'bonus']:
-                    wallet.deposit(amount)
-                elif tx_type in ['withdraw', 'penalty']:
-                    if not wallet.withdraw(amount):
-                        logger.error(f"Insufficient balance for user {user.id}: {amount}")
+
+            if tx_type in ['deposit', 'winning', 'bonus']:
+                wallet.deposit(amount)
+            elif tx_type in ['withdraw', 'penalty']:
+                if not wallet.withdraw(amount):
+                    logger.error(f"Insufficient balance for user {user.id}: {amount}")
                     raise serializers.ValidationError("Insufficient balance for withdrawal.")
 
             transaction = Transaction.objects.create(

@@ -204,8 +204,7 @@ class DepositView(generics.CreateAPIView):
             serializer.save(
                 user=user,
                 transaction_type='deposit',
-                payment_transaction_id=checkout_request_id,
-                description='pending'
+                payment_transaction_id=checkout_request_id
             )
             logger.info(f"STK Push initiated for user {user.id}: CheckoutRequestID={checkout_request_id}")
             return Response({
@@ -249,7 +248,7 @@ class WithdrawView(generics.CreateAPIView):
                 transaction_type='withdraw',
                 payment_transaction_id=transaction_id,
                 account_details=account_details,
-                description='user withdrawal: pending'  # Mark as pending for admin review
+                description='pending'  # Mark as pending for admin review
             )
 
             logger.info(f"Withdrawal request created for user {user.id}: {transaction_id}")
