@@ -1052,7 +1052,8 @@ _current_round_state = {
     'crashed': False,
     'last_update': 0,
     'round_start_time': None,
-    'pending_bets': []  # NEW: In-memory list of pending bets for auto-cashout
+    'pending_bets': [],  # In-memory list of pending bets for auto-cashout
+    'last_group_send': 0,  # NEW: Track last group send time
 }
 _round_state_lock = asyncio.Lock()
 
@@ -1063,7 +1064,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         print(f"[WebSocket] Client connected to {self.room_group_name} at {timezone.now()}")
 
-        # FIX: Ensure only ONE global game loop runs
+        # Ensure only ONE global game loop runs
         await self.ensure_single_game_loop()
 
     async def disconnect(self, close_code):
@@ -1075,7 +1076,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         global _game_loop_task, _game_loop_lock
         
         async with _game_loop_lock:
-            # Check if game loop is already running
             if _game_loop_task is None or _game_loop_task.done():
                 print("🎮 Starting new global game loop")
                 _game_loop_task = asyncio.create_task(self.run_aviator_game())
@@ -1084,7 +1084,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
     @staticmethod
     async def get_current_round_state():
-        """Get the current round state - can be called from anywhere"""
+        """Get the current round state - thread safe"""
         global _current_round_state, _round_state_lock
         async with _round_state_lock:
             return _current_round_state.copy()
@@ -1096,14 +1096,13 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         async with _round_state_lock:
             _current_round_state.update(kwargs)
             _current_round_state['last_update'] = int(time.time() * 1000)
-        # Only log important state changes, not every multiplier update
+        # Log only significant state changes
         if 'current_multiplier' not in kwargs or kwargs.get('current_multiplier', 0) % 1 == 0:
             print(f"[STATE UPDATE] {kwargs}")
 
     async def receive(self, text_data):
         data = json.loads(text_data)
         action = data.get("action")
-        # Only log important actions, not pings
         if action != "ping":
             print(f"[WebSocket] Received: {data} at {timezone.now()}")
         
@@ -1113,16 +1112,21 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.handle_cashout(data)
 
     async def send_to_group(self, event):
-        """Handle messages sent to the group"""
+        """Handle messages sent to the group with rate limiting"""
+        current_time = int(time.time() * 1000)
+        state = await self.get_current_round_state()
+        if current_time - state['last_group_send'] < 100:  # 100ms minimum interval
+            return
+        await self.update_round_state(last_group_send=current_time)
+        
         if "type_override" in event:
             event["type"] = event.pop("type_override")
         
         await self.send(text_data=json.dumps(event))
 
     async def send_game_state(self):
-        # IMPROVED: Send comprehensive game state
+        """Send comprehensive game state"""
         state = await self.get_current_round_state()
-        
         print(f"[GAME STATE] Sending state: {state}")
         
         await self.send(json.dumps({
@@ -1154,7 +1158,8 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     crash_multiplier=None,
                     round_id=None,
                     round_start_time=None,
-                    pending_bets=[]  # NEW: Reset pending bets
+                    pending_bets=[],
+                    last_group_send=0
                 )
                 
                 await self.channel_layer.group_send(self.room_group_name, {
@@ -1166,21 +1171,19 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                 })
                 await asyncio.sleep(5)
 
-                # PHASE 2: CREATE ROUND WITH PROPER ACTIVATION
+                # PHASE 2: CREATE ROUND
                 crash_multiplier = await self.generate_crash_multiplier()
-                
-                # CRITICAL: Create round and mark as active immediately
                 aviator_round = await database_sync_to_async(AviatorRound.objects.create)(
                     crash_multiplier=crash_multiplier,
                     is_active=True
                 )
                 
-                print(f"[GAME] Round {aviator_round.id} created - CRASH AT: {crash_multiplier}x - ACTIVE: {aviator_round.is_active}")
+                print(f"[GAME] Round {aviator_round.id} created - CRASH AT: {crash_multiplier}x")
 
-                # NEW: Fetch all pending bets once at round start
+                # Fetch pending bets once
                 pending_bets = await self.fetch_pending_bets(aviator_round)
 
-                # CRITICAL: Update global state with new round IMMEDIATELY
+                # Update global state
                 round_start_time = int(time.time() * 1000)
                 await self.update_round_state(
                     round_id=aviator_round.id,
@@ -1190,10 +1193,11 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     crashed=False,
                     current_multiplier=1.0,
                     round_start_time=round_start_time,
-                    pending_bets=pending_bets  # NEW: Store pending bets in memory
+                    pending_bets=pending_bets,
+                    last_group_send=0
                 )
 
-                # PHASE 3: ROUND START - SEND ROUND ID TO FRONTEND
+                # PHASE 3: ROUND START
                 multiplier = 1.00
                 sequence_number = 0
 
@@ -1208,13 +1212,14 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     'is_active': True
                 })
 
-                print(f"[GAME] Round {aviator_round.id} started - sent to frontend")
+                print(f"[GAME] Round {aviator_round.id} started")
 
                 # PHASE 4: MULTIPLIER UPDATES
+                last_sent_multiplier = 1.0
                 while multiplier < crash_multiplier:
                     sequence_number += 1
                     
-                    # Fixed step progression based on current multiplier
+                    # Dynamic step progression
                     if multiplier < 2:
                         step = 0.01
                         delay = 0.1
@@ -1230,27 +1235,26 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
                     await asyncio.sleep(delay)
                     
-                    # FIX: Ensure we don't overshoot the crash multiplier
                     next_multiplier = round(multiplier + step, 2)
                     if next_multiplier >= crash_multiplier:
                         break
                         
                     multiplier = next_multiplier
-
-                    # CRITICAL: Update global state with current multiplier
                     await self.update_round_state(current_multiplier=multiplier)
-                    # Only log every 1.0x milestone to reduce noise
-                    if multiplier % 1.0 == 0:
-                        print(f"[MULTIPLIER] Round {aviator_round.id} reached {multiplier}x")
 
-                    await self.channel_layer.group_send(self.room_group_name, {
-                        'type': 'send_to_group',
-                        'type_override': 'multiplier',
-                        'multiplier': multiplier,
-                        'round_id': aviator_round.id,
-                        'sequence': sequence_number,
-                        'server_time': int(time.time() * 1000)
-                    })
+                    # Send updates only at significant milestones (every 0.1x up to 2x, then every 1x)
+                    if (multiplier <= 2.0 and abs(multiplier - last_sent_multiplier) >= 0.1) or \
+                       (multiplier > 2.0 and abs(multiplier - last_sent_multiplier) >= 1.0):
+                        await self.channel_layer.group_send(self.room_group_name, {
+                            'type': 'send_to_group',
+                            'type_override': 'multiplier',
+                            'multiplier': multiplier,
+                            'round_id': aviator_round.id,
+                            'sequence': sequence_number,
+                            'server_time': int(time.time() * 1000)
+                        })
+                        last_sent_multiplier = multiplier
+                        print(f"[MULTIPLIER] Round {aviator_round.id} at {multiplier}x")
 
                     await self.auto_cashout(multiplier, aviator_round)
 
@@ -1273,23 +1277,18 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     'server_time': int(time.time() * 1000)
                 })
                 
-                # NEW: Process remaining bets as losses
                 await self.process_losses(aviator_round, crash_multiplier)
-                
-                # NEW: Clear pending bets
                 await self.update_round_state(pending_bets=[])
-                
                 await self.end_round(aviator_round.id)
                 
-                # Delay before next round
                 await asyncio.sleep(aviator_round.delay_before_next)
 
             except Exception as e:
                 print(f"[GAME LOOP ERROR] {str(e)}")
-                await asyncio.sleep(5)  # Prevent tight loop on error
+                await asyncio.sleep(5)
 
     async def fetch_pending_bets(self, aviator_round):
-        """NEW: Fetch all pending bets once at round start"""
+        """Fetch all pending bets once at round start"""
         bets = await database_sync_to_async(list)(
             AviatorBet.objects.filter(
                 round=aviator_round,
@@ -1300,14 +1299,13 @@ class AviatorConsumer(AsyncWebsocketConsumer):
         return bets
 
     async def auto_cashout(self, current_multiplier, aviator_round):
-        """OPTIMIZED: Process auto-cashouts from in-memory list"""
+        """Process auto-cashouts from in-memory list"""
         state = await self.get_current_round_state()
         pending_bets = state['pending_bets']
         
         if not pending_bets:
             return
 
-        # Filter bets to cash out (in memory)
         to_cashout = [bet for bet in pending_bets if bet.auto_cashout and bet.auto_cashout <= current_multiplier]
         
         if not to_cashout:
@@ -1315,7 +1313,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
         print(f"[AUTO CASHOUT] Processing {len(to_cashout)} bets at {current_multiplier}x")
 
-        # Process in batch
         cashouts_data = []
         updated_bets = []
         for bet in to_cashout:
@@ -1334,10 +1331,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                 'user_id': bet.user.id
             })
 
-        # Bulk update bets and wallets/transactions
         await self.process_batch_cashouts(updated_bets, cashouts_data)
-
-        # Remove processed from pending
         state['pending_bets'] = [b for b in pending_bets if b not in to_cashout]
         await self.update_round_state(pending_bets=state['pending_bets'])
 
@@ -1350,12 +1344,9 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def process_batch_cashouts(self, bets, cashouts_data):
-        """NEW: Bulk process cashouts with transactions"""
+        """Bulk process cashouts with transactions"""
         with transaction.atomic():
-            # Bulk update bets
             AviatorBet.objects.bulk_update(bets, ['cash_out_multiplier', 'final_multiplier', 'is_winner'])
-            
-            # Update wallets and create transactions
             for i, bet in enumerate(bets):
                 wallet = Wallet.objects.select_for_update().get(user=bet.user)
                 win_amount = Decimal(str(cashouts_data[i]['win_amount']))
@@ -1370,7 +1361,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                 )
 
     async def process_losses(self, aviator_round, crash_multiplier):
-        """NEW: Process remaining bets as losses"""
+        """Process remaining bets as losses"""
         state = await self.get_current_round_state()
         pending_bets = state['pending_bets']
         
@@ -1382,7 +1373,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             bet.is_winner = False
         
         await database_sync_to_async(AviatorBet.objects.bulk_update)(pending_bets, ['final_multiplier', 'is_winner'])
-
         print(f"[LOSSES] Processed {len(pending_bets)} losing bets for round {aviator_round.id}")
 
     async def handle_bet(self, data):
@@ -1432,7 +1422,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             description=f'Aviator bet of {amount_decimal}'
         )
         
-        # NEW: Add new bet to pending_bets
         state = await self.get_current_round_state()
         state['pending_bets'].append(bet)
         await self.update_round_state(pending_bets=state['pending_bets'])
@@ -1499,7 +1488,6 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": f"Failed to create transaction: {str(e)}", "request_id": request_id}))
             return
             
-        # NEW: Remove cashed-out bet from pending_bets
         state = await self.get_current_round_state()
         state['pending_bets'] = [b for b in state['pending_bets'] if b.id != bet.id]
         await self.update_round_state(pending_bets=state['pending_bets'])
