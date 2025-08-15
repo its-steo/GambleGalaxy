@@ -656,7 +656,7 @@ export function AviatorGameSimplified() {
               }
               // Check if it's a response with success property
               if (typeof value === "object" && value !== null && "success" in value) {
-                return value.success !== false
+                return value.success !== "false"
               }
               // If no error/success properties, consider it successful
               return true
