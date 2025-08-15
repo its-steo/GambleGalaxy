@@ -98,7 +98,7 @@ export function LazerSignalModal({
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-2">
-                          <div className="text-lg sm:text-xl md:text-2xl font-bold text-amber-400">KES 10K</div>
+                          <div className="text-lg sm:text-xl md:text-2xl font-bold text-amber-400">KES 10,000</div>
                           <div className="text-xs text-white/60">one-time</div>
                         </div>
                       </div>

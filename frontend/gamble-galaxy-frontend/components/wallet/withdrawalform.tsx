@@ -172,6 +172,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { useWallet } from "@/context/WalletContext"
 import { getAuthHeader } from "@/lib/auth"
+import { headers } from "next/dist/server/request/headers"
 
 export default function WithdrawForm() {
   const [amount, setAmount] = useState("")
@@ -212,6 +213,19 @@ export default function WithdrawForm() {
           withdrawalMethod,
         }),
       })
+
+      //const response = await fetch("http://localhost:8000/api/wallet/withdraw/", {
+      //  method: "POST",
+      //  headers: {
+      //    "Content-Type": "application/json",
+      //    ...getAuthHeader(),
+      //  },
+      //  body: JSON.stringify({
+      //    amount: withdrawAmount,
+      //    ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
+      //    withdrawalMethod,
+      //  }),
+      //})
 
       if (!response.ok) {
         const errorData = await response.json()

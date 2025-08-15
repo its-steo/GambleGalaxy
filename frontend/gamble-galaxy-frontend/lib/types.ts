@@ -309,6 +309,18 @@ export interface LiveActivityItem {
   personality?: BotPersonality
 }
 
+export interface LiveActivity {
+  id: string
+  type: "bet" | "cashout"
+  username: string
+  amount: number
+  multiplier?: number
+  winAmount?: number
+  isBot: boolean
+  timestamp: number
+  autoCashout?: number
+}
+
 export interface GameState {
   round_id: number | null
   is_active: boolean
@@ -562,6 +574,7 @@ export interface CashoutResponse {
   multiplier?: number
   new_balance?: number
   message?: string
+  success?:string
 }
 
 export interface WalletUpdateRequest {
