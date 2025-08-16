@@ -70,8 +70,12 @@ class BetSerializer(serializers.ModelSerializer):
         wallet.balance -= amount
         wallet.save()
 
-        # Create Bet object
-        bet = Bet.objects.create(user=user, amount=amount)
+        # Create Bet object with initial total_odds
+        bet = Bet.objects.create(
+            user=user,
+            amount=amount,
+            total_odds=Decimal('1.0')  # Initial value to satisfy NOT NULL
+        )
         total_odds = Decimal('1.0')
 
         for selection_data in selections_data:

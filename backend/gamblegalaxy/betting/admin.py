@@ -16,6 +16,7 @@ class BetAdmin(admin.ModelAdmin):
 
 @admin.register(Match)
 class MatchAdmin(admin.ModelAdmin):
-    list_display = ['home_team', 'away_team', 'match_time', 'status', 'score_home', 'score_away']
+    list_display = ['home_team', 'away_team', 'match_time', 'status', 'score_home', 'score_away', 'ht_score_home', 'ht_score_away', 'elapsed_minutes']
     list_filter = ['status']
     ordering = ['match_time']
+    search_fields = ['home_team', 'away_team', 'api_match_id']

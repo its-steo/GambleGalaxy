@@ -1,20 +1,30 @@
-from django.core.management.base import BaseCommand
-from betting.utils.bet_resolver import resolve_bets
-from betting.models import SureOddSlip
 from django.utils import timezone
+from betting.models import Match
+from datetime import timedelta
 
-class Command(BaseCommand):
-    help = 'Resolves bets and cleans up sure odds'
+def update_match_statuses():
+    now = timezone.now()
+    matches = Match.objects.exclude(status='fulltime')  # Only update active matches
 
-    def handle(self, *args, **kwargs):
-        resolve_bets()
-        self.cleanup_sure_odds()
-        self.stdout.write(self.style.SUCCESS('✅ Bets resolved and sure odds cleaned up!'))
+    for match in matches:
+        start = match.match_time
+        elapsed = now - start
+        elapsed_minutes = int(elapsed.total_seconds() / 60) if elapsed.total_seconds() >= 0 else 0
 
-    def cleanup_sure_odds(self):
-        slips = SureOddSlip.objects.filter(is_used=False)
-        for slip in slips:
-            first_match = slip.matches.order_by('match_time').first()
-            if first_match and timezone.now() > first_match.match_time:
-                slip.is_used = True
-                slip.save()
+        if elapsed < timedelta(minutes=0):
+            match.status = 'upcoming'
+            match.elapsed_minutes = None
+        elif elapsed < timedelta(minutes=45):
+            match.status = 'first_half'
+            match.elapsed_minutes = min(elapsed_minutes, 45) if elapsed_minutes <= 80 else None
+        elif elapsed < timedelta(minutes=60):
+            match.status = 'halftime'
+            match.elapsed_minutes = 45
+        elif elapsed < timedelta(minutes=90):
+            match.status = 'second_half'
+            match.elapsed_minutes = min(elapsed_minutes, 80) if elapsed_minutes <= 80 else 80
+        else:
+            match.status = 'fulltime'
+            match.elapsed_minutes = None
+
+        match.save()

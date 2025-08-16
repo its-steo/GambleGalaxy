@@ -20,8 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-(t0hacm!ebtpu_p=ugo0lvd9%k@h5zsoy@85+6_z^qywlikmkg')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'False'
-#DEBUG = os.getenv('DEBUG', 'False') == 'True'
+#DEBUG = os.getenv('DEBUG', 'False') == 'False'
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 
 #ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
