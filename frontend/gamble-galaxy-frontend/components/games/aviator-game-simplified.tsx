@@ -34,16 +34,81 @@ const playSound = async (type: "cashout" | "crash") => {
   }
 }
 
-const OptimizedGameBackground = React.memo(() => (
-  <div className="fixed inset-0">
-    <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900" />
-    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent" />
-    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent" />
-    <div className="absolute inset-0 backdrop-blur-3xl" />
-    <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/5 rounded-full blur-2xl animate-pulse" />
-    <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-500/5 rounded-full blur-2xl animate-pulse delay-1000" />
-  </div>
-))
+const OptimizedGameBackground = React.memo(() => {
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [isTouchDevice, setIsTouchDevice] = useState(false)
+
+  useEffect(() => {
+    setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0)
+  }, [])
+
+  useEffect(() => {
+    if (isTouchDevice) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    return () => window.removeEventListener("mousemove", handleMouseMove)
+  }, [isTouchDevice])
+
+  const stars = React.useMemo(() => {
+    const starCount = typeof window !== "undefined" && window.innerWidth < 768 ? 30 : 50
+    return Array.from({ length: starCount }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2 + 1,
+      opacity: Math.random() * 0.8 + 0.2,
+      animationDelay: Math.random() * 3,
+    }))
+  }, [])
+
+  return (
+    <div className="fixed inset-0 overflow-hidden">
+      {/* Base background */}
+      <div className="absolute inset-0 bg-black" />
+
+      {/* Main gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
+
+      {/* Mouse-following gradient (desktop only) */}
+      {!isTouchDevice && (
+        <div
+          className="absolute w-96 h-96 bg-gradient-radial from-purple-500/10 via-pink-500/5 to-transparent rounded-full blur-3xl transition-all duration-300 ease-out pointer-events-none"
+          style={{
+            left: mousePosition.x - 192,
+            top: mousePosition.y - 192,
+          }}
+        />
+      )}
+
+      {/* Static background gradients */}
+      <div className="absolute top-0 left-0 w-72 h-72 bg-gradient-radial from-blue-500/20 via-purple-500/10 to-transparent rounded-full blur-3xl" />
+      <div className="absolute top-1/4 right-0 w-96 h-96 bg-gradient-radial from-pink-500/15 via-purple-500/8 to-transparent rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-gradient-radial from-purple-500/20 via-blue-500/10 to-transparent rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-gradient-radial from-cyan-500/15 via-blue-500/8 to-transparent rounded-full blur-3xl" />
+
+      {/* Animated stars */}
+      {stars.map((star) => (
+        <div
+          key={star.id}
+          className="absolute w-1 h-1 bg-white rounded-full animate-pulse"
+          style={{
+            left: `${star.x}%`,
+            top: `${star.y}%`,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            opacity: star.opacity,
+            animationDelay: `${star.animationDelay}s`,
+            animationDuration: "3s",
+          }}
+        />
+      ))}
+    </div>
+  )
+})
 
 OptimizedGameBackground.displayName = "OptimizedGameBackground"
 
@@ -667,7 +732,7 @@ export function AviatorGameSimplified() {
     refreshBalance,
     removeBetFromState,
     betValidation,
-    canCashOut
+    canCashOut,
   ])
 
   // 🔧 SAFE: Clear bet tracking when new round starts
