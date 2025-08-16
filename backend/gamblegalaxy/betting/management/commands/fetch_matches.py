@@ -119,7 +119,43 @@ class Command(BaseCommand):
                 self.process_fixture(fixture, headers, API_BASE_URL)
                 time.sleep(1)  # Respect API rate limits
 
-        if matches_fetched:
+        # Fetch and update live fixtures for ongoing matches to follow elapsed time and status
+        self.stdout.write(self.style.SUCCESS("Fetching live fixtures to update status and elapsed time..."))
+        live_fetched = False
+        for league in leagues:
+            league_id = league['id']
+            league_name = league['name']
+            self.stdout.write(f"Fetching live fixtures for {league_name} (ID: {league_id})...")
+            params = {
+                'league': league_id,
+                'season': season,
+                'live': 'all'
+            }
+            try:
+                response = requests.get(f'{API_BASE_URL}/fixtures', headers=headers, params=params)
+                response.raise_for_status()
+                data = response.json()
+                self.stdout.write(f"Live fixtures response for {league_name}: results={data.get('results', 0)}")
+                if data.get('errors'):
+                    self.stdout.write(self.style.WARNING(f"API error for live {league_name}: {data['errors']}"))
+                    logger.warning(f"API error for live {league_name}: {data['errors']}")
+                    continue
+            except requests.RequestException as e:
+                self.stdout.write(self.style.ERROR(f"Failed to fetch live fixtures for {league_name}: {e}"))
+                logger.error(f"Failed to fetch live fixtures for {league_name}: {e}")
+                continue
+
+            if not data.get('response'):
+                self.stdout.write(self.style.WARNING(f"No live matches found for {league_name}"))
+                logger.warning(f"No live matches found for {league_name}")
+                continue
+
+            live_fetched = True
+            for fixture in data['response']:
+                self.process_fixture(fixture, headers, API_BASE_URL)
+                time.sleep(1)  # Respect API rate limits
+
+        if matches_fetched or live_fetched:
             self.stdout.write(self.style.SUCCESS("✅ Matches and odds fetched and updated successfully!"))
         else:
             self.stdout.write(self.style.WARNING("No matches were fetched. Check season availability or upgrade API plan."))
@@ -362,4 +398,3 @@ class Command(BaseCommand):
 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error resolving bets for match {match.api_match_id}: {e}"))
-            logger.error(f"Error resolving bets for match {match.api_match_id}: {e}")
