@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import React from "react"
+
+import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useWebSocket } from "@/lib/websocket"
 import { useAuth } from "@/lib/auth"
 import { useWallet } from "@/context/WalletContext"
@@ -32,6 +34,19 @@ const playSound = async (type: "cashout" | "crash") => {
   }
 }
 
+const OptimizedGameBackground = React.memo(() => (
+  <div className="fixed inset-0">
+    <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900" />
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent" />
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent" />
+    <div className="absolute inset-0 backdrop-blur-3xl" />
+    <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/5 rounded-full blur-2xl animate-pulse" />
+    <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-500/5 rounded-full blur-2xl animate-pulse delay-1000" />
+  </div>
+))
+
+OptimizedGameBackground.displayName = "OptimizedGameBackground"
+
 export function AviatorGameSimplified() {
   const { user, isAuthenticated } = useAuth()
   const { balance: walletBalance, updateBalance, refreshBalance } = useWallet()
@@ -47,7 +62,6 @@ export function AviatorGameSimplified() {
     isBettingPhase,
     gamePhase,
     bettingTimeLeft,
-    cashOut,
     canPlaceBet,
     canCashOut,
     recentCashouts,
@@ -116,6 +130,7 @@ export function AviatorGameSimplified() {
   )
 
   const lazerSignalTimer = useRef<NodeJS.Timeout | null>(null)
+  const premiumOddsPollingTimer = useRef<NodeJS.Timeout | null>(null)
 
   // 🔧 IMPROVED: Better bet detection logic
   const hasBet1 =
@@ -188,7 +203,7 @@ export function AviatorGameSimplified() {
 
     const handleTopWinnersUpdate = () => {
       console.log("🏆 Top winners update triggered")
-      loadTopWinners() // Refresh top winners when significant wins occur
+      //loadTopWinners() // Refresh top winners when significant wins occur
     }
 
     // Listen for WebSocket events
@@ -246,6 +261,15 @@ export function AviatorGameSimplified() {
     }, 3000)
   }, [])
 
+  const betValidation = useMemo(
+    () => ({
+      minBet: 10,
+      maxBet: 10000,
+      minAutoCashout: 1.01,
+    }),
+    [],
+  )
+
   // 🔧 IMPROVED: Better bet placement with proper state tracking
   const handlePlaceBet = useCallback(
     async (betNumber: 1 | 2) => {
@@ -281,9 +305,10 @@ export function AviatorGameSimplified() {
       const betAmount = betNumber === 1 ? betAmount1 : betAmount2
       const parsedBetAmount = Number.parseFloat(betAmount)
 
-      // Validate bet amount
-      if (isNaN(parsedBetAmount) || parsedBetAmount < 10 || parsedBetAmount > 10000) {
-        toast.error("Invalid Amount", { description: "Bet must be between 10 and 10,000 KES." })
+      if (isNaN(parsedBetAmount) || parsedBetAmount < betValidation.minBet || parsedBetAmount > betValidation.maxBet) {
+        toast.error("Invalid Amount", {
+          description: `Bet must be between ${betValidation.minBet} and ${betValidation.maxBet} KES.`,
+        })
         return
       }
 
@@ -299,7 +324,7 @@ export function AviatorGameSimplified() {
       const autoCashout = betNumber === 1 ? autoCashout1 : autoCashout2
       const parsedAutoCashout = autoCashout ? Number.parseFloat(autoCashout) : undefined
 
-      if (parsedAutoCashout && (isNaN(parsedAutoCashout) || parsedAutoCashout < 1.01)) {
+      if (parsedAutoCashout && (isNaN(parsedAutoCashout) || parsedAutoCashout < betValidation.minAutoCashout)) {
         toast.error("Invalid Auto Cashout", { description: "Auto cashout must be at least 1.01x." })
         return
       }
@@ -463,10 +488,11 @@ export function AviatorGameSimplified() {
       refreshBalance,
       updateBalance,
       addBetToState,
+      betValidation,
     ],
   )
 
-  // 🔧 IMPROVED: Better cashout with proper validation
+  // 🔧 FIXED: Proper cashout with server-side validation and balance update
   const handleCashOut = useCallback(async () => {
     // 🔧 FIXED: Proper user validation
     if (!user) {
@@ -517,7 +543,7 @@ export function AviatorGameSimplified() {
       return
     }
 
-    if (currentMultiplier < 1.01) {
+    if (currentMultiplier < betValidation.minAutoCashout) {
       toast.error("Too Early", { description: "Wait for the multiplier to reach at least 1.01x." })
       return
     }
@@ -530,152 +556,106 @@ export function AviatorGameSimplified() {
     }
 
     setIsCashingOut(true)
-
-    // 🎯 INSTANT SUCCESS - Frontend decides, no server validation needed
     const cashoutMultiplier = currentMultiplier
-    const winAmount = betInfo.amount * cashoutMultiplier
-    const newBalance = walletBalance + winAmount
+    const expectedWinAmount = betInfo.amount * cashoutMultiplier
 
-    console.log("⚡ INSTANT CASHOUT SUCCESS at:", cashoutMultiplier, "Win amount:", winAmount)
-
-    // 1. IMMEDIATELY mark user as cashed out
-    setCashedOutUsers((prev) => new Set(prev).add(user.id))
-
-    // 2. IMMEDIATELY store cashout result
-    setCashoutResults((prev) =>
-      new Map(prev).set(user.id, {
-        multiplier: cashoutMultiplier,
-        winAmount: winAmount,
-      }),
-    )
-
-    // 3. IMMEDIATELY remove bet from active state
-    if (removeBetFromState) {
-      removeBetFromState(user.id)
-    }
-
-    // 4. IMMEDIATELY update wallet balance (frontend)
-    updateBalance(newBalance)
-
-    // 5. IMMEDIATELY show success message
-    toast.success("Cashed Out!", {
-      description: `Won KES ${winAmount.toFixed(2)} at ${cashoutMultiplier.toFixed(2)}x`,
+    const loadingToast = toast.loading("Cashing out...", {
+      description: `At ${cashoutMultiplier.toFixed(2)}x multiplier`,
     })
 
-    // 6. IMMEDIATELY play sound
-    await playSound("cashout")
+    try {
+      console.log("💰 Calling API cashout with:", { bet_id: betInfo.id, multiplier: cashoutMultiplier })
 
-    // 🆕 NEW: Add user cashout to activity feed
-    const userCashoutActivity = {
-      id: `cashout-${Date.now()}-${user.username}`,
-      type: "cashout" as const,
-      username: user.username || "You",
-      amount: betInfo.amount,
-      multiplier: cashoutMultiplier,
-      winAmount: winAmount,
-      isBot: false,
-      timestamp: Date.now(),
-    }
-    setBotActivities((prev) => [userCashoutActivity, ...prev.slice(0, 19)])
+      const cashoutResponse = await api.cashoutAviator(betInfo.id, cashoutMultiplier)
 
-    setIsCashingOut(false)
-
-    // 🏦 IMMEDIATE DATABASE UPDATE - Use the new endpoint
-    const updateDatabase = async () => {
-      try {
-        console.log("💾 Updating database immediately...")
-        const dbUpdateResponse = await api.updateWalletBalance({
-          user_id: user.id,
-          amount: winAmount,
-          transaction_type: "winning",
-          description: `Aviator cashout at ${cashoutMultiplier.toFixed(2)}x`,
-          bet_id: betInfo.id,
-        })
-
-        if (dbUpdateResponse.data && typeof dbUpdateResponse.data.new_balance === "number") {
-          console.log("✅ Database updated successfully. New balance:", dbUpdateResponse.data.new_balance)
-          // Sync frontend with actual database balance
-          updateBalance(dbUpdateResponse.data.new_balance)
-        } else {
-          console.warn("⚠️ Database update response unclear, refreshing balance...")
-          await refreshBalance()
-        }
-      } catch (error) {
-        console.error("❌ Database update failed:", error)
-        // Show warning but don't revert the cashout
-        toast.warning("Balance Sync Issue", {
-          description: "Cashout successful but balance sync pending. Refreshing...",
-        })
-        // Try to refresh balance from server
-        setTimeout(async () => {
-          try {
-            await refreshBalance()
-            console.log("🔄 Balance refreshed after database sync issue")
-          } catch (refreshError) {
-            console.error("❌ Balance refresh also failed:", refreshError)
-            toast.error("Sync Error", {
-              description: "Please refresh the page to see updated balance.",
-            })
-          }
-        }, 1000)
+      if (cashoutResponse.error) {
+        throw new Error(cashoutResponse.error)
       }
-    }
 
-    // Execute database update immediately
-    updateDatabase()
+      const actualWinAmount = cashoutResponse.data?.win_amount || expectedWinAmount
+      const newBalance = cashoutResponse.data?.new_balance
 
-    // 🔄 BACKGROUND SERVER NOTIFICATION (for WebSocket sync)
-    setTimeout(async () => {
-      try {
-        console.log("📡 Notifying server via WebSocket/API (background)...")
-        const promises = []
+      console.log("✅ Cashout successful:", {
+        winAmount: actualWinAmount,
+        newBalance,
+        serverResponse: cashoutResponse.data,
+      })
 
-        if (isConnected && cashOut) {
-          promises.push(
-            cashOut(user.id).catch((error) => {
-              console.log("📡 WebSocket notification failed (ignored):", error.message)
-            }),
-          )
-        }
+      // Update local state
+      setCashedOutUsers((prev) => new Set(prev).add(user.id))
+      setCashoutResults((prev) =>
+        new Map(prev).set(user.id, {
+          multiplier: cashoutMultiplier,
+          winAmount: actualWinAmount,
+        }),
+      )
 
-        promises.push(
-          api.cashoutAviator(betInfo.id, cashoutMultiplier).catch((error) => {
-            console.log("📡 API notification failed (ignored):", error.message)
-          }),
-        )
-
-        // Fire and forget - database is already updated
-        Promise.allSettled(promises).then((results) => {
-          const successful = results.some((result) => {
-            if (result.status === "fulfilled" && result.value) {
-              // Type-safe check for different response types
-              const value = result.value
-              // Check if it's an ApiResponse with error property
-              if (typeof value === "object" && value !== null && "error" in value) {
-                return !value.error
-              }
-              // Check if it's a response with success property
-              if (typeof value === "object" && value !== null && "success" in value) {
-                return value.success !== "false"
-              }
-              // If no error/success properties, consider it successful
-              return true
-            }
-            return false
-          })
-          if (successful) {
-            console.log("✅ Server notified of cashout successfully")
-          } else {
-            console.log("⚠️ Server notification failed, but database already updated")
-          }
-        })
-      } catch (error) {
-        console.log("📡 Background server notification error (ignored):", error)
+      if (newBalance !== undefined) {
+        updateBalance(newBalance)
+      } else {
+        // Fallback: refresh balance from server
+        await refreshBalance()
       }
-    }, 0)
+
+      // Remove bet from WebSocket state
+      if (removeBetFromState) {
+        removeBetFromState(user.id)
+      }
+
+      // Remove from local tracking
+      if (currentRoundId) {
+        setUserActiveBets((prev) => {
+          const newMap = new Map(prev)
+          newMap.delete(currentRoundId)
+          return newMap
+        })
+      }
+
+      const userCashoutActivity = {
+        id: `cashout-${Date.now()}-${user.username}`,
+        type: "cashout" as const,
+        username: user.username || "You",
+        amount: betInfo.amount,
+        multiplier: cashoutMultiplier,
+        winAmount: actualWinAmount,
+        isBot: false,
+        timestamp: Date.now(),
+      }
+      setBotActivities((prev) => [userCashoutActivity, ...prev.slice(0, 19)])
+
+      toast.dismiss(loadingToast)
+      toast.success("Cashed Out!", {
+        description: `Won KES ${actualWinAmount.toFixed(2)} at ${cashoutMultiplier.toFixed(2)}x`,
+      })
+
+      // Play cashout sound for successful cashout
+      playSound("cashout")
+    } catch (error: unknown) {
+      console.error("❌ Cashout failed:", error)
+      toast.dismiss(loadingToast)
+
+      const errorMessage = error instanceof Error ? error.message : "Failed to cash out"
+
+      if (errorMessage.includes("already cashed out")) {
+        toast.error("Already Cashed Out", { description: "You have already cashed out this round." })
+        setCashedOutUsers((prev) => new Set(prev).add(user.id))
+      } else if (errorMessage.includes("round ended") || errorMessage.includes("crashed")) {
+        toast.error("Round Ended", { description: "The plane has already crashed." })
+      } else if (errorMessage.includes("bet not found")) {
+        toast.error("Bet Not Found", { description: "Could not find your active bet." })
+      } else {
+        toast.error("Cashout Failed", { description: errorMessage })
+      }
+
+      // Refresh balance and state in case of error
+      await refreshBalance()
+    } finally {
+      setIsCashingOut(false)
+    }
   }, [
     user,
     isCashingOut,
+    currentMultiplier,
     currentRoundId,
     userActiveBets,
     activeBets,
@@ -683,16 +663,14 @@ export function AviatorGameSimplified() {
     isRoundActive,
     gamePhase,
     isConnected,
-    currentMultiplier,
-    canCashOut,
-    cashOut,
-    removeBetFromState,
     updateBalance,
     refreshBalance,
-    walletBalance,
+    removeBetFromState,
+    betValidation,
+    canCashOut
   ])
 
-  // 🔧 IMPROVED: Clear bet tracking when new round starts
+  // 🔧 SAFE: Clear bet tracking when new round starts
   useEffect(() => {
     if (gamePhase === "betting" && currentRoundId) {
       // New round started, clear previous round's cashout states
@@ -724,25 +702,6 @@ export function AviatorGameSimplified() {
     }
   }, [])
 
-  // Load initial data
-  const loadInitialData = useCallback(async () => {
-    try {
-      const [crashesRes] = await Promise.all([api.getPastCrashes()])
-
-      // Load top winners separately with the fixed function
-      await loadTopWinners()
-
-      if (crashesRes.data) {
-        const crashes = crashesRes.data.map((round) => round.multiplier)
-        if (setPastCrashes) {
-          setPastCrashes(crashes)
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error loading initial data:", error)
-    }
-  }, [setPastCrashes, loadTopWinners])
-
   // Premium odds functions (simplified)
   const checkExistingPremiumOdds = useCallback(async () => {
     if (!user) return
@@ -752,12 +711,84 @@ export function AviatorGameSimplified() {
       if (oddRes.data?.odd_value) {
         setPremiumSureOdd(oddRes.data.odd_value)
         setHasPurchasedPremium(true)
+        setIsLoadingPremiumOdds(false)
+        if (premiumOddsPollingTimer.current) {
+          clearInterval(premiumOddsPollingTimer.current)
+          premiumOddsPollingTimer.current = null
+        }
       } else if (statusRes.data?.has_pending) {
         setIsLoadingPremiumOdds(true)
-        // Poll for premium odd...
+        //startPremiumOddsPolling()
       }
     } catch (error) {
       console.error("❌ Error checking premium odds:", error)
+    }
+  }, [user])
+
+  const startPremiumOddsPolling = useCallback(() => {
+    // Clear any existing polling
+    if (premiumOddsPollingTimer.current) {
+      clearInterval(premiumOddsPollingTimer.current)
+    }
+
+    console.log("🔄 Starting premium odds polling...")
+
+    premiumOddsPollingTimer.current = setInterval(async () => {
+      try {
+        console.log("🔍 Polling for premium odd update...")
+        const oddRes = await api.getSureOdd()
+
+        if (oddRes.data?.odd_value) {
+          console.log("✅ Premium odd received:", oddRes.data.odd_value)
+          setPremiumSureOdd(Number(oddRes.data.odd_value))
+          setHasPurchasedPremium(true)
+          setIsLoadingPremiumOdds(false)
+
+          // Stop polling
+          if (premiumOddsPollingTimer.current) {
+            clearInterval(premiumOddsPollingTimer.current)
+            premiumOddsPollingTimer.current = null
+          }
+
+          toast.success("Premium Odd Assigned!", {
+            description: `Sure odd: ${oddRes.data.odd_value}x multiplier`,
+          })
+        }
+      } catch (error) {
+        console.error("❌ Error polling for premium odd:", error)
+      }
+    }, 3000) // Poll every 3 seconds
+  }, [])
+
+  useEffect(() => {
+    const handleSureOddAssigned = (event: CustomEvent) => {
+      const { odd_value, user_id } = event.detail
+
+      console.log("🎯 Sure odd assigned via WebSocket:", event.detail)
+
+      // Check if this sureodd is for the current user
+      if (user && user_id === user.id && odd_value) {
+        setPremiumSureOdd(Number(odd_value))
+        setHasPurchasedPremium(true)
+        setIsLoadingPremiumOdds(false)
+
+        // Stop polling
+        if (premiumOddsPollingTimer.current) {
+          clearInterval(premiumOddsPollingTimer.current)
+          premiumOddsPollingTimer.current = null
+        }
+
+        toast.success("Premium Odd Assigned!", {
+          description: `Sure odd: ${odd_value}x multiplier`,
+        })
+      }
+    }
+
+    // Listen for WebSocket sureodd events
+    window.addEventListener("sureOddAssigned", handleSureOddAssigned as EventListener)
+
+    return () => {
+      window.removeEventListener("sureOddAssigned", handleSureOddAssigned as EventListener)
     }
   }, [user])
 
@@ -777,6 +808,7 @@ export function AviatorGameSimplified() {
         toast.success("Payment Successful!", {
           description: "Waiting for premium sure odd assignment...",
         })
+        startPremiumOddsPolling()
       }
     } catch (error) {
       console.error("❌ Premium odds purchase failed:", error)
@@ -785,7 +817,54 @@ export function AviatorGameSimplified() {
         description: "Could not process payment. Please try again.",
       })
     }
-  }, [user, walletBalance, refreshBalance])
+  }, [user, walletBalance, refreshBalance, startPremiumOddsPolling])
+
+  const bettingPanelProps = useMemo(
+    () => ({
+      betNumber: 1,
+      betAmount: betAmount1,
+      setBetAmount: setBetAmount1,
+      autoCashout: autoCashout1,
+      setAutoCashout: setAutoCashout1,
+      onPlaceBet: () => handlePlaceBet(1),
+      onCashOut: handleCashOut,
+      hasActiveBet: hasBet1,
+      isRoundActive,
+      isBettingPhase,
+      isConnected,
+      currentMultiplier,
+      isAuthenticated,
+      isPlacingBet,
+      isCashingOut,
+      canPlaceBet: canPlaceBet ? canPlaceBet() : false,
+      canCashOut: hasBet1 && isRoundActive && gamePhase !== "crashed" && !cashedOutUsers.has(user?.id || 0),
+      bettingTimeLeft,
+      hasCashedOut: user ? cashedOutUsers.has(user.id) : false,
+      cashoutResult: user ? cashoutResults.get(user.id) : undefined,
+    }),
+    [
+      betAmount1,
+      setBetAmount1,
+      autoCashout1,
+      setAutoCashout1,
+      handlePlaceBet,
+      handleCashOut,
+      hasBet1,
+      isRoundActive,
+      isBettingPhase,
+      isConnected,
+      currentMultiplier,
+      isAuthenticated,
+      isPlacingBet,
+      isCashingOut,
+      canPlaceBet,
+      gamePhase,
+      cashedOutUsers,
+      user,
+      bettingTimeLeft,
+      cashoutResults,
+    ],
+  )
 
   // Initialize game
   useEffect(() => {
@@ -793,7 +872,7 @@ export function AviatorGameSimplified() {
     if (connect) {
       connect()
     }
-    loadInitialData()
+    loadTopWinners()
     if (user && isAuthenticated) {
       refreshBalance()
       checkExistingPremiumOdds()
@@ -819,8 +898,11 @@ export function AviatorGameSimplified() {
       if (lazerSignalTimer.current) {
         clearInterval(lazerSignalTimer.current)
       }
+      if (premiumOddsPollingTimer.current) {
+        clearInterval(premiumOddsPollingTimer.current)
+      }
     }
-  }, [connect, disconnect, loadInitialData, refreshBalance, checkExistingPremiumOdds, user, isAuthenticated])
+  }, [connect, disconnect, loadTopWinners, refreshBalance, checkExistingPremiumOdds, user, isAuthenticated])
 
   // Listen for crash events
   useEffect(() => {
@@ -830,18 +912,35 @@ export function AviatorGameSimplified() {
     }
   }, [handlePlaneCrash])
 
+  // Load initial data
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        // Load past crashes
+        const pastCrashesRes = await api.getPastCrashes()
+        if (pastCrashesRes.data) {
+          const multipliers = pastCrashesRes.data.map((crash) => crash.multiplier)
+          setPastCrashes(multipliers)
+        }
+
+        // Load top winners
+        await loadTopWinners()
+
+        // Check existing premium odds
+        if (user) {
+          await checkExistingPremiumOdds()
+        }
+      } catch (error) {
+        console.error("❌ Error loading initial data:", error)
+      }
+    }
+
+    loadInitialData()
+  }, [setPastCrashes, loadTopWinners, user, checkExistingPremiumOdds])
+
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Enhanced Background with Glassmorphism */}
-      <div className="fixed inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent"></div>
-        <div className="absolute inset-0 backdrop-blur-3xl"></div>
-        {/* Animated background elements */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
+      <OptimizedGameBackground />
 
       {/* Lazer Signal Modal */}
       <LazerSignalModal
@@ -880,59 +979,25 @@ export function AviatorGameSimplified() {
               crashMultiplier={crashMultiplier}
             />
 
-            {/* Betting Panels */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <BettingPanel {...bettingPanelProps} betNumber={1} />
               <BettingPanel
-                betNumber={1}
-                betAmount={betAmount1}
-                setBetAmount={setBetAmount1}
-                autoCashout={autoCashout1}
-                setAutoCashout={setAutoCashout1}
-                onPlaceBet={() => handlePlaceBet(1)}
-                onCashOut={handleCashOut}
-                hasActiveBet={hasBet1}
-                isRoundActive={isRoundActive}
-                isBettingPhase={isBettingPhase}
-                isConnected={isConnected}
-                currentMultiplier={currentMultiplier}
-                isAuthenticated={isAuthenticated}
-                isPlacingBet={isPlacingBet}
-                isCashingOut={isCashingOut}
-                canPlaceBet={canPlaceBet ? canPlaceBet() : false}
-                canCashOut={hasBet1 && isRoundActive && gamePhase !== "crashed" && !cashedOutUsers.has(user?.id || 0)} // 🔧 IMPROVED: Better cashout validation
-                bettingTimeLeft={bettingTimeLeft}
-                hasCashedOut={user ? cashedOutUsers.has(user.id) : false}
-                cashoutResult={user ? cashoutResults.get(user.id) : undefined}
-              />
-              <BettingPanel
+                {...bettingPanelProps}
                 betNumber={2}
                 betAmount={betAmount2}
                 setBetAmount={setBetAmount2}
                 autoCashout={autoCashout2}
                 setAutoCashout={setAutoCashout2}
                 onPlaceBet={() => handlePlaceBet(2)}
-                onCashOut={() => handleCashOut()}
                 hasActiveBet={hasBet2}
-                isRoundActive={isRoundActive}
-                isBettingPhase={isBettingPhase}
-                isConnected={isConnected}
-                currentMultiplier={currentMultiplier}
-                isAuthenticated={isAuthenticated}
-                isPlacingBet={isPlacingBet}
-                isCashingOut={isCashingOut}
-                canPlaceBet={canPlaceBet ? canPlaceBet() : false}
                 canCashOut={hasBet2 && isRoundActive && gamePhase !== "crashed"}
-                bettingTimeLeft={bettingTimeLeft}
                 hasCashedOut={false}
                 cashoutResult={undefined}
               />
             </div>
 
-            {/* 🆕 NEW: Live Activity Feed */}
-            <LiveActivityFeed
-              activities={botActivities}
-              className="lg:hidden" // Only show on mobile, desktop has sidebar
-            />
+            {/* Live Activity Feed */}
+            <LiveActivityFeed activities={botActivities} className="lg:hidden" />
           </div>
 
           {/* Sidebar */}
@@ -945,7 +1010,7 @@ export function AviatorGameSimplified() {
             setBetAmount1={setBetAmount1}
             setBetAmount2={setBetAmount2}
             isBettingPhase={isBettingPhase}
-            botActivities={botActivities || []} // 🔧 FIXED: Add null safety
+            botActivities={botActivities || []}
           />
         </div>
       </div>

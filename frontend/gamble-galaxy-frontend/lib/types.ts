@@ -574,7 +574,7 @@ export interface CashoutResponse {
   multiplier?: number
   new_balance?: number
   message?: string
-  success?:string
+  success?: string
 }
 
 export interface WalletUpdateRequest {
@@ -624,19 +624,27 @@ export interface StartRoundResponse {
 }
 
 // Dashboard API Response Types - Use type aliases instead of empty interfaces
-export type DashboardStatsResponse = ApiResponse<DashboardStats>
+export interface DashboardStatsResponse extends ApiResponse<DashboardStats> {
+  success?: boolean
+}
 
-export type UserStatsResponse = ApiResponse<{
-  totalBets: number
-  activeBets: number
-  totalWinnings: number
-  winRate: number
-}>
+export interface UserStatsResponse
+  extends ApiResponse<{
+    totalBets: number
+    activeBets: number
+    totalWinnings: number
+    winRate: number
+  }> {
+  success?: boolean
+}
 
-export type RecentActivityResponse = ApiResponse<{
-  recentBets: Bet[]
-  recentTransactions: Transaction[]
-}>
+export interface RecentActivityResponse
+  extends ApiResponse<{
+    recentBets: Bet[]
+    recentTransactions: Transaction[]
+  }> {
+  success?: boolean
+}
 
 export const isTopWinner = (obj: unknown): obj is TopWinner => {
   return (
@@ -771,4 +779,197 @@ export interface ActivityItem {
   amount?: number
   timestamp: string
   status?: "success" | "pending" | "failed"
+}
+
+// Performance and mobile optimization types
+export interface PerformanceMetrics {
+  bundleSize: number
+  loadTime: number
+  renderTime: number
+  memoryUsage: number
+  fps: number
+}
+
+export interface MousePosition {
+  x: number
+  y: number
+}
+
+export interface TouchPosition {
+  x: number
+  y: number
+  identifier: number
+}
+
+export interface DeviceInfo {
+  isMobile: boolean
+  isTablet: boolean
+  isDesktop: boolean
+  hasTouch: boolean
+  userAgent: string
+  screenWidth: number
+  screenHeight: number
+}
+
+export interface ThrottledCallback<T extends unknown[]> {
+  (...args: T): void
+  cancel: () => void
+}
+
+// Navigation and UI component types
+export interface NavigationItem {
+  id: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  href: string
+  isActive?: boolean
+  badge?: number | string
+  children?: NavigationItem[]
+}
+
+export interface SidebarProps {
+  isOpen: boolean
+  onToggle: () => void
+  items: NavigationItem[]
+  user?: User
+  className?: string
+}
+
+export interface ButtonVariant {
+  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+  size?: "default" | "sm" | "lg" | "icon"
+}
+
+export interface LoadingState {
+  isLoading: boolean
+  message?: string
+  progress?: number
+}
+
+// Theme and styling types
+export interface ThemeColors {
+  primary: string
+  secondary: string
+  accent: string
+  background: string
+  foreground: string
+  muted: string
+  border: string
+  destructive: string
+  success: string
+  warning: string
+}
+
+export interface AnimationConfig {
+  duration: number
+  easing: string
+  delay?: number
+  iterations?: number | "infinite"
+}
+
+export interface ParticleConfig {
+  count: number
+  speed: number
+  size: number
+  color: string
+  opacity: number
+}
+
+// Error handling and validation types
+export interface ValidationError {
+  field: string
+  message: string
+  code?: string
+}
+
+export interface FormErrors {
+  [key: string]: string | ValidationError[]
+}
+
+export interface ApiError {
+  message: string
+  code: string
+  status: number
+  details?: Record<string, unknown>
+}
+
+export interface ErrorBoundaryState {
+  hasError: boolean
+  error?: Error
+  errorInfo?: React.ErrorInfo
+}
+
+// Performance monitoring types
+export interface PerformanceObserver {
+  observe: (entry: PerformanceEntry) => void
+  disconnect: () => void
+}
+
+export interface BundleAnalysis {
+  totalSize: number
+  gzippedSize: number
+  chunks: Array<{
+    name: string
+    size: number
+    modules: string[]
+  }>
+}
+
+export interface OptimizationResult {
+  before: PerformanceMetrics
+  after: PerformanceMetrics
+  improvement: number
+  recommendations: string[]
+}
+
+// Utility types for better type safety
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P]
+}
+
+export type EventHandler<T = Event> = (event: T) => void
+
+export type AsyncFunction<T = void, P extends unknown[] = []> = (...args: P) => Promise<T>
+
+export type ComponentWithChildren<P = Record<string, never>> = React.FC<P & { children?: React.ReactNode }>
+
+// Mobile-specific types
+export interface TouchGesture {
+  type: "tap" | "swipe" | "pinch" | "rotate"
+  startPosition: TouchPosition
+  endPosition?: TouchPosition
+  duration: number
+  velocity?: number
+  direction?: "up" | "down" | "left" | "right"
+}
+
+export interface MobileOptimizations {
+  reducedAnimations: boolean
+  touchFriendlyButtons: boolean
+  optimizedImages: boolean
+  reducedParticles: boolean
+}
+
+export interface ResponsiveBreakpoints {
+  sm: number
+  md: number
+  lg: number
+  xl: number
+  "2xl": number
+}
+
+// Game-specific optimization types
+export interface GamePerformanceConfig {
+  maxParticles: number
+  animationQuality: "low" | "medium" | "high"
+  enableBlur: boolean
+  enableGradients: boolean
+  targetFPS: number
+}
+
+export interface AviatorOptimizations extends GamePerformanceConfig {
+  throttleMouseTracking: boolean
+  reducedBackgroundElements: boolean
+  optimizedWebSocket: boolean
+  batchUpdates: boolean
 }
