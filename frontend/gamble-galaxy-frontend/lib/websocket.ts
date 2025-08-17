@@ -1250,22 +1250,22 @@ function playBackgroundMusic() {
     return
   }
   try {
-    window.backgroundAudio = new Audio("/sounds/background-music.mp3") // Fixed: use proper background music file
-    window.backgroundAudio.loop = true // Enable seamless looping
-    window.backgroundAudio.volume = 0.15 // Quieter than one-off sounds
-    window.backgroundAudio.play().catch((err) => {
-      console.warn("Failed to play background music:", err)
-      // Handle autoplay restrictions by retrying on user interaction
-      const startAudioOnInteraction = () => {
-        if (window.backgroundAudio) {
-          window.backgroundAudio.play().catch((err) => console.warn("Retry failed:", err))
-        }
-        document.removeEventListener("click", startAudioOnInteraction)
-        document.removeEventListener("touchstart", startAudioOnInteraction)
-      }
-      document.addEventListener("click", startAudioOnInteraction)
-      document.addEventListener("touchstart", startAudioOnInteraction)
-    })
+    //window.backgroundAudio = new Audio("/sounds/background-music.mp3") // Fixed: use proper background music file
+    //window.backgroundAudio.loop = true // Enable seamless looping
+    //window.backgroundAudio.volume = 0.15 // Quieter than one-off sounds
+    //window.backgroundAudio.play().catch((err) => {
+    //  console.warn("Failed to play background music:", err)
+    //  // Handle autoplay restrictions by retrying on user interaction
+    //  const startAudioOnInteraction = () => {
+    //    if (window.backgroundAudio) {
+    //      window.backgroundAudio.play().catch((err) => console.warn("Retry failed:", err))
+    //    }
+    //    document.removeEventListener("click", startAudioOnInteraction)
+    //    document.removeEventListener("touchstart", startAudioOnInteraction)
+    //  }
+    //  document.addEventListener("click", startAudioOnInteraction)
+    //  document.addEventListener("touchstart", startAudioOnInteraction)
+    //})
   } catch (err) {
     console.warn("Error initializing background music:", err)
   }
