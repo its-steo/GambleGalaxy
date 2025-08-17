@@ -21,7 +21,7 @@ interface BettingPanelProps {
   currentMultiplier: number
   isAuthenticated: boolean
   isPlacingBet?: boolean
-  isCashingOut?: boolean
+  //isCashingOut = false,
   canPlaceBet?: boolean
   canCashOut?: boolean
   bettingTimeLeft?: number
@@ -148,6 +148,9 @@ export function BettingPanel({
             <label className="text-sm font-semibold text-white/90 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-400" />
               Bet Amount (KES)
+              {isRoundActive && !hasActiveBet && (
+                <span className="text-xs text-amber-400 bg-amber-500/20 px-2 py-1 rounded-full">Next Round</span>
+              )}
             </label>
 
             {/* Amount Input with +/- buttons */}
@@ -155,7 +158,7 @@ export function BettingPanel({
               <Button
                 variant="outline"
                 onClick={() => adjustBetAmount(false)}
-                disabled={hasActiveBet || isRoundActive || isPlacingBet}
+                disabled={hasActiveBet || isPlacingBet}
                 className="bg-gradient-to-r from-white/5 to-white/10 border-white/20 hover:from-white/15 hover:to-white/20 text-white/80 hover:text-white rounded-xl backdrop-blur-2xl transition-all duration-300 h-10 w-10 p-0"
               >
                 <Minus className="w-4 h-4" />
@@ -167,13 +170,13 @@ export function BettingPanel({
                 placeholder="Enter amount"
                 min="10"
                 max="10000"
-                disabled={hasActiveBet || isRoundActive || isPlacingBet}
+                disabled={hasActiveBet || isPlacingBet}
                 className="bg-gradient-to-r from-white/10 to-white/5 border-white/20 text-white placeholder:text-white/50 rounded-xl sm:rounded-2xl h-10 sm:h-12 text-sm sm:text-base font-medium backdrop-blur-2xl focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 text-center"
               />
               <Button
                 variant="outline"
                 onClick={() => adjustBetAmount(true)}
-                disabled={hasActiveBet || isRoundActive || isPlacingBet}
+                disabled={hasActiveBet || isPlacingBet}
                 className="bg-gradient-to-r from-white/5 to-white/10 border-white/20 hover:from-white/15 hover:to-white/20 text-white/80 hover:text-white rounded-xl backdrop-blur-2xl transition-all duration-300 h-10 w-10 p-0"
               >
                 <Plus className="w-4 h-4" />
@@ -187,7 +190,7 @@ export function BettingPanel({
                   key={amount}
                   variant="outline"
                   onClick={() => setBetAmount(amount.toString())}
-                  disabled={hasActiveBet || isRoundActive || isPlacingBet}
+                  disabled={hasActiveBet || isPlacingBet}
                   className="bg-gradient-to-r from-white/5 to-white/10 border-white/20 hover:from-white/15 hover:to-white/20 text-white/80 hover:text-white text-xs font-medium rounded-lg backdrop-blur-2xl transition-all duration-300 hover:scale-105 h-8 sm:h-10"
                 >
                   {amount}
@@ -203,6 +206,9 @@ export function BettingPanel({
               <label className="text-sm font-semibold text-white/90 flex items-center gap-2">
                 <Zap className="w-4 h-4 text-green-400" />
                 Auto Cash Out
+                {isRoundActive && !hasActiveBet && (
+                  <span className="text-xs text-green-400 bg-green-500/20 px-2 py-1 rounded-full">Next Round</span>
+                )}
               </label>
               <Button
                 variant="ghost"
@@ -220,7 +226,7 @@ export function BettingPanel({
               placeholder="e.g., 2.00"
               min="1.01"
               step="0.01"
-              disabled={hasActiveBet || isRoundActive || isPlacingBet}
+              disabled={hasActiveBet || isPlacingBet}
               className="bg-gradient-to-r from-white/10 to-white/5 border-white/20 text-white placeholder:text-white/50 rounded-xl sm:rounded-2xl h-10 sm:h-12 text-sm sm:text-base font-medium backdrop-blur-2xl focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all duration-300"
             />
 
@@ -232,7 +238,7 @@ export function BettingPanel({
                     key={multiplier}
                     variant="outline"
                     onClick={() => setAutoCashout(multiplier.toString())}
-                    disabled={hasActiveBet || isRoundActive || isPlacingBet}
+                    disabled={hasActiveBet || isPlacingBet}
                     className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20 hover:from-green-500/20 hover:to-emerald-500/20 text-green-400 hover:text-green-300 text-xs font-medium rounded-lg backdrop-blur-2xl transition-all duration-300 hover:scale-105 h-8 sm:h-10"
                   >
                     {multiplier}x

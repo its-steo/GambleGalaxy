@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { AviatorGameSimplified } from "@/components/games/aviator-game-simplified"
 import { useAuth } from "@/lib/auth"
 import GlassSideNav from "@/components/layout/glass-side-nav"
-import { Plane, Menu, X } from "lucide-react"
+import { GameHeader } from "@/components/games/aviator/game-header"
+import { Plane } from "lucide-react"
 import { toast } from "sonner"
 
 export default function AviatorPage() {
@@ -12,6 +13,8 @@ export default function AviatorPage() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [stars, setStars] = useState<{ left: string; top: string; delay: string; duration: string }[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isConnected] = useState(true) // Mock connection status
+  const [premiumSureOdd] = useState<number | null>(null)
 
   // Mouse tracking and stars generation (client-side only)
   useEffect(() => {
@@ -40,7 +43,7 @@ export default function AviatorPage() {
       window.removeEventListener("mousemove", handleMouseMove)
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [])
+  }, [isConnected, isAuthenticated])
 
   const handleShareGame = () => {
     const shareText = `🚀 Playing Aviator on Gamble Galaxy! Join me for some high-flying action!\n\n${window.location.origin}/aviator`
@@ -146,18 +149,9 @@ export default function AviatorPage() {
         ))}
       </div>
 
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed top-4 left-4 z-[60] lg:hidden bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-3 text-white hover:bg-white/15 hover:scale-105 transition-all duration-300 shadow-lg shadow-black/25"
-      >
-        <div className="relative">
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded blur-sm -z-10"></div>
-        </div>
-      </button>
-
-      <div className="flex relative z-10">
-        {/* Mobile overlay */}
+      {/* Layout Container */}
+      <div className="flex h-screen relative z-10">
+        {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
@@ -167,17 +161,28 @@ export default function AviatorPage() {
 
         {/* Sidebar */}
         <div
-          className={`fixed left-0 top-0 h-screen z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:block ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          className={`fixed left-0 top-0 h-full z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:block lg:w-80 xl:w-96 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           <GlassSideNav onShare={handleShareGame} onClose={() => setSidebarOpen(false)} />
         </div>
 
-        {/* Main game content */}
-        <div className="flex-1 w-full lg:ml-0">
-          <div className="relative z-10 pt-16 lg:pt-0 px-2 sm:px-4 lg:px-6">
-            <AviatorGameSimplified />
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Fixed Header */}
+          <GameHeader
+            isConnected={isConnected}
+            showSidebar={sidebarOpen}
+            setShowSidebar={setSidebarOpen}
+            premiumSureOdd={premiumSureOdd}
+          />
+
+          {/* Game Content */}
+          <div className="flex-1 overflow-auto">
+            <div className="p-2 sm:p-4 lg:p-6">
+              <AviatorGameSimplified />
+            </div>
           </div>
         </div>
       </div>

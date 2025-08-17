@@ -9,30 +9,16 @@ import { useWallet } from "@/context/WalletContext"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import type { TopWinner } from "@/lib/types"
+import { playSound, playBackgroundMusic, stopBackgroundMusic } from "@/lib/audio-utils" // Declare variables here
 
 // Import components
-import { GameHeader } from "./aviator/game-header"
+//import { GameHeader } from "./aviator/game-header"
 import { RecentCrashes } from "./aviator/recent-crashes"
 import { AviatorCanvas } from "./aviator/aviator-canvas"
 import { BettingPanel } from "./aviator/betting-panel"
 import { AviatorSidebar } from "./aviator/aviator-sidebar"
 import { LazerSignalModal } from "./aviator/lazer-signal-modal"
 import { LiveActivityFeed } from "./aviator/live-activity-feed"
-
-// Sound function - moved inside component scope
-const playSound = async (type: "cashout" | "crash") => {
-  try {
-    if (process.env.NODE_ENV === "development") {
-      console.log(`🔊 Playing ${type} sound`)
-      return
-    }
-    const audio = new Audio(`/sounds/${type}.mp3`)
-    audio.volume = 0.3
-    await audio.play()
-  } catch (err) {
-    console.warn(`Failed to play ${type} sound:`, err)
-  }
-}
 
 const OptimizedGameBackground = React.memo(() => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
@@ -145,7 +131,7 @@ export function AviatorGameSimplified() {
 
   // Game state
   const [topWinners, setTopWinners] = useState<TopWinner[]>([])
-  const [showSidebar, setShowSidebar] = useState(false)
+  const [showSidebar] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showCrashScreen, setShowCrashScreen] = useState(false)
   const [crashMultiplier, setCrashMultiplier] = useState(1.0)
@@ -202,7 +188,7 @@ export function AviatorGameSimplified() {
     user && currentRoundId
       ? userActiveBets.has(currentRoundId) || (activeBets?.has(user.id) && !cashedOutUsers.has(user.id))
       : false
-  const hasBet2 = false
+  //const hasBet2 = false
 
   // 🔧 SAFE: Calculate total live players with null safety
   const totalLivePlayers = activeBets?.size || 0
@@ -313,18 +299,24 @@ export function AviatorGameSimplified() {
   ])
 
   // Handle plane crash events
-  const handlePlaneCrash = useCallback((event: CustomEvent) => {
-    const { crashMultiplier: crashMult } = event.detail
-    console.log("💥 Plane crashed at:", crashMult)
-    setCrashMultiplier(crashMult)
-    setShowCrashScreen(true)
-    // Clear cashout states for next round
-    setCashedOutUsers(new Set())
-    setCashoutResults(new Map())
-    setTimeout(() => {
-      setShowCrashScreen(false)
-    }, 3000)
-  }, [])
+  const handlePlaneCrash = useCallback(
+    (event: CustomEvent) => {
+      const { crashMultiplier: crashMult } = event.detail
+      console.log("💥 Plane crashed at:", crashMult)
+      setCrashMultiplier(crashMult)
+      setShowCrashScreen(true)
+
+      playSound("crash")
+
+      // Clear cashout states for next round
+      setCashedOutUsers(new Set())
+      setCashoutResults(new Map())
+      setTimeout(() => {
+        setShowCrashScreen(false)
+      }, 3000)
+    },
+    [playSound],
+  )
 
   const betValidation = useMemo(
     () => ({
@@ -335,7 +327,34 @@ export function AviatorGameSimplified() {
     [],
   )
 
-  // 🔧 IMPROVED: Better bet placement with proper state tracking
+  useEffect(() => {
+    // Only run autocashout logic if we have an active bet and round is active
+    if (!hasBet1 || !isRoundActive || gamePhase === "crashed" || !user) {
+      return
+    }
+
+    // Check if user has already cashed out
+    if (cashedOutUsers.has(user.id)) {
+      return
+    }
+
+    // Get the autocashout value for the active bet
+    const autoCashoutValue = autoCashout1 ? Number.parseFloat(autoCashout1) : null
+
+    // Only proceed if autocashout is set and valid
+    if (!autoCashoutValue || autoCashoutValue < 1.01) {
+      return
+    }
+
+    // Check if current multiplier has reached or exceeded the autocashout value
+    if (currentMultiplier >= autoCashoutValue) {
+      console.log(`[v0] Auto cashout triggered at ${currentMultiplier.toFixed(2)}x (target: ${autoCashoutValue}x)`)
+
+      // Trigger automatic cashout
+      handleCashOut()
+    }
+  }, [currentMultiplier, hasBet1, isRoundActive, gamePhase, autoCashout1, cashedOutUsers, user])
+
   const handlePlaceBet = useCallback(
     async (betNumber: 1 | 2) => {
       if (!user) {
@@ -693,7 +712,6 @@ export function AviatorGameSimplified() {
         description: `Won KES ${actualWinAmount.toFixed(2)} at ${cashoutMultiplier.toFixed(2)}x`,
       })
 
-      // Play cashout sound for successful cashout
       playSound("cashout")
     } catch (error: unknown) {
       console.error("❌ Cashout failed:", error)
@@ -733,6 +751,7 @@ export function AviatorGameSimplified() {
     removeBetFromState,
     betValidation,
     canCashOut,
+    playSound,
   ])
 
   // 🔧 SAFE: Clear bet tracking when new round starts
@@ -937,6 +956,9 @@ export function AviatorGameSimplified() {
     if (connect) {
       connect()
     }
+
+    playBackgroundMusic()
+
     loadTopWinners()
     if (user && isAuthenticated) {
       refreshBalance()
@@ -960,6 +982,7 @@ export function AviatorGameSimplified() {
       if (disconnect) {
         disconnect()
       }
+      stopBackgroundMusic()
       if (lazerSignalTimer.current) {
         clearInterval(lazerSignalTimer.current)
       }
@@ -967,7 +990,17 @@ export function AviatorGameSimplified() {
         clearInterval(premiumOddsPollingTimer.current)
       }
     }
-  }, [connect, disconnect, loadTopWinners, refreshBalance, checkExistingPremiumOdds, user, isAuthenticated])
+  }, [
+    connect,
+    disconnect,
+    loadTopWinners,
+    refreshBalance,
+    checkExistingPremiumOdds,
+    user,
+    isAuthenticated,
+    playBackgroundMusic,
+    stopBackgroundMusic,
+  ])
 
   // Listen for crash events
   useEffect(() => {
@@ -1018,14 +1051,6 @@ export function AviatorGameSimplified() {
         onPayForPremiumOdds={handlePayForPremiumOdds}
       />
 
-      {/* Header */}
-      <GameHeader
-        isConnected={isConnected}
-        showSidebar={showSidebar}
-        setShowSidebar={setShowSidebar}
-        premiumSureOdd={premiumSureOdd}
-      />
-
       <div className="max-w-7xl mx-auto px-4 py-6 relative z-10">
         {/* Recent Crashes Bar */}
         <RecentCrashes pastCrashes={pastCrashes || []} premiumSureOdd={premiumSureOdd} />
@@ -1046,19 +1071,29 @@ export function AviatorGameSimplified() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <BettingPanel {...bettingPanelProps} betNumber={1} />
-              <BettingPanel
-                {...bettingPanelProps}
-                betNumber={2}
-                betAmount={betAmount2}
-                setBetAmount={setBetAmount2}
-                autoCashout={autoCashout2}
-                setAutoCashout={setAutoCashout2}
-                onPlaceBet={() => handlePlaceBet(2)}
-                hasActiveBet={hasBet2}
-                canCashOut={hasBet2 && isRoundActive && gamePhase !== "crashed"}
-                hasCashedOut={false}
-                cashoutResult={undefined}
-              />
+              <div className="relative">
+                <BettingPanel
+                  {...bettingPanelProps}
+                  betNumber={2}
+                  betAmount={betAmount2}
+                  setBetAmount={setBetAmount2}
+                  autoCashout={autoCashout2}
+                  setAutoCashout={setAutoCashout2}
+                  onPlaceBet={() => {}} // Disabled
+                  hasActiveBet={false}
+                  canPlaceBet={false}
+                  canCashOut={false}
+                  hasCashedOut={false}
+                  cashoutResult={undefined}
+                />
+                {/* Coming Soon Overlay */}
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white mb-2">Coming Soon</div>
+                    <div className="text-sm text-gray-300">Second betting panel will be available soon</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Live Activity Feed */}

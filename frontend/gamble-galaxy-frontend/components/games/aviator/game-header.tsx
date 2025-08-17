@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plane, Menu, X, Crown, Sparkles } from "lucide-react"
+import { Plane, X, Crown, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { WalletBalance } from "@/components/wallet/wallet-balance"
 
@@ -22,6 +22,22 @@ export function GameHeader({ isConnected, showSidebar, setShowSidebar, premiumSu
       <div className="px-2 sm:px-4 lg:px-6 py-3 sm:py-4 relative z-10">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3 sm:gap-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="md:hidden bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-500/30 h-10 w-10 sm:h-12 sm:w-12 p-0 backdrop-blur-xl rounded-xl sm:rounded-2xl transition-all duration-300 hover:scale-105 text-white flex flex-col items-center justify-center gap-0.5 sm:gap-1"
+            >
+              {showSidebar ? (
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                  <div className="w-4 h-0.5 sm:w-5 sm:h-0.5 bg-white rounded-full transition-all duration-300"></div>
+                  <div className="w-4 h-0.5 sm:w-5 sm:h-0.5 bg-white rounded-full transition-all duration-300"></div>
+                  <div className="w-4 h-0.5 sm:w-5 sm:h-0.5 bg-white rounded-full transition-all duration-300"></div>
+                </div>
+              )}
+            </Button>
+
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="relative group">
                 <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg backdrop-blur-xl border border-purple-500/20 group-hover:scale-105 transition-transform duration-300">
@@ -69,15 +85,14 @@ export function GameHeader({ isConnected, showSidebar, setShowSidebar, premiumSu
               </div>
             )}
 
-            <WalletBalance />
+            {premiumSureOdd && (
+              <div className="flex sm:hidden items-center gap-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 text-yellow-400 px-2 py-1 rounded-lg border border-yellow-500/30 shadow-lg backdrop-blur-xl">
+                <Crown className="w-3 h-3" />
+                <span className="font-bold text-xs">{premiumSureOdd.toFixed(2)}x</span>
+              </div>
+            )}
 
-            <Button
-              variant="outline"
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="lg:hidden bg-white/10 border-white/20 hover:bg-purple-500/20 hover:border-purple-500/30 h-8 w-8 sm:h-12 sm:w-12 p-0 backdrop-blur-xl rounded-xl sm:rounded-2xl transition-all duration-300 hover:scale-105 text-white"
-            >
-              {showSidebar ? <X className="w-4 h-4 sm:w-5 sm:h-5" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5" />}
-            </Button>
+            <WalletBalance />
           </div>
         </div>
       </div>
