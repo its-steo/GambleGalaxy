@@ -1,3 +1,4 @@
+// Updated BettingPage (page.tsx) - Remove the fixed mobile menu button
 "use client"
 
 import { useState, useEffect } from "react"
@@ -24,13 +25,14 @@ import {
   Award,
   Crown,
   Coins,
-  Menu,
   X,
 } from "lucide-react"
 import type { Match, Bet } from "@/lib/types"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { toast } from "sonner"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 interface BetSlipItem {
   match: Match
@@ -56,6 +58,8 @@ const BettingPage = () => {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sureOddsOpen, setSureOddsOpen] = useState(false)
+  const [betSlipOpen, setBetSlipOpen] = useState(false)
+  const [resultsOpen, setResultsOpen] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [liveStats, setLiveStats] = useState({
     activeBets: 1247,
@@ -279,7 +283,7 @@ const BettingPage = () => {
     const matchesSearch =
       match.home_team.toLowerCase().includes(search) || match.away_team.toLowerCase().includes(search)
     const matchesStatus = statusFilter === "all" || match.status === statusFilter
-    return matchesSearch && matchesStatus
+    return matchesSearch && matchesStatus && match.status !== "fulltime" // Exclude fulltime matches from main list
   })
 
   const getStatusBadgeColor = (status: string) => {
@@ -323,7 +327,10 @@ const BettingPage = () => {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
-      <Navbar />
+      <Navbar
+        onMobileMenuToggle={() => setSidebarOpen((prev) => !prev)}
+        isMobileMenuOpen={sidebarOpen}
+      />
 
       {/* Enhanced Glassmorphism Background */}
       <div className="fixed inset-0 z-0">
@@ -374,21 +381,6 @@ const BettingPage = () => {
             <GlassSideNav onShare={handleShareBetSlip} onClose={() => setSidebarOpen(false)} />
           </div>
         </div>
-
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="fixed top-4 left-4 z-[99999] lg:hidden w-14 h-14 bg-purple-600 backdrop-blur-xl border-4 border-white rounded-2xl text-white hover:bg-purple-500 hover:border-yellow-400 transition-all duration-300 hover:scale-110 shadow-2xl active:scale-95 flex items-center justify-center"
-          aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
-        >
-          <div className="relative z-10">
-            {sidebarOpen ? <X className="w-7 h-7 text-white" /> : <Menu className="w-7 h-7 text-white" />}
-          </div>
-
-          {!sidebarOpen && (
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-yellow-400 rounded-full animate-bounce border-2 border-white"></div>
-          )}
-        </button>
 
         {/* Main Content */}
         <main className="flex-1 min-h-screen lg:ml-0">
@@ -561,10 +553,14 @@ const BettingPage = () => {
                               <option value="first_half" className="bg-gray-800">
                                 Live
                               </option>
-                              <option value="fulltime" className="bg-gray-800">
-                                Finished
-                              </option>
                             </select>
+                            <Button
+                              onClick={() => setResultsOpen(true)}
+                              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm flex items-center transition-all duration-300"
+                            >
+                              <History className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                              Results
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -599,7 +595,7 @@ const BettingPage = () => {
                   </div>
 
                   {/* Bet Slip Column */}
-                  <div className="xl:col-span-1">
+                  <div className="xl:col-span-1 hidden lg:block">
                     <div className="sticky top-20 sm:top-24">
                       <div className="transform hover:scale-105 transition-all duration-300">
                         <BetSlip
@@ -748,7 +744,57 @@ const BettingPage = () => {
             </Tabs>
           </div>
           <SureOddsModal isOpen={sureOddsOpen} onClose={() => setSureOddsOpen(false)} />
+          <Sheet open={betSlipOpen} onOpenChange={setBetSlipOpen}>
+            <SheetContent side="bottom" className="h-[80vh] bg-black/90 backdrop-blur-md text-white overflow-y-auto">
+              <VisuallyHidden>
+                <SheetTitle>Bet Slip</SheetTitle>
+              </VisuallyHidden>
+              <BetSlip
+                items={betSlip}
+                onRemoveItem={handleRemoveFromBetSlip}
+                onClearAll={handleClearBetSlip}
+                onPlaceBet={handlePlaceBet}
+              />
+            </SheetContent>
+          </Sheet>
+          <Sheet open={resultsOpen} onOpenChange={setResultsOpen}>
+            <SheetContent side="right" className="w-full sm:w-[400px] max-w-[90vw] bg-black/90 backdrop-blur-md text-white overflow-y-auto flex flex-col items-center px-4 sm:px-6">
+              <SheetTitle className="text-xl font-bold mb-4 text-white text-center">Finished Matches Results</SheetTitle>
+              <div className="w-full max-w-md space-y-4">
+                {matches.filter((m) => m.status === "fulltime").length > 0 ? (
+                  matches
+                    .filter((m) => m.status === "fulltime")
+                    .map((match) => (
+                      <div key={match.id} className="w-full">
+                        <MatchCard
+                          match={match}
+                          onAddToBetSlip={handleAddToBetSlip}
+                          selectedOptions={selectedOptions}
+                        />
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-gray-400 text-center">No finished matches available.</p>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </main>
+      </div>
+
+      {/* Floating Action Button for Bet Slip on Mobile */}
+      <div className="fixed bottom-24 right-6 lg:hidden z-50">
+        <Button
+          onClick={() => setBetSlipOpen(true)}
+          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white w-14 h-14 rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 hover:scale-105 flex items-center justify-center relative"
+        >
+          <Coins className="w-6 h-6" />
+          {betSlip.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {betSlip.length}
+            </span>
+          )}
+        </Button>
       </div>
 
       {/* Floating Action Button for Mobile */}

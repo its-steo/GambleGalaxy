@@ -1,6 +1,6 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader,CardTitle} from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Users, TrendingUp, Bot, User } from "lucide-react"
@@ -16,8 +16,8 @@ export function LiveBetsPanel() {
     ? Array.from(activeBets.entries()).map(([userId, bet]) => ({
         ...bet,
         userId,
-        username: userId === user?.id ? user.username || `Player${userId}` : `Player${userId}`,
-        is_bot: false,
+        username: bet.username || (userId === user?.id ? user.username || `Player${userId}` : `Player${userId}`),  // Use bet.username if available
+        is_bot: bet.is_bot ?? false,  // Use bet.is_bot if available
       }))
     : []
 
@@ -68,9 +68,7 @@ export function LiveBetsPanel() {
                           className={`w-8 h-8 rounded-xl flex items-center justify-center backdrop-blur-xl border ${
                             bet.is_bot
                               ? "bg-gradient-to-br from-indigo-500/30 to-purple-500/30 border-indigo-500/20"
-                              : bet.userId === user?.id
-                                ? "bg-gradient-to-br from-amber-500/30 to-yellow-500/30 border-amber-500/20"
-                                : "bg-gradient-to-br from-blue-500/30 to-cyan-500/30 border-blue-500/20"
+                              : "bg-gradient-to-br from-blue-500/30 to-cyan-500/30 border-blue-500/20"
                           }`}
                         >
                           {bet.is_bot ? (
@@ -133,7 +131,7 @@ export function LiveBetsPanel() {
                     ) : (
                       <User className="w-3 h-3 text-blue-400" />
                     )}
-                    <span className="text-slate-300">{cashout.username || "Unknown"}</span>
+                    <span className="text-slate-300">{cashout.username || "Anonymous"}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-green-400 font-medium">

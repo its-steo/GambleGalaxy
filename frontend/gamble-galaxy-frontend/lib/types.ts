@@ -184,6 +184,7 @@ export interface TopWinner {
   cash_out_multiplier?: number
   multiplier?: number
   win_amount?: number
+  is_bot?: boolean
 }
 
 export interface SureOdd {

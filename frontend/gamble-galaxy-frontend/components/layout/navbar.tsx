@@ -20,15 +20,17 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-2">
             <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">G</span>
             </div>
-            <span className="text-white font-bold text-xl">Gamble Galaxy</span>
+            <span className="text-white font-bold text-sm xs:text-base sm:text-lg md:text-xl truncate hidden xs:block">
+              Gamble Galaxy
+            </span>
           </Link>
 
           {/* User Section */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 xs:space-x-3.5 sm:space-x-4">
             {isAuthenticated ? (
               <>
                 <div className="flex items-center space-x-2">
@@ -56,12 +58,21 @@ export function Navbar() {
                 </Button>
               </>
             ) : (
-              <div className="flex space-x-2">
+              <div className="flex space-x-1 xs:space-x-1.5 sm:space-x-2">
                 <Link href="/auth/login">
-                  <Button variant="ghost">Login</Button>
+                  <Button
+                    variant="ghost"
+                    className="text-gray-400 hover:text-white text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-1 xs:py-1.5 sm:py-2"
+                  >
+                    Login
+                  </Button>
                 </Link>
                 <Link href="/auth/register">
-                  <Button className="bg-gradient-to-r from-purple-500 to-pink-500">Sign Up</Button>
+                  <Button
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs xs:text-sm sm:text-base px-2 xs:px-3 sm:px-4 py-1 xs:py-1.5 sm:py-2"
+                  >
+                    Sign Up
+                  </Button>
                 </Link>
               </div>
             )}
