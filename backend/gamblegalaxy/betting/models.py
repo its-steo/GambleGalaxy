@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 import uuid
-from decimal import Decimal
+from decimal import Decimal,ROUND_HALF_UP
 
 # -------------------
 # MATCH MODEL
@@ -75,6 +75,13 @@ class Bet(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - Bet ID #{self.id} - {self.status}"
+
+    @property
+    def expected_payout(self):
+        if self.amount and self.total_odds:
+            payout = self.amount * self.total_odds
+            return payout.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return Decimal("0.00")
 
 # -------------------
 # INDIVIDUAL MATCH SELECTION IN A MULTIBET
