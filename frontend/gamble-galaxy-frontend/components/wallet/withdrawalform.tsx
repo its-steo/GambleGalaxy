@@ -201,31 +201,31 @@ export default function WithdrawForm() {
 
     setIsLoading(true)
     try {
-    const response = await fetch("https://gamblegalaxy.onrender.com/api/wallet/withdraw/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...getAuthHeader(),
-      },
-      body: JSON.stringify({
-        amount: withdrawAmount,
-        ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
-        withdrawalMethod,
-      }),
-    })
-//
-    //const response = await fetch("http://localhost:8000/api/wallet/withdraw/", {
-    //  method: "POST",
-    //  headers: {
-    //    "Content-Type": "application/json",
-    //    ...getAuthHeader(),
-    //  },
-    //  body: JSON.stringify({
-    //    amount: withdrawAmount,
-    //    ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
-    //    withdrawalMethod,
-    //  }),
-    //})
+      const response = await fetch("https://gamblegalaxy.onrender.com/api/wallet/withdraw/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({
+          amount: withdrawAmount,
+          ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
+          withdrawalMethod,
+        }),
+      })
+
+      //const response = await fetch("http://localhost:8000/api/wallet/withdraw/", {
+      //  method: "POST",
+      //  headers: {
+      //    "Content-Type": "application/json",
+      //    ...getAuthHeader(),
+      //  },
+      //  body: JSON.stringify({
+      //    amount: withdrawAmount,
+      //    ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
+      //    withdrawalMethod,
+      //  }),
+      //})
 
       if (!response.ok) {
         const errorData = await response.json()

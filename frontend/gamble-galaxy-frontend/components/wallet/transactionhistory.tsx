@@ -14,6 +14,8 @@ type Transaction = {
   amount: string | number
   timestamp: string
   description?: string
+  mpesa_code?: string
+  account_details?: string
 }
 
 export default function TransactionHistory() {
@@ -29,6 +31,7 @@ export default function TransactionHistory() {
         const res = await axios.get("https://gamblegalaxy.onrender.com/api/wallet/transactions/", {
           headers: getAuthHeader(),
         })
+
         //const res = await axios.get("http://localhost:8000/api/wallet/transactions/", {
         //  headers: getAuthHeader(),
         //})
@@ -47,31 +50,34 @@ export default function TransactionHistory() {
     fetchTransactions()
   }, [])
 
-  const getTransactionIcon = (type: string) => {
+  const getTransactionIcon = (type: string, description?: string) => {
+    const status = description?.toLowerCase() || ''
+    if (status.includes('pending')) {
+      return <Clock className="w-4 h-4 text-yellow-400" />
+    }
     switch (type.toLowerCase()) {
       case "deposit":
       case "winning":
+      case "bonus":
         return <ArrowUpCircle className="w-4 h-4 text-green-400" />
-      case "withdrawal":
-      case "bet":
+      case "withdraw":
+      case "penalty":
         return <ArrowDownCircle className="w-4 h-4 text-red-400" />
       default:
         return <Clock className="w-4 h-4 text-yellow-400" />
     }
   }
 
-  const getStatusBadge = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "deposit":
-      case "winning":
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Completed</Badge>
-      case "withdrawal":
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Processing</Badge>
-      case "bet":
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Completed</Badge>
-      default:
-        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Unknown</Badge>
+  const getStatusBadge = (description?: string) => {
+    const status = description?.toLowerCase() || ''
+    if (status.includes('pending')) {
+      return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Pending</Badge>
+    } else if (status.includes('completed')) {
+      return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Completed</Badge>
+    } else if (status.includes('failed')) {
+      return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Failed</Badge>
     }
+    return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Unknown</Badge>
   }
 
   if (loading) {
@@ -135,25 +141,28 @@ export default function TransactionHistory() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  {getTransactionIcon(transaction.transaction_type)}
+                  {getTransactionIcon(transaction.transaction_type, transaction.description)}
                   <div>
                     <p className="text-white font-medium capitalize">
                       {transaction.description || transaction.transaction_type}
                     </p>
                     <p className="text-white/60 text-sm">{new Date(transaction.timestamp).toLocaleString()}</p>
+                    {transaction.mpesa_code && (
+                      <p className="text-white/60 text-sm">M-Pesa Code: {transaction.mpesa_code}</p>
+                    )}
                   </div>
                 </div>
                 <div className="text-right space-y-1">
                   <p
                     className={`font-bold ${
-                      ["deposit", "winning"].includes(transaction.transaction_type.toLowerCase())
+                      ["deposit", "winning", "bonus"].includes(transaction.transaction_type.toLowerCase())
                         ? "text-green-400"
                         : "text-red-400"
                     }`}
                   >
                     KES {Number.parseFloat(String(transaction.amount)).toFixed(2)}
                   </p>
-                  {getStatusBadge(transaction.transaction_type)}
+                  {getStatusBadge(transaction.description)}
                 </div>
               </div>
             </CardContent>
