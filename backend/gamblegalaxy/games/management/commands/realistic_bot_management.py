@@ -45,10 +45,10 @@ class Command(BaseCommand):
             self.bot_sessions[user.id] = self.bot_sim.get_session_behavior()
 
             balance_ranges = {
-                'conservative': (10000, 30000),  # Increased for testing
-                'moderate': (20000, 50000),
-                'aggressive': (30000, 80000),
-                'high_roller': (50000, 200000)
+                'conservative': (20000, 40000),  # Increased for testing
+                'moderate': (50000, 70000),
+                'aggressive': (80000, 100000),
+                'high_roller': (110000, 200000)
             }
             min_bal, max_bal = balance_ranges[personality]
             starting_balance = random.randint(min_bal, max_bal)

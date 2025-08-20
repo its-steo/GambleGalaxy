@@ -29,32 +29,32 @@ class EnhancedBotSimulation:
         
         self.betting_personalities = {
             'conservative': {
-                'bet_amounts': [50, 100, 200, 300],
+                'bet_amounts': [500, 1000, 2000, 3000],
                 'weights': [40, 35, 20, 5],
                 'auto_cashout_chance': 0.85,
                 'auto_cashout_range': (1.2, 2.5),
-                'manual_cashout_multiplier': 0.8  # Cash out earlier
+                'manual_cashout_multiplier': 2.0  # Cash out earlier
             },
             'moderate': {
-                'bet_amounts': [100, 200, 500, 1000, 1500],
+                'bet_amounts': [4000, 5000, 6000, 7000, 15000],
                 'weights': [25, 30, 25, 15, 5],
                 'auto_cashout_chance': 0.70,
                 'auto_cashout_range': (1.5, 4.0),
-                'manual_cashout_multiplier': 1.0  # Normal timing
+                'manual_cashout_multiplier': 2.0  # Normal timing
             },
             'aggressive': {
-                'bet_amounts': [500, 1000, 2000, 3000, 5000],
+                'bet_amounts': [5000, 10000, 20000, 30000, 50000],
                 'weights': [20, 25, 25, 20, 10],
                 'auto_cashout_chance': 0.50,
                 'auto_cashout_range': (2.0, 8.0),
                 'manual_cashout_multiplier': 1.3  # Wait longer
             },
             'high_roller': {
-                'bet_amounts': [2000, 5000, 10000, 15000, 20000],
+                'bet_amounts': [20000, 50000, 100000, 150000, 200000],
                 'weights': [30, 35, 20, 10, 5],
                 'auto_cashout_chance': 0.60,
                 'auto_cashout_range': (1.8, 6.0),
-                'manual_cashout_multiplier': 1.1  # Slightly more patient
+                'manual_cashout_multiplier': 1.5  # Slightly more patient
             }
         }
 
