@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Gamble Galaxy</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f4; color: #333;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <tr>
+      <td style="padding: 20px; text-align: center; background: linear-gradient(to right, #8b5cf6, #ec4899); border-radius: 8px 8px 0 0;">
+        <h1 style="color: #ffffff; font-size: 24px; margin: 0;">Gamble Galaxy</h1>
+        <p style="color: #ffffff; font-size: 16px; margin: 5px 0;">Your home for aviator & sports betting</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px;">
+        <h2 style="font-size: 20px; color: #333;">Welcome, {{ user.username }} 🎉</h2>
+        <p style="font-size: 16px; color: #333; line-height: 1.5;">
+          Thanks for joining <strong>Gamble Galaxy</strong> — we've launched the odds, warmed up the markets, and your account is ready.
+        </p>
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
+          <tr>
+            <td align="center">
+              <a href="{{ protocol }}://{{ domain }}/auth/login" style="display: inline-block; padding: 10px 20px; background: linear-gradient(to right, #8b5cf6, #ec4899); color: #ffffff; text-decoration: none; border-radius: 5px; font-size: 16px;">
+                Log in to your account
+              </a>
+            </td>
+            <td align="center">
+              <a href="mailto:support@gamblegalaxy.com" style="display: inline-block; padding: 10px 20px; color: #8b5cf6; text-decoration: none; font-size: 16px;">
+                Get help
+              </a>
+            </td>
+          </tr>
+        </table>
+        <h3 style="font-size: 18px; color: #333;">Quick tips to get started</h3>
+        <ul style="font-size: 16px; color: #333; line-height: 1.5; padding-left: 20px;">
+          <li>Fund your wallet to place bets instantly.</li>
+          <li>Try Aviator for fast wins — play responsibly.</li>
+          <li>Visit Sports to browse live odds and markets.</li>
+        </ul>
+        <p style="font-size: 14px; color: #666; line-height: 1.5;">
+          <strong>Stay safe:</strong> If you didn't create this account, contact our <a href="mailto:support@gamblegalaxy.com" style="color: #8b5cf6; text-decoration: none;">support</a> immediately.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="font-size: 14px; color: #333; text-align: center;">
+              <strong>Secure & Fast Payments</strong><br>
+              We accept M-PESA, Bank Transfer, and card payments. Withdrawals are processed within 24-72 hours.
+            </td>
+            <td style="font-size: 14px; color: #333; text-align: center;">
+              <strong>Verified • 24/7 Support</strong>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 10px; text-align: center; background-color: #f4f4f4; font-size: 12px; color: #666;">
+        <p style="margin: 0;">© {{ now.year }} Gamble Galaxy. All rights reserved.</p>
+        <p style="margin: 5px 0;">
+          Need help? <a href="mailto:support@gamblegalaxy.com" style="color: #8b5cf6; text-decoration: none;">support@gamblegalaxy.com</a>
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

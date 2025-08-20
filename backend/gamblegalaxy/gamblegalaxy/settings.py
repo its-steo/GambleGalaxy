@@ -115,12 +115,27 @@ CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,
 
 ROOT_URLCONF = 'gamblegalaxy.urls'
 
+#EMAIL INTERGARTION
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'sospetersamy@gmail.com'
+EMAIL_HOST_PASSWORD = 'yflegxikiihihdcl'
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'Gamble Galaxy <no-reply@gamblegalaxy.com>'
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            BASE_DIR / 'betting/templates',
-            BASE_DIR / 'betting/templates/frontend',
+            os.path.join(BASE_DIR, "templates"),               # project-level templates
+            BASE_DIR / 'betting' / 'templates',                # app-level templates
+            BASE_DIR / 'betting' / 'templates' / 'frontend',   # frontend templates
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -132,6 +147,7 @@ TEMPLATES = [
         },
     },
 ]
+
 
 # Football API Key
 FOOTBALL_API_KEY = os.getenv('FOOTBALL_API_KEY', '433af63d5d2af7799890c753a53fe758')
