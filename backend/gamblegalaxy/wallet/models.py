@@ -87,6 +87,7 @@ class Transaction(models.Model):
     description = models.CharField(max_length=255, blank=True)
     payment_transaction_id = models.CharField(max_length=50, blank=True, unique=True, null=True)
     account_details = models.CharField(max_length=100, blank=True, null=True)  # Store phone number or account number
+    mpesa_code = models.CharField(max_length=20, blank=True, null=True, unique=True)  # Store M-Pesa receipt code
 
     def __str__(self):
         return f"{self.user.username} - {self.transaction_type} - {self.amount} - {self.timestamp}"

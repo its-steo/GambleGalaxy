@@ -115,14 +115,15 @@ CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,
 
 ROOT_URLCONF = 'gamblegalaxy.urls'
 
-#EMAIL INTERGARTION
+# Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_HOST_USER = 'sospetersamy@gmail.com'
-EMAIL_HOST_PASSWORD = 'yflegxikiihihdcl'
+EMAIL_HOST_PASSWORD = 'yflegxikiihihdcl'  # App-specific password for Gmail
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'Gamble Galaxy <no-reply@gamblegalaxy.com>'
+DEFAULT_FROM_EMAIL = 'Gamble Galaxy <sospetersamy@gmail.com>'  # Must match EMAIL_HOST_USER or a verified alias
+ADMIN_EMAIL = 'steomustadd@gmail.com'  # Admin email for deposit notifications
 
 import os
 from pathlib import Path
@@ -155,22 +156,22 @@ FOOTBALL_API_KEY = os.getenv('FOOTBALL_API_KEY', '433af63d5d2af7799890c753a53fe7
 WSGI_APPLICATION = 'gamblegalaxy.wsgi.application'
 
 # Database
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'gamblebackend'),
-        'USER': os.getenv('DB_USER', 'gamblebackend_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'SmvAI5Vip1mF0oED8UoB2MRTDbHof6Mh'),
-        'HOST': os.getenv('DB_HOST', 'dpg-d2cgj3pr0fns73duitng-a.oregon-postgres.render.com'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.postgresql',
+#        'NAME': os.getenv('DB_NAME', 'gamblebackend'),
+#        'USER': os.getenv('DB_USER', 'gamblebackend_user'),
+#        'PASSWORD': os.getenv('DB_PASSWORD', 'SmvAI5Vip1mF0oED8UoB2MRTDbHof6Mh'),
+#        'HOST': os.getenv('DB_HOST', 'dpg-d2cgj3pr0fns73duitng-a.oregon-postgres.render.com'),
+#        'PORT': os.getenv('DB_PORT', '5432'),
+#    }
+#}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
