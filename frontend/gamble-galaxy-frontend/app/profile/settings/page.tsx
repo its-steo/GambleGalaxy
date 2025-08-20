@@ -308,45 +308,45 @@ export default function ProfileSettingsPage() {
         </div>
 
         <Tabs defaultValue="account" className="space-y-6">
-          <div className="flex justify-center">
-            <TabsList className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-1 flex flex-wrap gap-1 sm:grid sm:grid-cols-3 md:grid-cols-5 w-full max-w-4xl overflow-x-auto">
-              <TabsTrigger
-                value="account"
-                className="flex-1 min-w-[80px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-2 py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs sm:text-sm"
-              >
-                <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Account</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="games"
-                className="flex-1 min-w-[80px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-2 py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs sm:text-sm"
-              >
-                <Gamepad2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Games</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="security"
-                className="flex-1 min-w-[80px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-2 py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs sm:text-sm"
-              >
-                <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Security</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="notifications"
-                className="flex-1 min-w-[80px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-2 py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs sm:text-sm"
-              >
-                <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Notifications</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="privacy"
-                className="flex-1 min-w-[80px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-2 py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs sm:text-sm"
-              >
-                <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Privacy</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
+         <div className="flex justify-center w-full px-2 sm:px-4">
+          <TabsList className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-1 flex flex-wrap gap-1 sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 w-full max-w-[90vw] sm:max-w-3xl lg:max-w-4xl overflow-x-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent">
+            <TabsTrigger
+              value="account"
+              className="flex-1 min-w-[60px] xs:min-w-[70px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-1 py-1 xs:px-2 xs:py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs xs:text-sm sm:text-base"
+            >
+              <User className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 mr-1 xs:mr-2" />
+              <span className="hidden xs:inline sm:inline">Account</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="games"
+              className="flex-1 min-w-[60px] xs:min-w-[70px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-1 py-1 xs:px-2 xs:py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs xs:text-sm sm:text-base"
+            >
+              <Gamepad2 className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 mr-1 xs:mr-2" />
+              <span className="hidden xs:inline sm:inline">Games</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="security"
+              className="flex-1 min-w-[60px] xs:min-w-[70px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-1 py-1 xs:px-2 xs:py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs xs:text-sm sm:text-base"
+            >
+              <Shield className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 mr-1 xs:mr-2" />
+              <span className="hidden xs:inline sm:inline">Security</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="notifications"
+              className="flex-1 min-w-[60px] xs:min-w-[70px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-1 py-1 xs:px-2 xs:py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs xs:text-sm sm:text-base"
+            >
+              <Bell className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 mr-1 xs:mr-2" />
+              <span className="hidden xs:inline sm:inline">Notifications</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="privacy"
+              className="flex-1 min-w-[60px] xs:min-w-[70px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white rounded-lg px-1 py-1 xs:px-2 xs:py-1 sm:px-3 sm:py-2 transition-all duration-300 text-xs xs:text-sm sm:text-base"
+            >
+              <Eye className="w-3 h-3 xs:w-4 xs:h-4 sm:w-5 sm:h-5 mr-1 xs:mr-2" />
+              <span className="hidden xs:inline sm:inline">Privacy</span>
+            </TabsTrigger>
+          </TabsList>
+         </div>
 
           <TabsContent value="account">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
