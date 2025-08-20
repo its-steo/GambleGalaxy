@@ -360,7 +360,7 @@ const GlassSideNav = ({ onShare, onClose }: SideNavProps) => {
         <div className="p-3 xs:p-4 sm:p-6 border-t border-white/20 bg-white/5 backdrop-blur-sm">
           <div className="space-y-1.5 xs:space-y-2 sm:space-y-3">
             <Link
-              href="/settings"
+              href="/profile/settings/"
               onClick={handleNavClick}
               className="w-full flex items-center gap-1.5 xs:gap-2 sm:gap-3 px-2 xs:px-3 sm:px-4 py-3 xs:py-4 text-gray-300 hover:text-white hover:bg-white/10 backdrop-blur-sm rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300 hover:shadow-sm border border-white/10 hover:border-white/20 group mobile-hover-fix touch-target"
             >

@@ -15,6 +15,7 @@ import type {
 //const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://gamblegalaxy.onrender.com/api"
 
+
 interface ApiResponse<T> {
   data?: T
   error?: string
@@ -94,8 +95,6 @@ class ApiClient {
       }
     } catch (error) {
       console.error("💥 Token refresh error:", error)
-      localStorage.removeItem("access_token")
-      localStorage.removeItem("refresh_token")
       return null
     }
   }
@@ -441,6 +440,30 @@ class ApiClient {
     console.log(`🔍 Recent activity response:`, response)
     return response
   }
+
+  async updateProfile(data: Partial<User>) {
+    console.log("🔄 Updating profile with data:", data);
+    const response = await this.request<User>("/accounts/profile/", {
+      method: "PATCH",  // Use PATCH for partial updates
+      body: JSON.stringify(data),
+    });
+    console.log("🔍 Profile update response:", response);
+    return response;
+  }
+
+  async uploadAvatar(file: File) {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    console.log("📸 Uploading avatar");
+    const response = await this.request<User>("/accounts/profile/", {
+      method: "PATCH",
+      body: formData,
+      headers: {},  // No Content-Type for FormData
+    });
+    console.log("🔍 Avatar upload response:", response);
+    return response;
+  }
 }
+
 
 export const api = new ApiClient()

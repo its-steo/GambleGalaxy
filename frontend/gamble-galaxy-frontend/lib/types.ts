@@ -3,6 +3,7 @@ export interface User {
   id: number
   username: string
   email: string
+  phone: string
   first_name?: string
   last_name?: string
   avatar?: string
@@ -974,3 +975,11 @@ export interface AviatorOptimizations extends GamePerformanceConfig {
   optimizedWebSocket: boolean
   batchUpdates: boolean
 }
+
+//interface LeaderboardEntry {
+//  rank: number;
+//  username: string;
+//  avatar?: string;
+//  winnings: number;
+//}
+
