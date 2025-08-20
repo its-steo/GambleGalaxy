@@ -15,6 +15,7 @@ import { AviatorCanvas } from "./aviator/aviator-canvas"
 import { BettingPanel } from "./aviator/betting-panel"
 import { AviatorSidebar } from "./aviator/aviator-sidebar"
 import { LazerSignalModal } from "./aviator/lazer-signal-modal"
+import { LiveActivityFeed } from "./aviator/live-activity-feed"
 
 // Sound function - moved inside component scope
 const playSound = async (type: "cashout" | "crash") => {
@@ -49,7 +50,6 @@ export function AviatorGameSimplified() {
     cashOut,
     canPlaceBet,
     canCashOut,
-    //livePlayers,
     recentCashouts,
     activeBets,
     pastCrashes,
@@ -70,6 +70,21 @@ export function AviatorGameSimplified() {
   const [isInitialized, setIsInitialized] = useState(false)
   const [showCrashScreen, setShowCrashScreen] = useState(false)
   const [crashMultiplier, setCrashMultiplier] = useState(1.0)
+
+  // 🆕 NEW: Bot activity state
+  const [botActivities, setBotActivities] = useState<
+    Array<{
+      id: string
+      type: "bet" | "cashout"
+      username: string
+      amount: number
+      multiplier?: number
+      winAmount?: number
+      isBot: boolean
+      timestamp: number
+      autoCashout?: number
+    }>
+  >([]) // 🔧 FIXED: Initialize with empty array instead of undefined
 
   // Premium odds state
   const [showLazerSignal, setShowLazerSignal] = useState(false)
@@ -111,6 +126,82 @@ export function AviatorGameSimplified() {
 
   // 🔧 SAFE: Calculate total live players with null safety
   const totalLivePlayers = activeBets?.size || 0
+
+  // 🆕 NEW: WebSocket event listeners for bot activity
+  useEffect(() => {
+    const handleBotBet = (event: CustomEvent) => {
+      const { username, amount, auto_cashout, is_bot, timestamp, user_id } = event.detail
+
+      console.log("🤖 Bot bet received:", event.detail)
+
+      const activity = {
+        id: `bet-${timestamp}-${username}`,
+        type: "bet" as const,
+        username,
+        amount: Number(amount),
+        autoCashout: auto_cashout,
+        isBot: is_bot || false,
+        timestamp: timestamp || Date.now(),
+      }
+
+      setBotActivities((prev) => [activity, ...prev.slice(0, 19)]) // Keep last 20
+
+      // Add to active bets if WebSocket state exists
+      if (addBetToState && user_id) {
+        addBetToState(user_id, {
+          id: Date.now(), // Temporary ID for bots
+          amount: Number(amount),
+          auto_cashout: auto_cashout,
+          placed_at: timestamp || Date.now(),
+        })
+      }
+    }
+
+    const handleBotCashout = (event: CustomEvent) => {
+      const { username, amount, multiplier, win_amount, is_bot, timestamp, user_id } = event.detail
+
+      console.log("💰 Bot cashout received:", event.detail)
+
+      const activity = {
+        id: `cashout-${timestamp}-${username}`,
+        type: "cashout" as const,
+        username,
+        amount: Number(amount),
+        multiplier: Number(multiplier),
+        winAmount: Number(win_amount),
+        isBot: is_bot || false,
+        timestamp: timestamp || Date.now(),
+      }
+
+      setBotActivities((prev) => [activity, ...prev.slice(0, 19)]) // Keep last 20
+
+      // Remove from active bets if WebSocket state exists
+      if (removeBetFromState && user_id) {
+        removeBetFromState(user_id)
+      }
+
+      // Play cashout sound for big wins
+      if (win_amount >= 1000) {
+        playSound("cashout")
+      }
+    }
+
+    const handleTopWinnersUpdate = () => {
+      console.log("🏆 Top winners update triggered")
+      loadTopWinners() // Refresh top winners when significant wins occur
+    }
+
+    // Listen for WebSocket events
+    window.addEventListener("botBet", handleBotBet as EventListener)
+    window.addEventListener("botCashout", handleBotCashout as EventListener)
+    window.addEventListener("topWinnersUpdate", handleTopWinnersUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("botBet", handleBotBet as EventListener)
+      window.removeEventListener("botCashout", handleBotCashout as EventListener)
+      window.removeEventListener("topWinnersUpdate", handleTopWinnersUpdate as EventListener)
+    }
+  }, [addBetToState, removeBetFromState])
 
   // 🔧 DEBUG: Log current state for debugging
   useEffect(() => {
@@ -306,6 +397,18 @@ export function AviatorGameSimplified() {
             return newSet
           })
 
+          // 🆕 NEW: Add user bet to activity feed
+          const userActivity = {
+            id: `bet-${Date.now()}-${user.username}`,
+            type: "bet" as const,
+            username: user.username || "You",
+            amount: parsedBetAmount,
+            autoCashout: parsedAutoCashout,
+            isBot: false,
+            timestamp: Date.now(),
+          }
+          setBotActivities((prev) => [userActivity, ...prev.slice(0, 19)])
+
           console.log("✅ BET TRACKING COMPLETE - User should now be able to cash out")
         } else {
           console.warn("⚠️ Missing bet ID or round ID, bet tracking incomplete")
@@ -462,6 +565,19 @@ export function AviatorGameSimplified() {
     // 6. IMMEDIATELY play sound
     await playSound("cashout")
 
+    // 🆕 NEW: Add user cashout to activity feed
+    const userCashoutActivity = {
+      id: `cashout-${Date.now()}-${user.username}`,
+      type: "cashout" as const,
+      username: user.username || "You",
+      amount: betInfo.amount,
+      multiplier: cashoutMultiplier,
+      winAmount: winAmount,
+      isBot: false,
+      timestamp: Date.now(),
+    }
+    setBotActivities((prev) => [userCashoutActivity, ...prev.slice(0, 19)])
+
     setIsCashingOut(false)
 
     // 🏦 IMMEDIATE DATABASE UPDATE - Use the new endpoint
@@ -586,14 +702,35 @@ export function AviatorGameSimplified() {
     }
   }, [gamePhase, currentRoundId])
 
+  // 🆕 FIXED: Load top winners with proper win amount calculation
+  const loadTopWinners = useCallback(async () => {
+    try {
+      console.log("🏆 Loading top winners...")
+      const winnersRes = await api.getTopWinners()
+
+      if (winnersRes.data) {
+        // 🔧 FIXED: Ensure we're showing win amounts, not bet amounts
+        const processedWinners = winnersRes.data.map((winner) => ({
+          ...winner,
+          // Calculate actual win amount if not provided
+          amount: winner.win_amount || Number(winner.amount) * Number(winner.multiplier || 1),
+        }))
+
+        console.log("✅ Top winners loaded:", processedWinners)
+        setTopWinners(processedWinners)
+      }
+    } catch (error) {
+      console.error("❌ Error loading top winners:", error)
+    }
+  }, [])
+
   // Load initial data
   const loadInitialData = useCallback(async () => {
     try {
-      const [winnersRes, crashesRes] = await Promise.all([api.getTopWinners(), api.getPastCrashes()])
+      const [crashesRes] = await Promise.all([api.getPastCrashes()])
 
-      if (winnersRes.data) {
-        setTopWinners(winnersRes.data)
-      }
+      // Load top winners separately with the fixed function
+      await loadTopWinners()
 
       if (crashesRes.data) {
         const crashes = crashesRes.data.map((round) => round.multiplier)
@@ -604,7 +741,7 @@ export function AviatorGameSimplified() {
     } catch (error) {
       console.error("❌ Error loading initial data:", error)
     }
-  }, [setPastCrashes])
+  }, [setPastCrashes, loadTopWinners])
 
   // Premium odds functions (simplified)
   const checkExistingPremiumOdds = useCallback(async () => {
@@ -790,6 +927,12 @@ export function AviatorGameSimplified() {
                 cashoutResult={undefined}
               />
             </div>
+
+            {/* 🆕 NEW: Live Activity Feed */}
+            <LiveActivityFeed
+              activities={botActivities}
+              className="lg:hidden" // Only show on mobile, desktop has sidebar
+            />
           </div>
 
           {/* Sidebar */}
@@ -802,6 +945,7 @@ export function AviatorGameSimplified() {
             setBetAmount1={setBetAmount1}
             setBetAmount2={setBetAmount2}
             isBettingPhase={isBettingPhase}
+            botActivities={botActivities || []} // 🔧 FIXED: Add null safety
           />
         </div>
       </div>

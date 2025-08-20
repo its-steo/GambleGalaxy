@@ -12,7 +12,8 @@ import type {
   SureOddSlip,
 } from "@/lib/types"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+//const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://localhost:8000/api"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://gamblegalaxy.onrender.com/api"
 
 interface ApiResponse<T> {
   data?: T
@@ -93,6 +94,8 @@ class ApiClient {
       }
     } catch (error) {
       console.error("💥 Token refresh error:", error)
+      localStorage.removeItem("access_token")
+      localStorage.removeItem("refresh_token")
       return null
     }
   }
