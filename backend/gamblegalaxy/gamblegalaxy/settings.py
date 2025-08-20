@@ -25,7 +25,7 @@ DEBUG = os.getenv('DEBUG', 'False') == 'False'
 #DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 
-#ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
 
 ALLOWED_HOSTS = [
     'gamblegalaxy.onrender.com',
@@ -155,13 +155,15 @@ FOOTBALL_API_KEY = os.getenv('FOOTBALL_API_KEY', '433af63d5d2af7799890c753a53fe7
 
 WSGI_APPLICATION = 'gamblegalaxy.wsgi.application'
 
-# Database
+
+#Database
+
 #DATABASES = {
- #   'default': {
-  #      'ENGINE': 'django.db.backends.sqlite3',
-   #     'NAME': BASE_DIR / 'db.sqlite3',
-    #}
-}
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+#}
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
