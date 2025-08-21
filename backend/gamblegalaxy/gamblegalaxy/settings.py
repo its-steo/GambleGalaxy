@@ -115,7 +115,7 @@ SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_HTTPONLY = True
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://192.168.100.12,https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://192.168.100.12,https://gamblegalaxy.co.ke,https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
 
 ROOT_URLCONF = 'gamblegalaxy.urls'
 
