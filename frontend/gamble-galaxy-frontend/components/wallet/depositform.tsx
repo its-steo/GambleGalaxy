@@ -128,16 +128,7 @@ export function DepositForm() {
       }
       console.log("Sending manual deposit request with payload:", payload)
 
-      //const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
-      //  method: "POST",
-      //  headers: {
-      //    "Content-Type": "application/json",
-      //    ...getAuthHeader(),
-      //  },
-      //  body: JSON.stringify(payload),
-      //})
-
-      const res = await fetch("http://localhost:8000/api/wallet/deposit/", {
+      const res = await fetch("https://gamblegalaxy.onrender.com/api/wallet/deposit/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -145,6 +136,15 @@ export function DepositForm() {
         },
         body: JSON.stringify(payload),
       })
+
+      //const res = await fetch("http://localhost:8000/api/wallet/deposit/", {
+      //  method: "POST",
+      //  headers: {
+      //    "Content-Type": "application/json",
+      //    ...getAuthHeader(),
+      //  },
+      //  body: JSON.stringify(payload),
+      //})
 
       const data = await res.json()
       console.log("Manual deposit response:", { status: res.status, statusText: res.statusText, data })
