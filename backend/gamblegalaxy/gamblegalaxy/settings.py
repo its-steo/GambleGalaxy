@@ -229,34 +229,34 @@ if not DEBUG:
     X_FRAME_OPTIONS = 'DENY'
 
 # Logging configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-
-    'root': {
-        'handlers': ['console'],
-        'level': 'DEBUG' if DEBUG else 'WARNING',
-    },
-
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'WARNING',
-            'propagate': False,
-        },
-        'aviator': {  # custom logger for your game
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'WARNING',
-            'propagate': False,
-        },
-    },
-}
+#LOGGING = {
+#    'version': 1,
+#    'disable_existing_loggers': False,
+#
+#    'handlers': {
+#        'console': {
+#            'class': 'logging.StreamHandler',
+#        },
+#    },
+#
+#    'root': {
+#        'handlers': ['console'],
+#        'level': 'DEBUG' if DEBUG else 'WARNING',
+#    },
+#
+#    'loggers': {
+#        'django': {
+#            'handlers': ['console'],
+#            'level': 'DEBUG' if DEBUG else 'WARNING',
+#            'propagate': False,
+#        },
+#        'aviator': {  # custom logger for your game
+#            'handlers': ['console'],
+#            'level': 'DEBUG' if DEBUG else 'WARNING',
+#            'propagate': False,
+#        },
+#    },
+#}
 
 
 #Django settings for gamblegalaxy project.
