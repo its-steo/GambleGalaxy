@@ -155,7 +155,7 @@ const useNavigationItems = () => {
         {
           name: "Bet History",
           icon: <History className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4" />,
-          href: "/betting/history",
+          href: "/betting?tab=history",
           color: "text-gray-300",
           hoverColor: "hover:text-white",
           bgHover: "hover:bg-gray-500/10",
@@ -172,7 +172,7 @@ const useNavigationItems = () => {
         {
           name: "Live Stats",
           icon: <TrendingUp className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4" />,
-          href: "/stats",
+          href: "/dashboard?tab=stats",
           color: "text-green-400",
           hoverColor: "hover:text-green-300",
           bgHover: "hover:bg-green-500/10",
