@@ -1,9 +1,10 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { api } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
-import { toast } from 'sonner'
+import type React from "react"
+import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { api } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
+import { toast } from "sonner"
 
 interface WalletContextType {
   balance: number
@@ -29,32 +30,32 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     try {
       console.log("💰 Fetching wallet balance for user:", user.id)
-      
+
       // Use the same API call that your dashboard uses - getDashboardStats
       // This is what works correctly in your dashboard
       const response = await api.getDashboardStats()
       console.log("💰 Dashboard stats API response:", response)
-      
-      if (response.data && typeof response.data.totalBalance === 'number') {
+
+      if (response.data && typeof response.data.totalBalance === "number") {
         const newBalance = response.data.totalBalance
         console.log("💰 Setting wallet balance from dashboard stats to:", newBalance)
         setBalance(newBalance)
       } else if (response.error) {
         console.error("❌ Dashboard stats API error:", response.error)
-        
+
         // Fallback to direct wallet API if dashboard stats fails
         console.log("💰 Trying fallback wallet API...")
         const walletResponse = await api.getWallet()
         console.log("💰 Fallback wallet API response:", walletResponse)
-        
-        if (walletResponse.data && typeof walletResponse.data.balance === 'number') {
+
+        if (walletResponse.data && typeof walletResponse.data.balance === "number") {
           const fallbackBalance = walletResponse.data.balance
           console.log("💰 Setting wallet balance from fallback to:", fallbackBalance)
           setBalance(fallbackBalance)
         } else {
           console.warn("⚠️ Both dashboard stats and wallet API failed")
           toast.error("Failed to fetch wallet balance", {
-            description: response.error
+            description: response.error,
           })
         }
       } else {
@@ -72,7 +73,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const updateBalance = useCallback((newBalance: number) => {
     console.log("💰 Updating wallet balance to:", newBalance)
-    if (typeof newBalance === 'number' && !isNaN(newBalance)) {
+    if (typeof newBalance === "number" && !isNaN(newBalance)) {
       setBalance(newBalance)
     } else {
       console.warn("⚠️ Invalid balance update:", newBalance)
@@ -95,14 +96,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const handleWalletUpdate = (event: CustomEvent) => {
       const { balance: newBalance } = event.detail
       console.log("📡 Received wallet balance update from WebSocket:", newBalance)
-      if (typeof newBalance === 'number' && !isNaN(newBalance)) {
+      if (typeof newBalance === "number" && !isNaN(newBalance)) {
         updateBalance(newBalance)
       }
     }
 
-    window.addEventListener('walletBalanceUpdate', handleWalletUpdate as EventListener)
+    window.addEventListener("walletBalanceUpdate", handleWalletUpdate as EventListener)
     return () => {
-      window.removeEventListener('walletBalanceUpdate', handleWalletUpdate as EventListener)
+      window.removeEventListener("walletBalanceUpdate", handleWalletUpdate as EventListener)
     }
   }, [updateBalance])
 
@@ -113,17 +114,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     updateBalance,
   }
 
-  return (
-    <WalletContext.Provider value={value}>
-      {children}
-    </WalletContext.Provider>
-  )
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
 }
 
 export function useWallet() {
   const context = useContext(WalletContext)
   if (context === undefined) {
-    throw new Error('useWallet must be used within a WalletProvider')
+    throw new Error("useWallet must be used within a WalletProvider")
   }
   return context
 }

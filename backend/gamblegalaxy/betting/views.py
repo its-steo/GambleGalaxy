@@ -6,10 +6,14 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from datetime import timedelta
 from random import sample
+import logging
 
 from .models import Match, Bet, SureOddSlip, SureOddPrediction
 from .serializers import MatchSerializer, BetSerializer
 from wallet.models import Wallet
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # -------------------------
 # MATCH LIST
@@ -19,12 +23,20 @@ class MatchListView(generics.ListAPIView):
     serializer_class = MatchSerializer
     permission_classes = [permissions.AllowAny]
 
+    def get_queryset(self):
+        logger.info("Fetching match list")
+        return super().get_queryset()
+
 # -------------------------
 # PLACE BET
 # -------------------------
 class PlaceBetView(generics.CreateAPIView):
     serializer_class = BetSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        logger.info(f"User {self.request.user} placing bet")
+        serializer.save(user=self.request.user)
 
 # -------------------------
 # BET HISTORY
@@ -34,6 +46,7 @@ class MyBetHistoryView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        logger.info(f"Fetching bet history for user {self.request.user}")
         return Bet.objects.filter(user=self.request.user).order_by('-placed_at')
 
 # -------------------------
@@ -41,10 +54,12 @@ class MyBetHistoryView(generics.ListAPIView):
 # -------------------------
 def auto_generate_sure_odds_for_user(user):
     if SureOddSlip.objects.filter(user=user, is_used=False).exists():
+        logger.info(f"User {user} already has an active sure odds slip")
         return  # Already has an active slip
 
     matches = Match.objects.filter(match_time__gt=timezone.now()).order_by('match_time')[:5]
     if matches.exists():
+        logger.info(f"Generating sure odds slip for user {user}")
         slip = SureOddSlip.objects.create(user=user, amount_paid=10000)
         slip.matches.set(matches)
         # Generate predictions for each match
@@ -67,6 +82,7 @@ def auto_generate_sure_odds_for_user(user):
                 predicted_option=predicted_option
             )
         slip.save()
+        logger.info(f"Created sure odds slip {slip.code} for user {user}")
 
 # -------------------------
 # GET SURE ODDS
@@ -77,16 +93,19 @@ class SureOddsView(APIView):
     def get(self, request):
         user = request.user
         now = timezone.now()
+        logger.info(f"Fetching sure odds for user {user}")
 
         # Auto-generate slip if not already created
         auto_generate_sure_odds_for_user(user)
 
         slip = SureOddSlip.objects.filter(user=user, is_used=False).order_by('-shown_to_user_at').first()
         if not slip:
+            logger.warning(f"No sure odds slip found for user {user}")
             return Response({'detail': 'No Sure Odds slip found. Please try again later.'}, status=404)
 
         matches = slip.matches.order_by('match_time')
         if not matches.exists():
+            logger.warning(f"S slip {slip.code} has no matches for user {user}")
             return Response({'detail': 'Slip has no matches assigned.'}, status=404)
 
         # Time remaining
@@ -116,7 +135,7 @@ class SureOddsView(APIView):
         # Get predictions for the slip
         predictions = {p.match_id: p.predicted_option for p in slip.predictions.all()}
 
-        return Response({
+        response = {
             'code': str(slip.code),
             'matches': [
                 {
@@ -132,7 +151,9 @@ class SureOddsView(APIView):
             'allow_payment': allow_payment,
             'show_predictions': show_predictions,
             'dismiss': dismiss
-        })
+        }
+        logger.info(f"Returning sure odds slip {slip.code} for user {user}")
+        return Response(response)
 
 # -------------------------
 # PAY FOR SURE ODDS
@@ -142,13 +163,16 @@ class SureOddsPaymentView(APIView):
 
     def post(self, request):
         user = request.user
+        logger.info(f"Processing sure odds payment for user {user}")
         slip = SureOddSlip.objects.filter(user=user, is_used=False, has_paid=False).first()
 
         if not slip:
+            logger.warning(f"No active unpaid sure odds slip found for user {user}")
             return Response({'detail': 'No active unpaid sure odds slip found.'}, status=404)
 
         wallet = Wallet.objects.get(user=user)
         if wallet.balance < slip.amount_paid:
+            logger.warning(f"Insufficient wallet balance for user {user}")
             return Response({'detail': 'Insufficient wallet balance.'}, status=400)
 
         # Deduct amount and unlock predictions
@@ -157,5 +181,6 @@ class SureOddsPaymentView(APIView):
 
         slip.has_paid = True
         slip.save()
+        logger.info(f"Payment successful for sure odds slip {slip.code} for user {user}")
 
         return Response({'detail': 'Payment successful. Predictions unlocked!'})

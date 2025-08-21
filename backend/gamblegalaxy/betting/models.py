@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 import uuid
-from decimal import Decimal
+from decimal import Decimal,ROUND_HALF_UP
 
 # -------------------
 # MATCH MODEL
@@ -11,6 +11,9 @@ class Match(models.Model):
     home_team = models.CharField(max_length=100)
     away_team = models.CharField(max_length=100)
     match_time = models.DateTimeField()
+    elapsed_minutes = models.IntegerField(null=True, blank=True)  # Added for match duration
+    ht_score_home = models.IntegerField(null=True, blank=True)  # Added for halftime home score
+    ht_score_away = models.IntegerField(null=True, blank=True)  # Added for halftime away score
 
     # Standard 1X2 odds
     odds_home_win = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -49,7 +52,6 @@ class Match(models.Model):
         ('fulltime', 'Full Time'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='upcoming')
-
     score_home = models.IntegerField(default=0)
     score_away = models.IntegerField(default=0)
 
@@ -65,23 +67,21 @@ class Bet(models.Model):
         ('won', 'Won'),
         ('lost', 'Lost'),
     ]
-
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    total_odds = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('1.00'))
-    expected_payout = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
-    match = models.ForeignKey(Match, on_delete=models.CASCADE, null=True, blank=True)
-
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='pending'
-    )
-
+    total_odds = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     placed_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.user.username} - Bet ID #{self.id} - {self.status}"
+
+    @property
+    def expected_payout(self):
+        if self.amount and self.total_odds:
+            payout = self.amount * self.total_odds
+            return payout.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return Decimal("0.00")
 
 # -------------------
 # INDIVIDUAL MATCH SELECTION IN A MULTIBET

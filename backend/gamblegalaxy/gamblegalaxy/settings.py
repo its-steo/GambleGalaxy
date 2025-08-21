@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,9 +21,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-(t0hacm!ebtpu_p=ugo0lvd9%k@h5zsoy@85+6_z^qywlikmkg')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = os.getenv('DEBUG', 'False') == 'False'
+#DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
+
+#ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
+
+ALLOWED_HOSTS = [
+    'gamblegalaxy.onrender.com',
+    'gamble-galaxy.vercel.app'
+]
 
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
 
@@ -42,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts',
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
     'wallet',
     'betting',
@@ -53,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -87,6 +97,13 @@ REST_FRAMEWORK = {
     )
 }
 
+# JWT settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Session and CORS settings
@@ -98,12 +115,28 @@ CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,
 
 ROOT_URLCONF = 'gamblegalaxy.urls'
 
+# Email configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'sospetersamy@gmail.com'
+EMAIL_HOST_PASSWORD = 'yflegxikiihihdcl'  # App-specific password for Gmail
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'Gamble Galaxy <sospetersamy@gmail.com>'  # Must match EMAIL_HOST_USER or a verified alias
+ADMIN_EMAIL = 'steomustadd@gmail.com'  # Admin email for deposit notifications
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            BASE_DIR / 'betting/templates',
-            BASE_DIR / 'betting/templates/frontend',
+            os.path.join(BASE_DIR, "templates"),               # project-level templates
+            BASE_DIR / 'betting' / 'templates',                # app-level templates
+            BASE_DIR / 'betting' / 'templates' / 'frontend',   # frontend templates
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -116,12 +149,21 @@ TEMPLATES = [
     },
 ]
 
+
 # Football API Key
 FOOTBALL_API_KEY = os.getenv('FOOTBALL_API_KEY', '433af63d5d2af7799890c753a53fe758')
 
 WSGI_APPLICATION = 'gamblegalaxy.wsgi.application'
 
-# Database
+
+#Database
+
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+#}
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -156,14 +198,21 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files
-STATIC_URL = '/static/'
+STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
 
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Media settings
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Security settings for production
 if not DEBUG:
@@ -173,27 +222,211 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_REDIRECT_EXEMPT = []
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False
     X_FRAME_OPTIONS = 'DENY'
 
 # Logging configuration
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
         },
     },
+
     'root': {
         'handlers': ['console'],
-        'level': 'INFO',
+        'level': 'DEBUG' if DEBUG else 'WARNING',
     },
+
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'propagate': False,
+        },
+        'aviator': {  # custom logger for your game
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'WARNING',
             'propagate': False,
         },
     },
 }
+
+
+#Django settings for gamblegalaxy project.
+#
+#Generated by 'django-admin startproject' using Django 5.2.4.
+#
+#For more information on this file, see
+#https://docs.djangoproject.com/en/5.2/topics/settings/
+#
+#For the full list of settings and their values, see
+#https://docs.djangoproject.com/en/5.2/ref/settings/
+#"""
+#
+#from pathlib import Path
+#import os
+#
+## Build paths inside the project like this: BASE_DIR / 'subdir'.
+#BASE_DIR = Path(__file__).resolve().parent.parent
+#
+#
+## Quick-start development settings - unsuitable for production
+## See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+#
+## SECURITY WARNING: keep the secret key used in production secret!
+#SECRET_KEY = 'django-insecure-(t0hacm!ebtpu_p=ugo0lvd9%k@h5zsoy@85+6_z^qywlikmkg'
+#
+## SECURITY WARNING: don't run with debug turned on in production!
+#DEBUG = True
+#
+#ALLOWED_HOSTS = [
+#    'localhost',
+#    '127.0.0.1',
+#    '[::1]',
+#    '192.168.100.12'
+#]
+#
+#
+## Application definition
+#
+#INSTALLED_APPS = [
+#    'django.contrib.admin',
+#    'django.contrib.auth',
+#    'django.contrib.contenttypes',
+#    'django.contrib.sessions',
+#    'django.contrib.messages',
+#    'django.contrib.staticfiles',
+#    'accounts',
+#    'rest_framework',
+#    'corsheaders',
+#    'wallet',
+#    'betting',
+#    'games',
+#    'core',
+#    'channels',
+#    'dashboard',
+#    
+#   
+#]
+#
+#MIDDLEWARE = [
+#    'corsheaders.middleware.CorsMiddleware',
+#    'django.middleware.security.SecurityMiddleware',
+#    'django.contrib.sessions.middleware.SessionMiddleware',
+#    'django.middleware.common.CommonMiddleware',
+#    'django.middleware.csrf.CsrfViewMiddleware',
+#    'django.contrib.auth.middleware.AuthenticationMiddleware',
+#    'django.contrib.messages.middleware.MessageMiddleware',
+#    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+#]
+#
+#ASGI_APPLICATION = 'gamblegalaxy.asgi.application'
+#
+#CHANNEL_LAYERS = {
+#    "default": {
+#        "BACKEND": "channels.layers.InMemoryChannelLayer"
+#    },
+#}
+#
+#REST_FRAMEWORK = {
+#    'DEFAULT_AUTHENTICATION_CLASSES': (
+#        'rest_framework_simplejwt.authentication.JWTAuthentication',
+#    )
+#}
+#
+#AUTH_USER_MODEL = 'accounts.CustomUser'
+#
+## Django settings.py
+#SESSION_COOKIE_SECURE = True  # or False in local dev
+#SESSION_COOKIE_SAMESITE = "Lax"  # Or "None" if cross-site cookies are needed
+#SESSION_COOKIE_HTTPONLY = True
+#CORS_ALLOW_CREDENTIALS = True
+#CSRF_COOKIE_HTTPONLY = False  # if you're using CSRF
+#
+#
+#CORS_ALLOW_ALL_ORIGINS = True
+#
+#ROOT_URLCONF = 'gamblegalaxy.urls'
+#
+#TEMPLATES = [
+#    {
+#        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+#        'DIRS': [
+#            BASE_DIR / "backend/gamblegalaxy/betting/templates",
+#            BASE_DIR / "betting/templates/frontend",
+#            os.path.join(BASE_DIR, 'betting', 'templates')
+#        ],
+#        'APP_DIRS': True,
+#        'OPTIONS': {
+#            'context_processors': [
+#                'django.template.context_processors.request',
+#                'django.contrib.auth.context_processors.auth',
+#                'django.contrib.messages.context_processors.messages',
+#            ],
+#        },
+#    },
+#]
+#
+#WSGI_APPLICATION = 'gamblegalaxy.wsgi.application'
+#
+#
+#
+## Database
+## https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+#
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+#}
+#
+#
+## Password validation
+## https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+#
+#AUTH_PASSWORD_VALIDATORS = [
+#    {
+#        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+#    },
+#    {
+#        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+#    },
+#    {
+#        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+#    },
+#    {
+#        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+#    },
+#]
+#
+#
+## Internationalization
+## https://docs.djangoproject.com/en/5.2/topics/i18n/
+#
+#LANGUAGE_CODE = 'en-us'
+#
+#TIME_ZONE = 'UTC'
+#
+#USE_I18N = True
+#
+#USE_TZ = True
+#
+#
+## Static files (CSS, JavaScript, Images)
+## https://docs.djangoproject.com/en/5.2/howto/static-files/
+#
+#STATIC_URL = 'static/'
+#STATICFILES_DIRS = [
+#    os.path.join(BASE_DIR, 'static'),
+#]
+#STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  
+#
+## Default primary key field type
+## https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+#
+#DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
