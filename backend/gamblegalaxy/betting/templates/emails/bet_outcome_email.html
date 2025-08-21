@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bet Result Notification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            color: #ffffff;
+            position: relative;
+        }
+        .header.won {
+            background-color: #28a745;
+        }
+        .header.lost {
+            background-color: #dc3545;
+        }
+        .header img {
+            max-width: 150px;
+            height: auto;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+        }
+        .content {
+            padding: 20px;
+        }
+        .content h2 {
+            color: #333333;
+            font-size: 20px;
+        }
+        .content p {
+            color: #555555;
+            line-height: 1.6;
+        }
+        .bet-details {
+            margin: 20px 0;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 10px;
+        }
+        .bet-details p {
+            margin: 5px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 10px;
+            color: #777777;
+            font-size: 14px;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header {% if status == 'won' %}won{% else %}lost{% endif %}">
+            <a href="https://yourdomain.com"><img src="https://example.com/static/images/gamblegalaxy_logo.png" alt="Gamble Galaxy Logo"></a>
+            <h1>
+                {% if status == 'won' %}
+                    Congratulations! Your Bet Won!
+                {% else %}
+                    Your Bet Result
+                {% endif %}
+            </h1>
+        </div>
+        <div class="content">
+            <h2>Dear {{ username }},</h2>
+            {% if status == 'won' %}
+                <p>Great news! Your bet #{{ bet_id }} has won!</p>
+                <div class="bet-details">
+                    <p><strong>Amount Bet:</strong> {{ amount }}</p>
+                    <p><strong>Total Odds:</strong> {{ total_odds }}</p>
+                    <p><strong>Winnings:</strong> {{ winnings }}</p>
+                </div>
+                <p>Your winnings have been added to your wallet.</p>
+                <p>Thank you for betting with us!</p>
+            {% else %}
+                <p>Unfortunately, your bet #{{ bet_id }} did not win this time.</p>
+                <div class="bet-details">
+                    <p><strong>Amount Bet:</strong> {{ amount }}</p>
+                    <p><strong>Total Odds:</strong> {{total_odds }}</p>
+                </div>
+                <p>Better luck next time!</p>
+            {% endif %}
+        </div>
+        <div class="footer">
+            <p>Best regards,<br>Your Betting Team</p>
+        </div>
+    </div>
+</body>
+</html>

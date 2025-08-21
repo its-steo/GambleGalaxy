@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bet Placement Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #28a745;
+            color: #ffffff;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            position: relative;
+        }
+        .header img {
+            max-width: 150px;
+            height: auto;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+        }
+        .content {
+            padding: 20px;
+        }
+        .content h2 {
+            color: #333333;
+            font-size: 20px;
+        }
+        .content p {
+            color: #555555;
+            line-height: 1.6;
+        }
+        .bet-details {
+            margin: 20px 0;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 10px;
+        }
+        .bet-details p {
+            margin: 5px 0;
+        }
+        .selections {
+            margin-top: 15px;
+        }
+        .selections ul {
+            list-style: none;
+            padding: 0;
+        }
+        .selections li {
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+        .footer {
+            text-align: center;
+            padding: 10px;
+            color: #777777;
+            font-size: 14px;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="https://gamblegalaxy.onrender.com"><img src="https://gamblegalaxy.onrender.com/static/images/gamblegalaxy_logo.png" alt="Gamble Galaxy Logo"></a>
+            <h1>Your Bet has been Placed!</h1>
+        </div>
+        <div class="content">
+            <h2>Dear {{ username }},</h2>
+            <p>Thank you for placing your bet with us! Below are the details of your bet:</p>
+            <div class="bet-details">
+                <p><strong>Bet ID:</strong> #{{ bet_id }}</p>
+                <p><strong>Amount:</strong> {{ amount }}</p>
+                <p><strong>Total Odds:</strong> {{ total_odds }}</p>
+                <p><strong>Potential Win:</strong> {{ expected_payout }}</p>
+            </div>
+            <div class="selections">
+                <h3>Your Selections:</h3>
+                <ul>
+                    {% for selection in selections %}
+                    <li>{{ selection.match }}: {{ selection.option }} @ {{ selection.odds|default:'N/A' }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <p>We wish you the best of luck!</p>
+        </div>
+        <div class="footer">
+            <p>Best regards,<br>Your Betting Team</p>
+        </div>
+    </div>
+</body>
+</html>
