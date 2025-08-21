@@ -29,7 +29,9 @@ DEBUG = os.getenv('DEBUG', 'False') == 'False'
 
 ALLOWED_HOSTS = [
     'gamblegalaxy.onrender.com',
-    'gamble-galaxy.vercel.app'
+    'gamble-galaxy.vercel.app',
+    'https://gamblegalaxy.co.ke',
+    'gamblegalaxy.co.ke',
 ]
 
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
