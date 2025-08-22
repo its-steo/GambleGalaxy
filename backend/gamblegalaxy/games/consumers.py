@@ -1053,8 +1053,6 @@ _current_round_state = {
 }
 _round_state_lock = asyncio.Lock()
 
-GROWTH_RATE = 0.12  # Adjust this value to fine-tune the speed. Higher value = faster increase.
-
 class AviatorConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
@@ -1164,9 +1162,8 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
                 # PHASE 3: ROUND START
                 start_time = time.time()  # Use float for precise elapsed time
-                crash_time = math.log(crash_multiplier) / GROWTH_RATE if crash_multiplier > 1 else 0
+                multiplier = 1.00
                 sequence_number = 0
-                last_sent_multiplier = 1.0
                 await self.channel_layer.group_send(self.room_group_name, {
                     'type': 'send_to_group',
                     'type_override': 'round_started',
@@ -1175,32 +1172,48 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     'start_time': round_start_time
                 })
 
-                # PHASE 3: MULTIPLIER LOOP (Smooth exponential increase)
-                while True:
-                    elapsed = time.time() - start_time
-                    if elapsed >= crash_time:
-                        multiplier = crash_multiplier
+                # PHASE 3: MULTIPLIER LOOP (Stepped increments with increasing step size)
+                while multiplier < crash_multiplier:
+                    # Determine step and delay based on current multiplier
+                    if multiplier < 2:
+                        step = 0.01
+                        delay = 0.05  # Faster update for smoothness
+                    elif multiplier < 5:
+                        step = 0.03
+                        delay = 0.04
+                    elif multiplier < 20:
+                        step = 0.05
+                        delay = 0.03
+                    elif multiplier < 100:
+                        step = 0.10
+                        delay = 0.02
+                    else:
+                        step = 0.50
+                        delay = 0.01
+
+                    await asyncio.sleep(delay)
+
+                    # Calculate next multiplier without overshooting
+                    next_multiplier = round(multiplier + step, 2)
+                    if next_multiplier >= crash_multiplier:
                         break
-                    multiplier = round(math.exp(GROWTH_RATE * elapsed), 2)
 
-                    # Send update if multiplier has increased or periodically
-                    if multiplier > last_sent_multiplier:
-                        last_sent_multiplier = multiplier
-                        await self.update_round_state(current_multiplier=multiplier)
-                        await self.channel_layer.group_send(self.room_group_name, {
-                            'type': 'send_to_group',
-                            'type_override': 'multiplier_update',
-                            'multiplier': multiplier,
-                            'sequence': sequence_number,
-                            'server_time': int(time.time() * 1000),
-                            'elapsed': elapsed
-                        })
-                        sequence_number += 1
+                    multiplier = next_multiplier
 
-                    # Auto cashout check (called frequently for accuracy)
+                    # Update state and send update
+                    await self.update_round_state(current_multiplier=multiplier)
+                    await self.channel_layer.group_send(self.room_group_name, {
+                        'type': 'send_to_group',
+                        'type_override': 'multiplier_update',
+                        'multiplier': multiplier,
+                        'sequence': sequence_number,
+                        'server_time': int(time.time() * 1000),
+                        'elapsed': time.time() - start_time
+                    })
+                    sequence_number += 1
+
+                    # Auto cashout check
                     await self.auto_cashout(multiplier, aviator_round)
-
-                    await asyncio.sleep(0.05)  # Update ~20 times per second for smoothness
 
                 # PHASE 4: CRASH
                 await self.update_round_state(
