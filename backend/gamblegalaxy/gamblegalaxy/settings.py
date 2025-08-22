@@ -123,11 +123,11 @@ ROOT_URLCONF = 'gamblegalaxy.urls'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'sospetersamy@gmail.com'
-EMAIL_HOST_PASSWORD = 'yflegxikiihihdcl'  # App-specific password for Gmail
+EMAIL_HOST_USER = 'globalgrowthinvest@gmail.com'
+EMAIL_HOST_PASSWORD = 'fdvyuvtreqtoocir'  # App-specific password for Gmail
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'Gamble Galaxy <globalgrowthinvest@gmail.com>'  # Must match EMAIL_HOST_USER or a verified alias
-ADMIN_EMAIL = 'steomustadd@gmail.com'  # Admin email for deposit notifications
+ADMIN_EMAIL = 'globalgrowthinvest@gmail.com'  # Admin email for deposit notifications
 
 import os
 from pathlib import Path
