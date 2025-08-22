@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -56,7 +57,18 @@ export default function AviatorPage() {
     } else {
       navigator.clipboard.writeText(shareText)
       toast.success("Game link copied to clipboard!", {
-        className: "bg-gradient-to-r from-green-500/90 to-emerald-500/90 text-white border-green-400 backdrop-blur-md",
+        className:
+          "rounded-xl border border-white/10 bg-white/10 backdrop-blur-md text-white shadow-lg",
+        style: {
+          padding: "12px 16px",
+          borderRadius: "12px",
+          background: "rgba(255, 255, 255, 0.1)", // Semi-transparent white for glass effect
+          backdropFilter: "blur(10px)", // Blur for frosted glass
+          WebkitBackdropFilter: "blur(10px)", // Safari support
+          boxShadow: "0 4px 30px rgba(0, 0, 0, 0.2)", // Soft shadow
+          border: "1px solid rgba(255, 255, 255, 0.2)", // Subtle border
+          fontSize: "14px",
+        },
       })
     }
   }
@@ -154,14 +166,14 @@ export default function AviatorPage() {
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 2xl:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
         {/* Sidebar */}
         <div
-          className={`fixed left-0 top-0 h-full z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:block lg:w-80 xl:w-96 ${
+          className={`fixed left-0 top-0 h-full z-50 transform transition-transform duration-300 ease-in-out 2xl:relative 2xl:translate-x-0 2xl:block 2xl:w-80 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -179,8 +191,8 @@ export default function AviatorPage() {
           />
 
           {/* Game Content */}
-          <div className="flex-1 overflow-auto">
-            <div className="p-2 sm:p-4 lg:p-6">
+          <div className="flex-1 overflow-auto flex justify-center items-start">
+            <div className="p-2 sm:p-4 lg:p-6 w-full max-w-screen-2xl mx-auto">
               <AviatorGameSimplified />
             </div>
           </div>

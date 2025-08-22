@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/lib/auth"
 import { Badge } from "@/components/ui/badge"
 import { useMobileSafeHover } from "@/lib/mobile-utils"
+import { ThemeToggle } from "@/components/themes/theme-toggle"
 
 interface SideNavProps {
   onShare: () => void
@@ -369,6 +370,12 @@ const GlassSideNav = ({ onShare, onClose }: SideNavProps) => {
                 Settings
               </span>
             </Link>
+            <div className="w-full flex items-center gap-1.5 xs:gap-2 sm:gap-3 px-2 xs:px-3 sm:px-4 py-3 xs:py-4 text-gray-300 hover:bg-white/10 backdrop-blur-sm rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300 hover:shadow-sm border border-white/10 hover:border-white/20 group mobile-hover-fix touch-target">
+              <ThemeToggle />
+              <span className="font-medium text-xs xs:text-sm sm:text-base text-gray-200 group-hover:text-white">
+                Theme
+              </span>
+            </div>
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-1.5 xs:gap-2 sm:gap-3 px-2 xs:px-3 sm:px-4 py-3 xs:py-4 text-red-400 hover:text-white hover:bg-gradient-to-r hover:from-red-500/80 hover:to-pink-500/80 backdrop-blur-sm rounded-md xs:rounded-lg sm:rounded-xl transition-all duration-300 hover:shadow-lg group border border-white/10 hover:border-white/20 mobile-hover-fix touch-target"

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { ThemeProvider } from "../components/themes/theme-provider";
 
 const excludeNavbarRoutes = ["/auth/login", "/auth/register"];
 
@@ -56,39 +57,50 @@ export default function RootLayout({
         <link rel="icon" href="/assets/images/home.png" />
       </head>
       <body className="bg-gray-900 text-white font-sans antialiased">
-        <WalletProvider>
-          {/* Optional Navbar */}
-          {!excludeNavbarRoutes.includes(pathname) && <Navbar />}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <WalletProvider>
+            {/* Optional Navbar */}
+            {!excludeNavbarRoutes.includes(pathname) && <Navbar />}
 
-          {/* Main content */}
-          <main className="min-h-screen w-full overflow-x-hidden">
-            {children}
-          </main>
+            {/* Main content */}
+            <main className="min-h-screen w-full overflow-x-hidden">
+              {children}
+            </main>
 
-          {/* Global Toaster */}
-          <Toaster
-            position="top-center"
-            richColors
-            expand
-            closeButton
-            duration={3500}
-            toastOptions={{
-              classNames: {
-                toast:
-                  "rounded-xl shadow-xl border border-white/20 bg-gradient-to-br from-zinc-900 via-neutral-900 to-zinc-800 text-white",
-                title: "font-semibold text-sm sm:text-base",
-                description: "text-xs sm:text-sm text-neutral-300",
-                closeButton: "text-white hover:text-red-400",
-              },
-              style: {
-                padding: "12px 16px",
-                borderRadius: "12px",
-                boxShadow: "0 0 12px rgba(0, 255, 164, 0.3)",
-                fontSize: "14px",
-              },
-            }}
-          />
-        </WalletProvider>
+            {/* Global Toaster with Glassmorphism */}
+            <Toaster
+              position="top-center"
+              richColors
+              expand
+              closeButton
+              duration={3500}
+              toastOptions={{
+                classNames: {
+                  toast:
+                    "rounded-xl border border-white/10 bg-white/10 backdrop-blur-md text-white shadow-lg",
+                  title: "font-semibold text-sm sm:text-base",
+                  description: "text-xs sm:text-sm text-neutral-200",
+                  closeButton: "text-white hover:text-red-400",
+                },
+                style: {
+                  padding: "12px 16px",
+                  borderRadius: "12px",
+                  background: "rgba(255, 255, 255, 0.1)", // Semi-transparent white for glass effect
+                  backdropFilter: "blur(10px)", // Blur for frosted glass
+                  WebkitBackdropFilter: "blur(10px)", // Safari support
+                  boxShadow: "0 4px 30px rgba(0, 0, 0, 0.2)", // Soft shadow
+                  border: "1px solid rgba(255, 255, 255, 0.2)", // Subtle border
+                  fontSize: "14px",
+                },
+              }}
+            />
+          </WalletProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
