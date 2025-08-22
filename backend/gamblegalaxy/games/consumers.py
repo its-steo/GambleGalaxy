@@ -1025,6 +1025,8 @@
 #            return float(sure_odd)
 #        return round(random.uniform(min_val, max_val), 2)
 
+
+
 import asyncio
 from decimal import Decimal
 import json
@@ -1052,6 +1054,9 @@ _current_round_state = {
     'round_start_time': None
 }
 _round_state_lock = asyncio.Lock()
+
+GROWTH_RATE = 0.12  # Base growth rate for exponential curve
+UPDATE_INTERVAL = 0.05  # Update ~20 times per second for smoothness
 
 class AviatorConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -1162,8 +1167,8 @@ class AviatorConsumer(AsyncWebsocketConsumer):
 
                 # PHASE 3: ROUND START
                 start_time = time.time()  # Use float for precise elapsed time
-                multiplier = 1.00
                 sequence_number = 0
+                last_sent_multiplier = 1.0
                 await self.channel_layer.group_send(self.room_group_name, {
                     'type': 'send_to_group',
                     'type_override': 'round_started',
@@ -1172,48 +1177,48 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     'start_time': round_start_time
                 })
 
-                # PHASE 3: MULTIPLIER LOOP (Stepped increments with increasing step size)
-                while multiplier < crash_multiplier:
-                    # Determine step and delay based on current multiplier
-                    if multiplier < 2:
-                        step = 0.01
-                        delay = 0.1  # Faster update for smoothness
-                    elif multiplier < 5:
-                        step = 0.02
-                        delay = 0.08
-                    elif multiplier < 20:
-                        step = 0.05
-                        delay = 0.06
-                    elif multiplier < 100:
-                        step = 0.10
-                        delay = 0.01
-                    else:
-                        step = 0.20
-                        delay = 0.008
-
-                    await asyncio.sleep(delay)
-
-                    # Calculate next multiplier without overshooting
-                    next_multiplier = round(multiplier + step, 2)
-                    if next_multiplier >= crash_multiplier:
+                # PHASE 3: MULTIPLIER LOOP (Smooth exponential with dynamic steps)
+                while True:
+                    elapsed = time.time() - start_time
+                    # Calculate base exponential multiplier
+                    multiplier = math.exp(GROWTH_RATE * elapsed)
+                    # Round to 2 decimal places for consistency
+                    multiplier = round(multiplier, 2)
+                    
+                    # Stop if we've reached or exceeded the crash multiplier
+                    if multiplier >= crash_multiplier:
+                        multiplier = crash_multiplier
                         break
 
-                    multiplier = next_multiplier
+                    # Dynamic step size for display updates
+                    if multiplier < 2:
+                        step_threshold = 0.01
+                    elif multiplier < 5:
+                        step_threshold = 0.03
+                    elif multiplier < 20:
+                        step_threshold = 0.05
+                    elif multiplier < 100:
+                        step_threshold = 0.10
+                    else:
+                        step_threshold = 0.50
 
-                    # Update state and send update
-                    await self.update_round_state(current_multiplier=multiplier)
-                    await self.channel_layer.group_send(self.room_group_name, {
-                        'type': 'send_to_group',
-                        'type_override': 'multiplier_update',
-                        'multiplier': multiplier,
-                        'sequence': sequence_number,
-                        'server_time': int(time.time() * 1000),
-                        'elapsed': time.time() - start_time
-                    })
-                    sequence_number += 1
+                    # Only send updates when multiplier crosses step thresholds
+                    if multiplier >= last_sent_multiplier + step_threshold:
+                        last_sent_multiplier = multiplier
+                        await self.update_round_state(current_multiplier=multiplier)
+                        await self.channel_layer.group_send(self.room_group_name, {
+                            'type': 'send_to_group',
+                            'type_override': 'multiplier_update',
+                            'multiplier': multiplier,
+                            'sequence': sequence_number,
+                            'server_time': int(time.time() * 1000),
+                            'elapsed': elapsed
+                        })
+                        sequence_number += 1
 
                     # Auto cashout check
                     await self.auto_cashout(multiplier, aviator_round)
+                    await asyncio.sleep(UPDATE_INTERVAL)
 
                 # PHASE 4: CRASH
                 await self.update_round_state(
