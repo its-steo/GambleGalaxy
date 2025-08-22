@@ -1177,19 +1177,19 @@ class AviatorConsumer(AsyncWebsocketConsumer):
                     # Determine step and delay based on current multiplier
                     if multiplier < 2:
                         step = 0.01
-                        delay = 0.03  # Faster update for smoothness
+                        delay = 0.1  # Faster update for smoothness
                     elif multiplier < 5:
-                        step = 0.01
-                        delay = 0.02
+                        step = 0.02
+                        delay = 0.08
                     elif multiplier < 20:
-                        step = 0.01
-                        delay = 0.01
+                        step = 0.05
+                        delay = 0.06
                     elif multiplier < 100:
-                        step = 0.01
-                        delay = 0.00
+                        step = 0.10
+                        delay = 0.01
                     else:
-                        step = 0.01
-                        delay = 0.005
+                        step = 0.20
+                        delay = 0.008
 
                     await asyncio.sleep(delay)
 
