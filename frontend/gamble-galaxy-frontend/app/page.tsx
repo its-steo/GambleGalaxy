@@ -25,8 +25,14 @@ export default function HomePage() {
   }, []);
 
   const slides = [
+
     {
-      image: "/assets/images/aviator-game3.jpg", // Replace with actual Aviator game image
+      image: "/assets/images/player3.jpg", // Replace with actual player image
+      alt: "Excited Player",
+      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
+    },
+    {
+      image: "/assets/images/aviator-game5.png", // Replace with actual Aviator game image
       alt: "Aviator Game",
       background: "from-purple-900/20 via-pink-900/20 to-blue-900/20",
     },
@@ -36,20 +42,17 @@ export default function HomePage() {
       background: "from-green-900/20 via-blue-900/20 to-purple-900/20",
     },
     {
+      image: "/assets/images/aviator-game4.png", // Replace with actual player image
+      alt: "Excited Player",
+      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
+    },
+
+     {
       image: "/assets/images/player2.jpg", // Replace with actual player image
       alt: "Excited Player",
       background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
     },
-    {
-      image: "/assets/images/aviator-game2.jpg", // Replace with actual player image
-      alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
-    },
-    {
-      image: "/assets/images/player3.jpg", // Replace with actual player image
-      alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
-    },
+    
       {
       image: "/assets/images/aviator-game3.jpg", // Replace with actual Aviator game image
       alt: "Aviator Game",
@@ -57,6 +60,11 @@ export default function HomePage() {
     },
     {
       image: "/assets/images/player4.jpg", // Replace with actual player image
+      alt: "Excited Player",
+      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
+    },
+     {
+      image: "/assets/images/aviator-game2.jpg", // Replace with actual player image
       alt: "Excited Player",
       background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
     },
