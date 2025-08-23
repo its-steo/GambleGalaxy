@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plane, Trophy, Zap, Shield, Users, Star, TrendingUp, Award } from "lucide-react";
+import { Plane, Trophy, Zap, Shield, Users, Star, TrendingUp, Award, DollarSign } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ThemeProvider } from "@/components/themes/theme-provider";
 import Slider from "react-slick";
@@ -25,53 +25,68 @@ export default function HomePage() {
   }, []);
 
   const slides = [
-
     {
-      image: "/assets/images/player3.jpg", // Replace with actual player image
-      alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
-    },
-    {
-      image: "/assets/images/aviator-game5.png", // Replace with actual Aviator game image
+      image: "/assets/images/aviator-game5.png",
       alt: "Aviator Game",
-      background: "from-purple-900/20 via-pink-900/20 to-blue-900/20",
+      background: "from-purple-900/30 via-pink-900/30 to-blue-900/30",
+      cta: "Play Aviator Now",
+      ctaLink: "/games/aviator",
     },
     {
-      image: "/assets/images/player1.jpg", // Replace with actual player image
+      image: "/assets/images/player1.jpg",
       alt: "Player Winning",
-      background: "from-green-900/20 via-blue-900/20 to-purple-900/20",
+      background: "from-green-900/30 via-blue-900/30 to-purple-900/30",
+      cta: "Join the Winners",
+      ctaLink: "/auth/register",
     },
     {
-      image: "/assets/images/aviator-game4.png", // Replace with actual player image
-      alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
-    },
-
-     {
-      image: "/assets/images/player2.jpg", // Replace with actual player image
-      alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
-    },
-    
-      {
-      image: "/assets/images/aviator-game3.jpg", // Replace with actual Aviator game image
-      alt: "Aviator Game",
-      background: "from-purple-900/20 via-pink-900/20 to-blue-900/20",
+      image: "/assets/images/aviator-game4.png",
+      alt: "Aviator Action",
+      background: "from-red-900/30 via-purple-900/30 to-pink-900/30",
+      cta: "Try Aviator Demo",
+      ctaLink: "/aviator-demo",
     },
     {
-      image: "/assets/images/player4.jpg", // Replace with actual player image
+      image: "/assets/images/player2.jpg",
       alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
+      background: "from-blue-900/30 via-pink-900/30 to-purple-900/30",
+      cta: "Start Betting",
+      ctaLink: "/betting",
     },
-     {
-      image: "/assets/images/aviator-game2.jpg", // Replace with actual player image
-      alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
+    {
+      image: "/assets/images/aviator-game3.jpg",
+      alt: "Aviator Thrill",
+      background: "from-purple-900/30 via-pink-900/30 to-blue-900/30",
+      cta: "Play Aviator Now",
+      ctaLink: "/games/aviator",
     },
-     {
-      image: "/assets/images/player6.jpg", // Replace with actual player image
+    {
+      image: "/assets/images/player3.jpg",
+      alt: "Winner Celebration",
+      background: "from-red-900/30 via-purple-900/30 to-pink-900/30",
+      cta: "Join Now",
+      ctaLink: "/auth/register",
+    },
+    {
+      image: "/assets/images/aviator-game2.jpg",
+      alt: "Aviator Gameplay",
+      background: "from-green-900/30 via-blue-900/30 to-purple-900/30",
+      cta: "Try Aviator Demo",
+      ctaLink: "/aviator-demo",
+    },
+    {
+      image: "/assets/images/player4.jpg",
+      alt: "Player Victory",
+      background: "from-blue-900/30 via-pink-900/30 to-purple-900/30",
+      cta: "Start Winning",
+      ctaLink: "/auth/register",
+    },
+    {
+      image: "/assets/images/player6.jpg",
       alt: "Excited Player",
-      background: "from-red-900/20 via-purple-900/20 to-pink-900/20",
+      background: "from-red-900/30 via-purple-900/30 to-pink-900/30",
+      cta: "Join the Action",
+      ctaLink: "/auth/register",
     },
   ];
 
@@ -82,13 +97,16 @@ export default function HomePage() {
     slidesToShow: 1,
     slidesToScroll: 1,
     autoplay: true,
-    autoplaySpeed: 5000,
+    autoplaySpeed: 4000,
     arrows: true,
     afterChange: (current: number) => setActiveSlide(current),
+    customPaging: (i: number) => (
+      <div className="w-3 h-3 bg-white/30 rounded-full hover:bg-white/60 transition-all duration-300" />
+    ),
     responsive: [
       {
         breakpoint: 1024,
-        settings: { arrows: false },
+        settings: { arrows: false, dots: true },
       },
       {
         breakpoint: 640,
@@ -106,22 +124,22 @@ export default function HomePage() {
             className={`absolute inset-0 bg-gradient-to-br transition-all duration-1000 ${slides[activeSlide].background}`}
           />
           <div
-            className="absolute w-[20vw] h-[20vw] max-w-[200px] max-h-[200px] bg-purple-500/10 rounded-full blur-3xl transition-all duration-1000 ease-out"
+            className="absolute w-[20vw] h-[20vw] max-w-[200px] max-h-[200px] bg-purple-500/20 rounded-full blur-3xl transition-all duration-1000 ease-out"
             style={{
               left: `calc(${mousePosition.x}px - 10vw)`,
               top: `calc(${mousePosition.y}px - 10vw)`,
             }}
           />
-          <div className="absolute top-1/4 left-1/4 w-[15vw] h-[15vw] max-w-[150px] max-h-[150px] bg-pink-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-[15vw] h-[15vw] max-w-[150px] max-h-[150px] bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute top-1/4 left-1/4 w-[15vw] h-[15vw] max-w-[150px] max-h-[150px] bg-pink-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-[15vw] h-[15vw] max-w-[150px] max-h-[150px] bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
 
         {/* Floating Particles */}
         <div className="fixed inset-0 z-0">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(30)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-[0.5vw] h-[0.5vw] max-w-[4px] max-h-[4px] bg-white/20 rounded-full animate-pulse"
+              className="absolute w-[0.5vw] h-[0.5vw] max-w-[5px] max-h-[5px] bg-white/30 rounded-full animate-pulse"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
@@ -133,20 +151,27 @@ export default function HomePage() {
         </div>
 
         <div className="relative z-10">
-          {/* Hero Section with Carousel */}
+          {/* Hero Section with Enhanced Carousel */}
           <section className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto w-full py-8 sm:py-12 lg:py-16">
               {/* Carousel */}
-              <div className="mb-8">
+              <div className="mb-8 relative">
                 <Slider {...sliderSettings}>
                   {slides.map((slide, index) => (
                     <div key={index} className="px-2">
-                      <div className="relative w-full h-[50vh] sm:h-[60vh] lg:h-[70vh] rounded-2xl overflow-hidden">
+                      <div className="relative w-full h-[60vh] sm:h-[70vh] lg:h-[80vh] rounded-2xl overflow-hidden">
                         <img
                           src={slide.image}
                           alt={slide.alt}
                           className="w-full h-full object-cover object-center"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/10 flex items-end justify-center pb-6">
+                          <Link href={slide.ctaLink}>
+                            <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-full font-semibold text-sm sm:text-base shadow-lg hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105">
+                              {slide.cta}
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -156,71 +181,52 @@ export default function HomePage() {
               <div
                 className={`text-center transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
               >
-                <div className="mb-6">
-                  <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-sm mb-4">
-                    <Star className="w-4 h-4 mr-2 text-yellow-400" />
-                    #1 Rated Betting Platform
-                  </div>
-                </div>
-
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black text-white mb-6 leading-tight px-4">
-                  Welcome to{" "}
-                  <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent animate-pulse block sm:inline">
+                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extrabold text-white mb-4 leading-tight px-4 animate-fade-in">
+                  <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
                     Gamble Galaxy
                   </span>
                 </h1>
-
-                <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-300 mb-8 max-w-4xl mx-auto leading-relaxed px-4">
-                  Experience the <span className="text-purple-400 font-semibold">ultimate thrill</span> of next-generation
-                  betting with our cutting-edge Aviator game and comprehensive sports betting platform.
+                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-gray-200 mb-8 max-w-4xl mx-auto leading-relaxed px-4">
+                  <span className="font-semibold text-purple-400">Soar to New Heights</span> with Aviator and Bet Big on Your Favorite Sports!
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 px-4">
-                  <Link href="/games/aviator" className="w-full sm:w-auto">
-                    <Button className="group bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-3 text-base font-semibold rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 hover:scale-105 w-full sm:w-auto">
-                      <Plane className="w-5 h-5 mr-2 group-hover:rotate-12 transition-transform" />
+                  <Link href="/games/aviator">
+                    <Button className="group bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 text-base sm:text-lg font-semibold rounded-full shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105 w-full sm:w-auto">
+                      <Plane className="w-6 h-6 mr-2 group-hover:rotate-12 transition-transform" />
                       Play Aviator
                     </Button>
                   </Link>
-                  <Link href="/betting" className="w-full sm:w-auto">
-                    <Button className="group bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 px-8 py-3 text-base font-semibold rounded-full shadow-2xl hover:shadow-white/10 transition-all duration-300 hover:scale-105 w-full sm:w-auto">
-                      <Trophy className="w-5 h-5 mr-2 group-hover:rotate-12 transition-transform" />
-                      Sports Betting
+                  <Link href="/betting">
+                    <Button className="group bg-white/20 backdrop-blur-md border border-white/30 text-white hover:bg-white/30 px-8 py-4 text-base sm:text-lg font-semibold rounded-full shadow-2xl hover:shadow-white/20 transition-all duration-300 hover:scale-105 w-full sm:w-auto">
+                      <Trophy className="w-6 h-6 mr-2 group-hover:rotate-12 transition-transform" />
+                      Bet on Sports
                     </Button>
                   </Link>
                 </div>
 
-                {/* Live Stats */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto px-4">
-                  {[
-                    { label: "Active Players", value: "12,847", icon: Users },
-                    { label: "Games Played", value: "2.4M+", icon: Plane },
-                    { label: "Total Winnings", value: "$45.2M", icon: TrendingUp },
-                    { label: "Avg Payout", value: "2.3x", icon: Award },
-                  ].map((stat, index) => (
-                    <div
-                      key={index}
-                      className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10"
-                    >
-                      <stat.icon className="w-6 h-6 text-purple-400 mx-auto mb-2" />
-                      <div className="text-lg md:text-xl font-bold text-white">{stat.value}</div>
-                      <div className="text-sm text-gray-400">{stat.label}</div>
-                    </div>
-                  ))}
+                {/* Live Jackpot Ticker */}
+                <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 backdrop-blur-md rounded-xl p-4 max-w-3xl mx-auto mb-8 border border-white/20">
+                  <div className="flex items-center justify-center gap-2">
+                    <DollarSign className="w-6 h-6 text-yellow-400 animate-pulse" />
+                    <p className="text-lg sm:text-xl font-semibold text-white">
+                      Current Jackpot: <span className="text-yellow-400">$127,894</span>
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
           {/* Features Section */}
-          <section className="py-16 sm:py-24 lg:py-32 relative px-4 sm:px-6 lg:px-8">
+          <section className="py-16 sm:py-24 lg:py-32 relative px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-transparent to-black/50">
             <div className="max-w-7xl mx-auto">
               <div className="text-center mb-12">
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-                  Why Choose Gamble Galaxy?
+                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 animate-fade-in">
+                  Why Gamble Galaxy?
                 </h2>
-                <p className="text-gray-400 text-base sm:text-lg md:text-xl max-w-2xl mx-auto">
-                  Experience the future of online betting with cutting-edge technology
+                <p className="text-gray-300 text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto">
+                  Unleash the thrill with cutting-edge betting technology
                 </p>
               </div>
 
@@ -228,31 +234,31 @@ export default function HomePage() {
                 {[
                   {
                     icon: Zap,
-                    title: "Lightning Fast",
-                    description: "Instant deposits, withdrawals, and bet settlements powered by blockchain technology.",
+                    title: "Blazing Speed",
+                    description: "Instant deposits, withdrawals, and bets powered by blockchain.",
                   },
                   {
                     icon: Shield,
-                    title: "Secure & Fair",
-                    description: "Provably fair games with end-to-end encryption and transparent algorithms.",
+                    title: "Safe & Fair",
+                    description: "Provably fair games with top-tier encryption.",
                   },
                   {
                     icon: Users,
-                    title: "Community Driven",
-                    description: "Join tournaments, leaderboards, and social betting with friends.",
+                    title: "Vibrant Community",
+                    description: "Join leaderboards, tournaments, and social betting.",
                   },
                 ].map((feature, index) => (
                   <Card
                     key={index}
-                    className="group relative overflow-hidden bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/30 transition-all duration-300 hover:scale-105"
+                    className="group relative overflow-hidden bg-white/10 backdrop-blur-md border border-white/20 hover:border-purple-400 transition-all duration-300 hover:scale-105 shadow-lg"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 to-pink-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <CardContent className="relative p-6">
-                      <div className="w-12 h-12 bg-gradient-to-r from-purple-500/30 to-pink-500/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                        <feature.icon className="w-6 h-6 text-purple-300" />
+                      <div className="w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <feature.icon className="w-8 h-8 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                      <p className="text-gray-300 text-base">{feature.description}</p>
+                      <h3 className="text-2xl font-bold text-white mb-3">{feature.title}</h3>
+                      <p className="text-gray-200 text-base">{feature.description}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -264,40 +270,40 @@ export default function HomePage() {
           <section className="py-16 sm:py-24 lg:py-32 relative px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
               <div className="text-center mb-12">
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-                  Popular Games
+                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 animate-fade-in">
+                  Explore Our Games
                 </h2>
-                <p className="text-gray-400 text-base sm:text-lg md:text-xl max-w-2xl mx-auto">
-                  Dive into our exciting selection of games and betting options
+                <p className="text-gray-300 text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto">
+                  Dive into thrilling games and unbeatable odds
                 </p>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Aviator Card */}
-                <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-900/50 to-pink-900/50 backdrop-blur-sm border border-purple-500/30 hover:border-purple-400 transition-all duration-500 hover:scale-105">
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <Card className="group relative overflow-hidden bg-gradient-to-br from-purple-900/60 to-pink-900/60 backdrop-blur-md border border-purple-500/40 hover:border-purple-500 transition-all duration-500 hover:scale-105 shadow-xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-600/30 to-pink-600/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <CardContent className="relative p-6">
                     <div className="flex items-center mb-4">
-                      <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-3">
-                        <Plane className="w-5 h-5 text-white" />
+                      <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center mr-3">
+                        <Plane className="w-6 h-6 text-white" />
                       </div>
-                      <h3 className="text-2xl font-bold text-white">Aviator</h3>
+                      <h3 className="text-3xl font-bold text-white">Aviator</h3>
                     </div>
-                    <p className="text-gray-200 mb-6 text-base leading-relaxed">
-                      Watch your multiplier soar! Cash out before the plane flies away in this thrilling crash game.
+                    <p className="text-gray-200 mb-6 text-lg leading-relaxed">
+                      Soar high and cash out before the plane crashes in this heart-pounding game!
                     </p>
                     <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                      <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md">
                         <div className="text-sm text-gray-300 mb-1">Max Multiplier</div>
-                        <div className="text-xl font-bold text-purple-400">100x</div>
+                        <div className="text-2xl font-bold text-purple-400">100x</div>
                       </div>
-                      <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                      <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md">
                         <div className="text-sm text-gray-300 mb-1">Players Online</div>
-                        <div className="text-xl font-bold text-pink-400">1,234</div>
+                        <div className="text-2xl font-bold text-pink-400">1,234</div>
                       </div>
                     </div>
                     <Link href="/games/aviator">
-                      <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 text-base font-semibold rounded-xl transition-all duration-300 hover:scale-105">
+                      <Button className="w-full bg-purple-700 hover:bg-purple-800 text-white py-4 text-lg font-semibold rounded-xl transition-all duration-300 hover:scale-105">
                         Play Now
                       </Button>
                     </Link>
@@ -305,30 +311,30 @@ export default function HomePage() {
                 </Card>
 
                 {/* Sports Betting Card */}
-                <Card className="group relative overflow-hidden bg-gradient-to-br from-green-900/50 to-blue-900/50 backdrop-blur-sm border border-green-500/30 hover:border-green-400 transition-all duration-500 hover:scale-105">
-                  <div className="absolute inset-0 bg-gradient-to-br from-green-600/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <Card className="group relative overflow-hidden bg-gradient-to-br from-green-900/60 to-blue-900/60 backdrop-blur-md border border-green-500/40 hover:border-green-500 transition-all duration-500 hover:scale-105 shadow-xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-600/30 to-blue-600/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <CardContent className="relative p-6">
                     <div className="flex items-center mb-4">
-                      <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl flex items-center justify-center mr-3">
-                        <Trophy className="w-5 h-5 text-white" />
+                      <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-blue-600 rounded-xl flex items-center justify-center mr-3">
+                        <Trophy className="w-6 h-6 text-white" />
                       </div>
-                      <h3 className="text-2xl font-bold text-white">Sports Betting</h3>
+                      <h3 className="text-3xl font-bold text-white">Sports Betting</h3>
                     </div>
-                    <p className="text-gray-200 mb-6 text-base leading-relaxed">
-                      Bet on your favorite teams with competitive odds, live match updates, and instant settlements.
+                    <p className="text-gray-200 mb-6 text-lg leading-relaxed">
+                      Bet on your favorite teams with live updates and top odds.
                     </p>
                     <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                      <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md">
                         <div className="text-sm text-gray-300 mb-1">Live Matches</div>
-                        <div className="text-xl font-bold text-green-400">24</div>
+                        <div className="text-2xl font-bold text-green-400">24</div>
                       </div>
-                      <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                      <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md">
                         <div className="text-sm text-gray-300 mb-1">Best Odds</div>
-                        <div className="text-xl font-bold text-yellow-400">98.5%</div>
+                        <div className="text-2xl font-bold text-yellow-400">98.5%</div>
                       </div>
                     </div>
                     <Link href="/betting">
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-base font-semibold rounded-xl transition-all duration-300 hover:scale-105">
+                      <Button className="w-full bg-blue-700 hover:bg-blue-800 text-white py-4 text-lg font-semibold rounded-xl transition-all duration-300 hover:scale-105">
                         Bet Now
                       </Button>
                     </Link>
@@ -338,54 +344,57 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Testimonials */}
-          <section className="py-16 sm:py-24 lg:py-32 relative px-4 sm:px-6 lg:px-8">
+          {/* Recent Winners Section */}
+          <section className="py-16 sm:py-24 lg:py-32 relative px-4 sm:px-6 lg:px-8 bg-gradient-to-t from-transparent to-black/50">
             <div className="max-w-6xl mx-auto">
               <div className="text-center mb-12">
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-                  What Players Say
+                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 animate-fade-in">
+                  Recent Winners
                 </h2>
-                <p className="text-gray-400 text-base sm:text-lg md:text-xl">
-                  Join thousands of satisfied players
+                <p className="text-gray-300 text-lg sm:text-xl md:text-2xl">
+                  Join the ranks of our lucky winners!
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[
                   {
                     name: "Alex M.",
                     amount: "$12,450",
-                    text: "Best Aviator experience ever! The interface is smooth and payouts are instant.",
+                    game: "Aviator",
+                    time: "2 hours ago",
                   },
                   {
                     name: "Sarah K.",
                     amount: "$8,920",
-                    text: "Love the sports betting section. Great odds and live updates keep me engaged.",
+                    game: "Sports Betting",
+                    time: "4 hours ago",
                   },
                   {
                     name: "Mike R.",
                     amount: "$15,680",
-                    text: "Been playing for months. Reliable, secure, and the community is amazing!",
+                    game: "Aviator",
+                    time: "6 hours ago",
                   },
-                ].map((testimonial, index) => (
+                ].map((winner, index) => (
                   <Card
                     key={index}
-                    className="bg-white/5 backdrop-blur-sm border border-white/10 hover:border-white/30 transition-all duration-300"
+                    className="bg-white/10 backdrop-blur-md border border-white/20 hover:border-yellow-400 transition-all duration-300 shadow-lg"
                   >
                     <CardContent className="p-6">
                       <div className="flex items-center mb-4">
-                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white font-bold text-sm">{testimonial.name[0]}</span>
+                        <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mr-3">
+                          <span className="text-white font-bold text-base">{winner.name[0]}</span>
                         </div>
                         <div>
-                          <div className="text-white font-semibold text-base">{testimonial.name}</div>
-                          <div className="text-green-400 text-sm">Won {testimonial.amount}</div>
+                          <div className="text-white font-semibold text-lg">{winner.name}</div>
+                          <div className="text-yellow-400 text-sm">Won {winner.amount} in {winner.game}</div>
                         </div>
                       </div>
-                      <p className="text-gray-300 italic text-base">{`"${testimonial.text}"`}</p>
+                      <p className="text-gray-300 text-sm">{winner.time}</p>
                       <div className="flex text-yellow-400 mt-4">
                         {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-current" />
+                          <Star key={i} className="w-5 h-5 fill-current" />
                         ))}
                       </div>
                     </CardContent>
@@ -398,21 +407,21 @@ export default function HomePage() {
           {/* CTA Section */}
           <section className="py-16 sm:py-24 lg:py-32 relative px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto text-center">
-              <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
-                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-                  Ready to Start Winning?
+              <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-xl">
+                <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 animate-fade-in">
+                  Ready to Win Big?
                 </h2>
-                <p className="text-gray-300 text-base sm:text-lg md:text-xl mb-8 leading-relaxed">
-                  Join Gamble Galaxy today and experience the future of online betting with exclusive bonuses and rewards
+                <p className="text-gray-200 text-lg sm:text-xl md:text-2xl mb-8 leading-relaxed">
+                  Join Gamble Galaxy now and claim your exclusive welcome bonus!
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/auth/register" className="w-full sm:w-auto">
-                    <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-3 text-base font-semibold rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 hover:scale-105 w-full sm:w-auto">
-                      Get Started Now
+                  <Link href="/auth/register">
+                    <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 text-lg font-semibold rounded-full shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105 w-full sm:w-auto">
+                      Sign Up Now
                     </Button>
                   </Link>
-                  <Link href="/aviator-demo" className="w-full sm:w-auto">
-                    <Button className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 px-8 py-3 text-base font-semibold rounded-full transition-all duration-300 hover:scale-105 w-full sm:w-auto">
+                  <Link href="/aviator-demo">
+                    <Button className="bg-white/20 backdrop-blur-md border border-white/30 text-white hover:bg-white/30 px-8 py-4 text-lg font-semibold rounded-full shadow-2xl hover:shadow-white/20 transition-all duration-300 hover:scale-105 w-full sm:w-auto">
                       Try Demo
                     </Button>
                   </Link>
