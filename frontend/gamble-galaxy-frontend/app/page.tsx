@@ -1,11 +1,14 @@
+// app/page.tsx
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plane, Trophy, Zap, Shield, Users, Star, TrendingUp, Award, DollarSign } from "lucide-react";
+import { Plane, Trophy, Zap, Shield, Users, Star, DollarSign } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ThemeProvider } from "@/components/themes/theme-provider";
+import { Particles } from "@/components/particles";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -100,9 +103,9 @@ export default function HomePage() {
     autoplaySpeed: 4000,
     arrows: true,
     afterChange: (current: number) => setActiveSlide(current),
-    customPaging: (i: number) => (
-      <div className="w-3 h-3 bg-white/30 rounded-full hover:bg-white/60 transition-all duration-300" />
-    ),
+    //customPaging: (index: number) => (
+    //  <div className="w-3 h-3 bg-white/30 rounded-full hover:bg-white/60 transition-all duration-300" />
+    //),
     responsive: [
       {
         breakpoint: 1024,
@@ -134,21 +137,7 @@ export default function HomePage() {
           <div className="absolute bottom-1/4 right-1/4 w-[15vw] h-[15vw] max-w-[150px] max-h-[150px] bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
 
-        {/* Floating Particles */}
-        <div className="fixed inset-0 z-0">
-          {[...Array(30)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-[0.5vw] h-[0.5vw] max-w-[5px] max-h-[5px] bg-white/30 rounded-full animate-pulse"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${2 + Math.random() * 3}s`,
-              }}
-            />
-          ))}
-        </div>
+        <Particles />
 
         <div className="relative z-10">
           {/* Hero Section with Enhanced Carousel */}
@@ -160,10 +149,13 @@ export default function HomePage() {
                   {slides.map((slide, index) => (
                     <div key={index} className="px-2">
                       <div className="relative w-full h-[60vh] sm:h-[70vh] lg:h-[80vh] rounded-2xl overflow-hidden">
-                        <img
+                        <Image
                           src={slide.image}
                           alt={slide.alt}
-                          className="w-full h-full object-cover object-center"
+                          fill
+                          sizes="100vw"
+                          className="object-cover object-center"
+                          priority={index === 0}
                         />
                         <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/10 flex items-end justify-center pb-6">
                           <Link href={slide.ctaLink}>
