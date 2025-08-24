@@ -21,20 +21,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-(t0hacm!ebtpu_p=ugo0lvd9%k@h5zsoy@85+6_z^qywlikmkg')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'False'
-#DEBUG = os.getenv('DEBUG', 'False') == 'True'
+#DEBUG = os.getenv('DEBUG', 'False') == 'False'
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 
-#ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
 
-ALLOWED_HOSTS = [
-    'https://gamblegalaxy.onrender.com',
-    'gamblegalaxy.onrender.com',
-    'gamble-galaxy.vercel.app',
-    'https://gamblegalaxy.co.ke',
-    'gamblegalaxy.co.ke',
-    'https://gamble-galaxy.vercel.app',
-]
+#ALLOWED_HOSTS = [
+#    'https://gamblegalaxy.onrender.com',
+#    'gamblegalaxy.onrender.com',
+#    'gamble-galaxy.vercel.app',
+#    'https://gamblegalaxy.co.ke',
+#    'gamblegalaxy.co.ke',
+#    'https://gamble-galaxy.vercel.app',
+#]
 
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
 
@@ -162,22 +162,22 @@ WSGI_APPLICATION = 'gamblegalaxy.wsgi.application'
 
 #Database
 
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-#    }
-#}
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'gamblebackend'),
-        'USER': os.getenv('DB_USER', 'gamblebackend_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'SmvAI5Vip1mF0oED8UoB2MRTDbHof6Mh'),
-        'HOST': os.getenv('DB_HOST', 'dpg-d2cgj3pr0fns73duitng-a.oregon-postgres.render.com'),
-        'PORT': os.getenv('DB_PORT', '5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.postgresql',
+#        'NAME': os.getenv('DB_NAME', 'gamblebackend'),
+#        'USER': os.getenv('DB_USER', 'gamblebackend_user'),
+#        'PASSWORD': os.getenv('DB_PASSWORD', 'SmvAI5Vip1mF0oED8UoB2MRTDbHof6Mh'),
+#        'HOST': os.getenv('DB_HOST', 'dpg-d2cgj3pr0fns73duitng-a.oregon-postgres.render.com'),
+#        'PORT': os.getenv('DB_PORT', '5432'),
+#    }
+#}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -212,11 +212,13 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Media settings
-BASE_DIR = Path(__file__).resolve().parent.parent
+# settings.py
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# Media settings
+MEDIA_URL = '/media/'  # The URL prefix for media files
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # The filesystem path where media files are stored
 
 # Security settings for production
 if not DEBUG:
