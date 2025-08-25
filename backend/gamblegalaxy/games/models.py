@@ -47,6 +47,11 @@ class AviatorRound(models.Model):
         if self.ended_at:
             return (timezone.now() - self.ended_at).total_seconds() >= self.delay_before_next
         return False
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['is_active', 'ended_at']),
+        ]
 
 
 class AviatorBet(models.Model):
