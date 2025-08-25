@@ -216,10 +216,10 @@ export function LiveActivityFeed({ activities = [], className }: LiveActivityFee
                     <span>{activities.filter((a) => a.type === "cashout").length} cashouts</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-purple-400">
+                {/* <div className="flex items-center gap-1 text-purple-400">
                   <Bot className="w-3 h-3" />
                   <span>{activities.filter((a) => a.isBot).length} bots</span>
-                </div>
+                </div> */}
               </div>
             </div>
           )}
