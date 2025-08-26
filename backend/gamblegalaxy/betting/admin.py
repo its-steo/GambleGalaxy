@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Bet, BetSelection, Match
+from .models import Bet, BetSelection, Match, BigGameImage
 
 class BetSelectionInline(admin.TabularInline):
     model = BetSelection
@@ -20,3 +20,11 @@ class MatchAdmin(admin.ModelAdmin):
     list_filter = ['status']
     ordering = ['match_time']
     search_fields = ['home_team', 'away_team', 'api_match_id']
+
+@admin.register(BigGameImage)
+class BigGameImageAdmin(admin.ModelAdmin):
+    list_display = ['title', 'match', 'upload_date', 'is_active']
+    list_filter = ['is_active', 'upload_date']
+    search_fields = ['title', 'match__home_team', 'match__away_team']
+    ordering = ['-upload_date']
+    fields = ['title', 'image', 'match', 'is_active']  # Fields shown in the edit form

@@ -8,8 +8,8 @@ from datetime import timedelta
 from random import sample
 import logging
 
-from .models import Match, Bet, SureOddSlip, SureOddPrediction
-from .serializers import MatchSerializer, BetSerializer
+from .models import Match, Bet, SureOddSlip, SureOddPrediction, BigGameImage
+from .serializers import MatchSerializer, BetSerializer, BigGameImageSerializer
 from wallet.models import Wallet
 
 # Set up logging
@@ -184,3 +184,15 @@ class SureOddsPaymentView(APIView):
         logger.info(f"Payment successful for sure odds slip {slip.code} for user {user}")
 
         return Response({'detail': 'Payment successful. Predictions unlocked!'})
+    
+    # -------------------------
+# BIG GAME IMAGES LIST
+# -------------------------
+class BigGameImagesListView(generics.ListAPIView):
+    queryset = BigGameImage.objects.filter(is_active=True)
+    serializer_class = BigGameImageSerializer
+    permission_classes = [permissions.AllowAny]  # Publicly accessible
+
+    def get_queryset(self):
+        logger.info("Fetching active big game images")
+        return super().get_queryset()

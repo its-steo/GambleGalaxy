@@ -157,3 +157,19 @@ class SureOddSlipSerializer(serializers.ModelSerializer):
             payout = Decimal(str(obj.amount_paid)) * odds
             return payout.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return Decimal("0.00")
+    
+    # -----------------------
+# BIG GAME IMAGE SERIALIZER
+# -----------------------
+class BigGameImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+    match_id = serializers.PrimaryKeyRelatedField(source='match', read_only=True)
+
+    class Meta:
+        model = BigGameImage
+        fields = ['id', 'title', 'image_url', 'match_id', 'upload_date', 'is_active']
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return self.context['request'].build_absolute_uri(obj.image.url)
+        return None

@@ -148,3 +148,19 @@ class SureOddSlip(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - Sure Slip {self.code}"
+    
+    # -------------------
+# BIG GAME IMAGE (FOR WEEKLY HIGHLIGHTS/ADS)
+# -------------------
+class BigGameImage(models.Model):
+    title = models.CharField(max_length=200, help_text="e.g., 'Big Game: Manchester United vs Liverpool'")
+    image = models.ImageField(upload_to='big_games/', help_text="Upload an image for the big game highlight.")
+    match = models.ForeignKey(Match, on_delete=models.SET_NULL, null=True, blank=True, help_text="Optional link to a match.")
+    upload_date = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, help_text="Toggle to show/hide on the frontend.")
+
+    class Meta:
+        ordering = ['-upload_date']  # Newest first
+
+    def __str__(self):
+        return self.title
