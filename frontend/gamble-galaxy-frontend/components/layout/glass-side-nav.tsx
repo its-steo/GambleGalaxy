@@ -191,7 +191,7 @@ const useNavigationItems = () => {
         {
           name: "Live Bets",
           icon: <Clock className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4" />,
-          href: "/live-bets",
+          href: "/",
           color: "text-red-400",
           hoverColor: "hover:text-red-300",
           bgHover: "hover:bg-red-500/10",
@@ -200,7 +200,7 @@ const useNavigationItems = () => {
         {
           name: "Quick Bet",
           icon: <Zap className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4" />,
-          href: "/quick-bet",
+          href: "/betting",
           color: "text-yellow-400",
           hoverColor: "hover:text-yellow-300",
           bgHover: "hover:bg-yellow-500/10",
@@ -208,7 +208,7 @@ const useNavigationItems = () => {
         {
           name: "Achievements",
           icon: <Award className="w-2.5 h-2.5 xs:w-3 xs:h-3 sm:w-4 sm:h-4" />,
-          href: "/achievements",
+          href: "/",
           color: "text-indigo-400",
           hoverColor: "hover:text-indigo-300",
           bgHover: "hover:bg-indigo-500/10",
