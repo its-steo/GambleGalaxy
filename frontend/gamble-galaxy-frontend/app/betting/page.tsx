@@ -1704,6 +1704,7 @@
 //
 //export default BettingPage
 
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -2241,26 +2242,10 @@ const BettingPage = () => {
                         <style>
                           {`
                             .slick-slide > div {
-                              margin: 0 5px;
+                              margin: 0 10px;
                             }
                             .slick-list {
-                              margin: 0 -5px;
-                            }
-                            @media (min-width: 768px) {
-                              .slick-slide > div {
-                                margin: 0 7.5px;
-                              }
-                              .slick-list {
-                                margin: 0 -7.5px;
-                              }
-                            }
-                            @media (min-width: 1024px) {
-                              .slick-slide > div {
-                                margin: 0 10px;
-                              }
-                              .slick-list {
-                                margin: 0 -10px;
-                              }
+                              margin: 0 -10px;
                             }
                           `}
                         </style>
@@ -2268,7 +2253,7 @@ const BettingPage = () => {
                           dots={true}
                           infinite={true}
                           speed={500}
-                          slidesToShow={3}
+                          slidesToShow={1}
                           slidesToScroll={1}
                           autoplay={true}
                           autoplaySpeed={3000}
@@ -2276,22 +2261,6 @@ const BettingPage = () => {
                           pauseOnHover={false}
                           pauseOnFocus={false}
                           pauseOnDotsHover={false}
-                          responsive={[
-                            {
-                              breakpoint: 1023,
-                              settings: {
-                                slidesToShow: 2,
-                                slidesToScroll: 1,
-                              }
-                            },
-                            {
-                              breakpoint: 767,
-                              settings: {
-                                slidesToShow: 1,
-                                slidesToScroll: 1,
-                              }
-                            },
-                          ]}
                           className="rounded-xl overflow-hidden"
                         >
                           {bigGames.map((game) => (
