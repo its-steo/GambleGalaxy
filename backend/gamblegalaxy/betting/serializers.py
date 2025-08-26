@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from decimal import Decimal, ROUND_HALF_UP
-from .models import Match, Bet, BetSelection, SureOddSlip
+from .models import Match, Bet, BetSelection, SureOddSlip, BigGameImage
 from wallet.models import Wallet
 
 
