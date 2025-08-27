@@ -7,5 +7,20 @@ module.exports = {
   theme: {
     extend: {},
   },
-  plugins: [],
+  plugins: [
+    function ({ addUtilities }) {
+      addUtilities({
+        '@media (forced-colors: active)': {
+          '.input-forced-colors': {
+            'background-color': 'canvas !important',
+            'color': 'canvasText !important',
+            'border': '2px solid canvasText !important',
+          },
+          '.placeholder-forced-colors::placeholder': {
+            'color': 'GrayText !important',
+          },
+        },
+      });
+    },
+  ],
 };
