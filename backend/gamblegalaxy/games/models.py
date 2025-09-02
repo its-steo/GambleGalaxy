@@ -176,7 +176,7 @@ class CrashMultiplierSetting(models.Model):
     
 class PredictorPackage(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    image = models.ImageField(upload_to='predictor_images/', null=True, blank=True)
+    image = models.ImageField(upload_to='predictor_images/')  # Defaults to required
     predictions_per_day = models.PositiveIntegerField(default=1, help_text="Number of predictions allowed per day")
     validity_days = models.PositiveIntegerField(default=7, help_text="Validity period in days")
     price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Price of the predictor package")
