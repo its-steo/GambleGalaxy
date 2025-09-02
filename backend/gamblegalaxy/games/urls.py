@@ -17,4 +17,9 @@ urlpatterns = [
     path('wallet/balance/', views.get_balance, name='get_balance'),
     # 🔧 NEW: Add the missing wallet update endpoint
     path('wallet/update-balance/', views.update_wallet_balance, name='update_wallet_balance'),
+    path('predictors/', views.list_predictor_packages, name='list_predictor_packages'),
+    path('predictors/purchase/', views.purchase_predictor_package, name='purchase_predictor_package'),
+    path('predictors/my-purchases/', views.list_user_predictor_purchases, name='list_user_predictor_purchases'),
+    path('predictors/generate/', views.generate_prediction, name='generate_prediction'),
+    path('aviator/predictor/current-prediction/', views.get_current_prediction, name='get_current_prediction'),
 ]

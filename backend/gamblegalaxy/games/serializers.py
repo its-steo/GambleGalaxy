@@ -1,11 +1,16 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from django.utils import timezone
+from django.conf import settings
+from decimal import Decimal
+import logging
+import datetime
 
-from .models import AviatorRound, AviatorBet, SureOdd
+from .models import AviatorRound, AviatorBet, SureOdd, PredictorPackage, PredictorPurchase
 from wallet.models import Wallet, Transaction
 from django.db import transaction
 
+logger = logging.getLogger(__name__)
 
 class AviatorRoundSerializer(serializers.ModelSerializer):
     color = serializers.SerializerMethodField()
@@ -16,7 +21,6 @@ class AviatorRoundSerializer(serializers.ModelSerializer):
 
     def get_color(self, obj):
         return obj.get_crash_color()
-
 
 class AviatorBetSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
@@ -55,17 +59,10 @@ class AviatorBetSerializer(serializers.ModelSerializer):
         user = validated_data['user']
         amount = validated_data['amount']
 
-        # Debug: Log model fields
-        print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
-        print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
-
         with transaction.atomic():
             wallet = Wallet.objects.select_for_update().get(user=user)
             wallet.balance -= amount
             wallet.save()
-
-            # Debug: Log transaction parameters
-            print(f"Creating transaction for user: {user.username}, amount: {-amount}, transaction_type: withdraw")
 
             try:
                 Transaction.objects.create(
@@ -88,29 +85,19 @@ class AviatorBetSerializer(serializers.ModelSerializer):
         if not round or round.crash_multiplier is None:
             raise ValidationError("Crash multiplier not yet available for this round.")
 
-        # Determine cashout multiplier
         multiplier = validated_data.get('cash_out_multiplier')
-        if not multiplier and instance.auto_cashout and instance.auto_cashout < round.crash_multiplier:
-            multiplier = instance.auto_cashout
-        elif not multiplier:
-            multiplier = round.crash_multiplier
+        if not multiplier:
+            raise ValidationError("Cashout multiplier is required.")
 
         if multiplier >= round.crash_multiplier:
-            raise ValidationError("Too late! Plane crashed.")
+            raise ValidationError("Cannot cash out: multiplier exceeds crash point.")
 
-        win_amount = round_amount(multiplier * instance.amount)
-
-        # Debug: Log model fields
-        print(f"AviatorBet model fields: {list(AviatorBet._meta.get_fields())}")
-        print(f"Transaction model fields: {list(Transaction._meta.get_fields())}")
+        win_amount = round(float(instance.amount) * multiplier, 2)
 
         with transaction.atomic():
             wallet = Wallet.objects.select_for_update().get(user=instance.user)
-            wallet.balance += win_amount
+            wallet.balance += Decimal(str(win_amount))
             wallet.save()
-
-            # Debug: Log transaction parameters
-            print(f"Creating transaction for user: {instance.user.username}, amount: {win_amount}, transaction_type: winning")
 
             try:
                 Transaction.objects.create(
@@ -130,10 +117,8 @@ class AviatorBetSerializer(serializers.ModelSerializer):
 
         return instance
 
-
 def round_amount(value, decimals=2):
     return round(float(value), decimals)
-
 
 class SureOddSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
@@ -142,7 +127,6 @@ class SureOddSerializer(serializers.ModelSerializer):
         model = SureOdd
         fields = ['id', 'user', 'username', 'odd', 'is_used', 'verified_by_admin', 'created_at']
 
-
 class TopWinnerSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username')
     avatar = serializers.URLField(source='user.avatar', read_only=True)
@@ -150,3 +134,68 @@ class TopWinnerSerializer(serializers.ModelSerializer):
     class Meta:
         model = AviatorBet
         fields = ['username', 'avatar', 'amount', 'cash_out_multiplier']
+
+class PredictorPackageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PredictorPackage
+        fields = ['id', 'name', 'image_url', 'predictions_per_day', 'validity_days', 'price', 'created_at']
+
+    def get_image_url(self, obj):
+        return obj.get_image_url()
+
+class PredictorPurchaseSerializer(serializers.ModelSerializer):
+    predictor_package_id = serializers.PrimaryKeyRelatedField(
+        queryset=PredictorPackage.objects.all(),
+        source='predictor_package',
+        write_only=True
+    )
+    predictor_package = PredictorPackageSerializer(read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    predictions_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PredictorPurchase
+        fields = ['id', 'user', 'username', 'predictor_package_id', 'predictor_package', 'purchase_date', 'expiry_date', 'predictions_used_today', 'predictions_remaining']
+        read_only_fields = ['purchase_date', 'expiry_date', 'predictions_used_today', 'predictions_remaining']
+
+    def get_predictions_remaining(self, obj):
+        """Calculate remaining predictions for the day."""
+        today = timezone.now().date()
+        last_reset_date = obj.last_reset_date
+        # Convert last_reset_date to date if it's a datetime
+        if isinstance(last_reset_date, datetime.datetime):
+            logger.warning(f"last_reset_date is datetime for PredictorPurchase {obj.id}: {last_reset_date}")
+            last_reset_date = last_reset_date.date()
+        if last_reset_date < today:
+            return obj.predictor_package.predictions_per_day
+        return max(obj.predictor_package.predictions_per_day - obj.predictions_used_today, 0)
+
+    def create(self, validated_data):
+        user = validated_data['user']
+        predictor_package = validated_data['predictor_package']
+        amount = predictor_package.price
+
+        with transaction.atomic():
+            wallet = Wallet.objects.select_for_update().get(user=user)
+            if wallet.balance < amount:
+                raise serializers.ValidationError("Insufficient wallet balance.")
+
+            wallet.balance -= amount
+            wallet.save()
+
+            logger.info(f"Creating transaction for user {user.username}, amount: {-amount}, package: {predictor_package.name}")
+            Transaction.objects.create(
+                user=user,
+                amount=-amount,
+                transaction_type='withdraw',
+                description=f"Predictor purchase: {predictor_package.name}"
+            )
+
+            purchase = PredictorPurchase.objects.create(
+                user=user,
+                predictor_package=predictor_package,
+                expiry_date=timezone.now() + timezone.timedelta(days=predictor_package.validity_days)
+            )
+            return purchase
