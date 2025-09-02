@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { setPastCrashes } from "@/lib/api" // Declare variables here
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useWebSocket } from "@/lib/websocket"
@@ -10,6 +11,8 @@ import { api } from "@/lib/api"
 import { toast } from "sonner"
 import type { TopWinner } from "@/lib/types"
 import { playSound, playBackgroundMusic, stopBackgroundMusic } from "@/lib/audio-utils" // Declare variables here
+import { AIPredictorPanel } from "@/components/predictor/ai-predictor-panel"
+import { useRouter } from "next/navigation"
 
 // Import components
 //import { GameHeader } from "./aviator/game-header"
@@ -101,8 +104,9 @@ OptimizedGameBackground.displayName = "OptimizedGameBackground"
 export function AviatorGameSimplified() {
   const { user, isAuthenticated } = useAuth()
   const { balance: walletBalance, updateBalance, refreshBalance } = useWallet()
+  const router = useRouter()
 
-  // 🔧 SAFE: Use WebSocket with null safety
+  const webSocketState = useWebSocket()
   const {
     connect,
     disconnect,
@@ -118,16 +122,15 @@ export function AviatorGameSimplified() {
     recentCashouts,
     activeBets,
     pastCrashes,
-    setPastCrashes,
     addBetToState,
     removeBetFromState,
-  } = useWebSocket()
+  } = webSocketState
 
   // Betting state
   const [betAmount1, setBetAmount1] = useState("100")
   const [betAmount2, setBetAmount2] = useState("100")
   const [autoCashout1, setAutoCashout1] = useState("")
-  const [autoCashout2, setAutoCashout2] = useState("")
+  //const [autoCashout2, setAutoCashout2] = useState("")
 
   // Game state
   const [topWinners, setTopWinners] = useState<TopWinner[]>([])
@@ -405,7 +408,7 @@ export function AviatorGameSimplified() {
         return
       }
 
-      const autoCashout = betNumber === 1 ? autoCashout1 : autoCashout2
+      const autoCashout = betNumber === 1 ? autoCashout1 : undefined
       const parsedAutoCashout = autoCashout ? Number.parseFloat(autoCashout) : undefined
 
       if (parsedAutoCashout && (isNaN(parsedAutoCashout) || parsedAutoCashout < betValidation.minAutoCashout)) {
@@ -567,7 +570,7 @@ export function AviatorGameSimplified() {
       betAmount2,
       walletBalance,
       autoCashout1,
-      autoCashout2,
+      //autoCashout2,
       currentRoundId,
       refreshBalance,
       updateBalance,
@@ -950,6 +953,10 @@ export function AviatorGameSimplified() {
     ],
   )
 
+  const handleOpenPredictor = useCallback(() => {
+    router.push("/predictor")
+  }, [router])
+
   // Initialize game
   useEffect(() => {
     console.log("🎮 Initializing Aviator Game")
@@ -1071,28 +1078,11 @@ export function AviatorGameSimplified() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <BettingPanel {...bettingPanelProps} betNumber={1} />
-              <div className="relative">
-                <BettingPanel
-                  {...bettingPanelProps}
-                  betNumber={2}
-                  betAmount={betAmount2}
-                  setBetAmount={setBetAmount2}
-                  autoCashout={autoCashout2}
-                  setAutoCashout={setAutoCashout2}
-                  onPlaceBet={() => {}} // Disabled
-                  hasActiveBet={false}
-                  canPlaceBet={false}
-                  canCashOut={false}
-                  hasCashedOut={false}
-                  cashoutResult={undefined}
-                />
-                {/* Coming Soon Overlay */}
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white mb-2">Coming Soon</div>
-                    <div className="text-sm text-gray-300">Second betting panel will be available soon</div>
-                  </div>
-                </div>
+              <div className="block sm:hidden">
+                <AIPredictorPanel currentRoundId={currentRoundId} onOpenPredictor={handleOpenPredictor} />
+              </div>
+              <div className="hidden sm:block">
+                <AIPredictorPanel currentRoundId={currentRoundId} onOpenPredictor={handleOpenPredictor} />
               </div>
             </div>
 
@@ -1101,17 +1091,19 @@ export function AviatorGameSimplified() {
           </div>
 
           {/* Sidebar */}
-          <AviatorSidebar
-            showSidebar={showSidebar}
-            topWinners={topWinners}
-            livePlayers={totalLivePlayers}
-            recentCashouts={recentCashouts || []}
-            pastCrashes={pastCrashes || []}
-            setBetAmount1={setBetAmount1}
-            setBetAmount2={setBetAmount2}
-            isBettingPhase={isBettingPhase}
-            botActivities={botActivities || []}
-          />
+          <div className="space-y-6">
+            <AviatorSidebar
+              showSidebar={showSidebar}
+              topWinners={topWinners}
+              livePlayers={totalLivePlayers}
+              recentCashouts={recentCashouts || []}
+              pastCrashes={pastCrashes || []}
+              setBetAmount1={setBetAmount1}
+              setBetAmount2={setBetAmount2}
+              isBettingPhase={isBettingPhase}
+              botActivities={botActivities || []}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -51,7 +51,7 @@ export function RecentCrashes({ pastCrashes, premiumSureOdd }: RecentCrashesProp
             )}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div className="relative z-10">{crash.toFixed(2)}x</div>
+            <div className="relative z-10">{typeof crash === "number" ? crash.toFixed(2) : "0.00"}x</div>
           </div>
         ))}
       </div>
