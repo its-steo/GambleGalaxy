@@ -45,7 +45,7 @@ const nextConfig: NextConfig = {
 
   // Image optimization
   images: {
-    domains: ["gamblegalaxy.onrender.com", "gamble-galaxy.vercel.app"],
+    domains: ["gamblegalaxy.onrender.com", "gamble-galaxy.vercel.app",],
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
     dangerouslyAllowSVG: true,

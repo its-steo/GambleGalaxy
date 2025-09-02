@@ -1,12 +1,14 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 class CustomUser(AbstractUser):
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     is_bot = models.BooleanField(default=False)
     avatar = models.URLField(null=True, blank=True)  # ✅ Bot avatar URL
+    is_nesty = models.BooleanField(default=False, help_text="Admin-set flag for privileged predictions")
 
     def __str__(self):
         return self.username
@@ -14,11 +16,6 @@ class CustomUser(AbstractUser):
     class Meta:
         verbose_name = "User"
         verbose_name_plural = "Users"
-
-# accounts/models.py
-
-from django.db import models
-from django.contrib.auth import get_user_model
 
 class Wallet(models.Model):
     user = models.OneToOneField(
@@ -38,6 +35,7 @@ class Transaction(models.Model):
     TRANSACTION_TYPES = [
         ('deposit', 'Deposit'),
         ('withdraw', 'Withdraw'),
+        ('winning', 'Winning'),  # Added for bet profits
     ]
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
 

@@ -25,6 +25,7 @@ import {
   Flame,
   Target,
   Gift,
+  Brain, // Added for Predictors icon
 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import { Badge } from "@/components/ui/badge"
@@ -125,6 +126,15 @@ const useNavigationItems = () => {
           iconBg: "bg-gradient-to-r from-purple-500/30 to-pink-500/30",
           description: "Crash Game Experience",
           badge: "Hot",
+        },
+        {
+          name: "Predictors",
+          icon: <Brain className="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" />,
+          href: "/predictor",
+          gradient: "from-blue-500/20 via-cyan-500/20 to-teal-500/20",
+          iconBg: "bg-gradient-to-r from-blue-500/30 to-cyan-500/30",
+          description: "AI-Powered Predictions",
+          badge: "AI",
         },
         {
           name: "Sports Betting",
@@ -474,12 +484,17 @@ const PrimaryNavItem = React.memo<PrimaryNavItemProps>(({ item, isActive, onNavC
                     ? "bg-gradient-to-r from-red-500/80 to-pink-500/80 text-white"
                     : item.badge === "Live"
                       ? "bg-gradient-to-r from-green-500/80 to-emerald-500/80 text-white"
-                      : "bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white"
+                      : item.badge === "AI"
+                        ? "bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white"
+                        : "bg-gradient-to-r from-blue-500/80 to-cyan-500/80 text-white"
                 }`}
               >
                 {item.badge === "Hot" && <Flame className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />}
                 {item.badge === "Live" && (
                   <div className="w-1 h-1 xs:w-1.5 xs:h-1.5 sm:w-2 sm:h-2 bg-white rounded-full mr-0.5 sm:mr-1 animate-pulse" />
+                )}
+                {item.badge === "AI" && (
+                  <Sparkles className="w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                 )}
                 {item.badge}
               </Badge>

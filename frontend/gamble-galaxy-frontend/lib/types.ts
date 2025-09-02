@@ -648,6 +648,64 @@ export interface RecentActivityResponse
   success?: boolean
 }
 
+// Predictor-related types
+export interface PredictorPackage {
+  id: number
+  name: string
+  image_url: string | null
+  predictions_per_day: number
+  validity_days: number
+  price: number
+  created_at: string
+}
+
+export interface PredictorPurchase {
+  id: number;
+  predictor_package: {
+    name: string;
+    predictions_per_day: number;
+  };
+  expiry_date: string;
+  predictions_remaining: number;
+  purchase_date: string;
+}
+
+export interface PredictorPrediction {
+  id?: number; // Made optional
+  predicted_multiplier: number;
+  confidence_level?: number; // Made optional
+  round_id?: number; // Made optional
+  purchase_id: number;
+  created_at: string;
+}
+
+export interface PredictorStats {
+  total_predictions: number
+  accurate_predictions: number
+  accuracy_rate: number
+  average_confidence: number
+  best_prediction: number
+  total_packages_purchased: number
+}
+
+export interface PredictorData {
+  prediction: PredictorPrediction | null
+  has_active_package: boolean
+  predictions_remaining: number
+  daily_limit?: number
+}
+
+// Added missing API response type for generatePrediction
+export interface GeneratePredictionResponse {
+  prediction: number
+  is_nesty: boolean
+  message: string
+  predictions_remaining: number
+  confidence_level?: number // Optional since it might not always be included
+  round_id?: number
+  id?: number
+}
+
 export const isTopWinner = (obj: unknown): obj is TopWinner => {
   return (
     typeof obj === "object" &&
@@ -975,11 +1033,3 @@ export interface AviatorOptimizations extends GamePerformanceConfig {
   optimizedWebSocket: boolean
   batchUpdates: boolean
 }
-
-//interface LeaderboardEntry {
-//  rank: number;
-//  username: string;
-//  avatar?: string;
-//  winnings: number;
-//}
-
