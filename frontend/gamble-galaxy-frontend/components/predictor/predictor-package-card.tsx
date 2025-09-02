@@ -50,10 +50,10 @@ export function PredictorPackageCard({
               src={pkg.image_url || "/placeholder.svg"}
               alt={pkg.name}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                // Hide image if it fails to load
-                e.currentTarget.style.display = "none"
-              }}
+              //onError={(e) => {
+              //  // Hide image if it fails to load
+              //  //e.currentTarget.style.display = "none"
+              //}}
             />
           </div>
         )}
