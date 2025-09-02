@@ -109,6 +109,9 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+#SITE_URL = 'http://localhost:8000'
+SITE_URL = 'https://gamblegalaxy.onrender.com'
+
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
