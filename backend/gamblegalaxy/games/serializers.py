@@ -143,7 +143,13 @@ class PredictorPackageSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'image_url', 'predictions_per_day', 'validity_days', 'price', 'created_at']
 
     def get_image_url(self, obj):
-        return obj.get_image_url()
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            # Fallback to absolute URL using SITE_URL
+            return f"{settings.SITE_URL}{obj.image.url}"
+        return None
 
 class PredictorPurchaseSerializer(serializers.ModelSerializer):
     predictor_package_id = serializers.PrimaryKeyRelatedField(
