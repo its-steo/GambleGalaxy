@@ -1791,6 +1791,20 @@ const BettingPage = () => {
   const [bigGames, setBigGames] = useState<BigGameImage[]>([])
   const [bigGamesError, setBigGamesError] = useState<string | null>(null)
 
+
+  // In BettingPage component
+useEffect(() => {
+  if (!authLoading && isAuthenticated) {
+    loadMatches();
+    loadBetHistory();
+    const interval = setInterval(() => {
+      loadMatches();  // Refresh matches every 30s
+      if (betHistory.some(b => b.status === 'pending')) loadBetHistory();  // Refresh history if pending bets
+    }, 30000);
+    return () => clearInterval(interval);
+  }
+}, [isAuthenticated, authLoading]);
+
   // Mouse tracking for interactive background
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
