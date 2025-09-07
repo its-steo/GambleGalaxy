@@ -565,3 +565,7 @@ class AviatorConsumer(AsyncWebsocketConsumer):
             "is_nesty": user.is_nesty,
             "message": "Prediction will set next round multiplier" if user.is_nesty else "Prediction generated (no effect on round)"
         }))
+
+
+        
+        # Notify all users if Nesty user generated a prediction.
