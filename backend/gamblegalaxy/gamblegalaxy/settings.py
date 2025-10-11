@@ -118,7 +118,14 @@ CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_SAMESITE = 'Lax'  # Or 'Strict', but 'Lax' is usually sufficient
 CSRF_COOKIE_HTTPONLY = False  # Ensure JavaScript can’t access it, but browser sends it
 
+# Session and CORS settings
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_HTTPONLY = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://192.168.100.12,https://gamblegalaxy.co.ke,https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
 
+ROOT_URLCONF = 'gamblegalaxy.urls'
 
 # Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -213,8 +220,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-ROOT_URLCONF = 'gamblegalaxy.urls'
-
 # settings.py
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -263,5 +268,4 @@ if not DEBUG:
 #        },
 #    },
 #}
-
 
