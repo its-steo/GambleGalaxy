@@ -1,9 +1,14 @@
-import type { NextConfig } from "next"
-import type { Configuration } from "webpack"
+// next.config.ts
+import type { NextConfig } from "next";
+import type { Configuration } from "webpack";
 
 const withPWA = require("next-pwa")({
   dest: "public",
-  disable: process.env.NODE_ENV === "development",
+  disable: process.env.NODE_ENV === "development", // Keep as is, or set to false for dev testing like in Grandview
+  register: true,
+  skipWaiting: true,
+  swSrc: "app/sw.js", // Add this to use custom service worker source
+  swDest: "sw.js", // Output in public/sw.js
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   runtimeCaching: [
@@ -34,23 +39,32 @@ const withPWA = require("next-pwa")({
       handler: "NetworkOnly",
     },
   ],
-})
+});
 
 const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
-})
+});
 
 const nextConfig: NextConfig = {
   trailingSlash: true,
 
   // Image optimization
   images: {
-    domains: ["gamblegalaxy.onrender.com", "gamble-galaxy.vercel.app",],
+    domains: ["gamblegalaxy.onrender.com", "gamble-galaxy.vercel.app"],
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     unoptimized: true, // Added from updates
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "gamblegalaxy-storage.s3.amazonaws.com", // Add if needed, similar to Grandview
+        port: "",
+        pathname: "/packages/**",
+      },
+      // Add more if necessary
+    ],
   },
 
   // Compression and optimization
@@ -81,7 +95,7 @@ const nextConfig: NextConfig = {
   webpack: (config: Configuration, { dev, isServer }: { dev: boolean; isServer: boolean }) => {
     if (!dev && !isServer) {
       // Split chunks for better caching
-      config.optimization = config.optimization || {}
+      config.optimization = config.optimization || {};
       config.optimization.splitChunks = {
         chunks: "all",
         cacheGroups: {
@@ -124,23 +138,23 @@ const nextConfig: NextConfig = {
             reuseExistingChunk: true,
           },
         },
-      }
+      };
 
       // Tree shaking optimization
-      config.optimization.usedExports = true
-      config.optimization.sideEffects = false
+      config.optimization.usedExports = true;
+      config.optimization.sideEffects = false;
     }
 
-    config.module = config.module || { rules: [] }
+    config.module = config.module || { rules: [] };
     if (!config.module.rules) {
-      config.module.rules = []
+      config.module.rules = [];
     }
     config.module.rules.push({
       test: /\.svg$/,
       use: ["@svgr/webpack"],
-    })
+    });
 
-    return config
+    return config;
   },
 
   // Headers for better caching
@@ -172,7 +186,7 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-    ]
+    ];
   },
 
   // Added from updates
@@ -182,6 +196,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-}
+};
 
-export default withBundleAnalyzer(withPWA(nextConfig))
+export default withBundleAnalyzer(withPWA(nextConfig));
