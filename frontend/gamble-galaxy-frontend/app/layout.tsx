@@ -1,194 +1,50 @@
-//"use client";
-//
-//import { usePathname } from "next/navigation";
-//import { Navbar } from "@/components/layout/navbar";
-//import { WalletProvider } from "@/context/WalletContext";
-//import { useAuth } from "@/lib/auth";
-//import { useEffect } from "react";
-//import "./globals.css";
-//import { Toaster } from "sonner";
-//import { ThemeProvider } from "../components/themes/theme-provider";
-//
-//const excludeNavbarRoutes = ["/auth/login", "/auth/register"];
-//
-//export default function RootLayout({
-//  children,
-//}: {
-//  children: React.ReactNode;
-//}) {
-//  const pathname = usePathname();
-//  const { loadUser, isLoading } = useAuth();
-//
-//  // Sync user session on mount
-//  useEffect(() => {
-//    loadUser();
-//  }, [loadUser]);
-//
-//  // Loading state
-//  if (isLoading) {
-//    return (
-//      <html lang="en">
-//        <head>
-//          {/* <link
-//            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
-//            rel="stylesheet"
-//          /> */}
-//          <link rel="icon" href="/assets/images/home.png" />
-//        </head>
-//        <body className="bg-gray-900 text-white">
-//          <div className="min-h-screen flex items-center justify-center">
-//            <div className="text-center">
-//              <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-purple-500 mx-auto mb-4"></div>
-//              <p className="text-white text-lg">Loading...</p>
-//            </div>
-//          </div>
-//        </body>
-//      </html>
-//    );
-//  }
-//
-//  return (
-//    <html lang="en">
-//      <head>
-//        {/* <link
-//          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
-//          rel="stylesheet"
-//        /> */}
-//        <link rel="icon" href="/assets/images/home.png" />
-//      </head>
-//      <body className="bg-gray-900 text-white font-sans antialiased">
-//        <ThemeProvider
-//          attribute="class"
-//          defaultTheme="system"
-//          enableSystem
-//          disableTransitionOnChange
-//        >
-//          <WalletProvider>
-//            {/* Optional Navbar */}
-//            {!excludeNavbarRoutes.includes(pathname) && <Navbar />}
-//
-//            {/* Main content */}
-//            <main className="min-h-screen w-full overflow-x-hidden">
-//              {children}
-//            </main>
-//
-//            {/* Global Toaster with Glassmorphism */}
-//            <Toaster
-//              position="top-center"
-//              richColors
-//              expand
-//              closeButton
-//              duration={3500}
-//              toastOptions={{
-//                classNames: {
-//                  toast:
-//                    "rounded-xl border border-white/10 bg-white/10 backdrop-blur-md text-white shadow-lg",
-//                  title: "font-semibold text-sm sm:text-base",
-//                  description: "text-xs sm:text-sm text-neutral-200",
-//                  closeButton: "text-white hover:text-red-400",
-//                },
-//                style: {
-//                  padding: "12px 16px",
-//                  borderRadius: "12px",
-//                  background: "rgba(255, 255, 255, 0.1)", // Semi-transparent white for glass effect
-//                  backdropFilter: "blur(10px)", // Blur for frosted glass
-//                  WebkitBackdropFilter: "blur(10px)", // Safari support
-//                  boxShadow: "0 4px 30px rgba(0, 0, 0, 0.2)", // Soft shadow
-//                  border: "1px solid rgba(255, 255, 255, 0.2)", // Subtle border
-//                  fontSize: "14px",
-//                },
-//              }}
-//            />
-//          </WalletProvider>
-//        </ThemeProvider>
-//      </body>
-//    </html>
-//  );
-//}
-
-// app/layout.tsx
-"use client";
-
-import { usePathname } from "next/navigation";
-import { Navbar } from "@/components/layout/navbar";
-import { WalletProvider } from "@/context/WalletContext";
-import { useAuth } from "@/lib/auth";
-import { useEffect } from "react";
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import Head from "next/head";
+import ClientLayout from "./ClientLayout"; // New Client Component
 import "./globals.css";
-import { Toaster } from "sonner";
-import { ThemeProvider } from "next-themes";
 
-const excludeNavbarRoutes = ["/auth/login", "/auth/register"];
+export const metadata: Metadata = {
+  title: "Gamble Galaxy - Premier Gambling Platform",
+  description: "Professional gambling platform with advanced features and analytics",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/assets/images/gamble-logo-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/assets/images/gamble-logo-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/assets/images/gamble-logo-maskable-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/assets/images/gamble-logo-maskable-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/assets/images/gamble-logo-192.png", sizes: "192x192", type: "image/png" },
+    ],
+  },
+};
 
-export default function ClientLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const { loadUser, isLoading } = useAuth();
-
-  // Sync user session on mount
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-purple-500 mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <WalletProvider>
-        {/* Optional Navbar */}
-        {!excludeNavbarRoutes.includes(pathname) && <Navbar />}
-
-        {/* Main content */}
-        <main className="min-h-screen w-full overflow-x-hidden">
-          {children}
-        </main>
-
-        {/* Global Toaster with Glassmorphism */}
-        <Toaster
-          position="top-center"
-          richColors
-          expand
-          closeButton
-          duration={3500}
-          toastOptions={{
-            classNames: {
-              toast:
-                "rounded-xl border border-white/10 bg-white/10 backdrop-blur-md text-white shadow-lg",
-              title: "font-semibold text-sm sm:text-base",
-              description: "text-xs sm:text-sm text-neutral-200",
-              closeButton: "text-white hover:text-red-400",
-            },
-            style: {
-              padding: "12px 16px",
-              borderRadius: "12px",
-              background: "rgba(255, 255, 255, 0.1)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              boxShadow: "0 4px 30px rgba(0, 0, 0, 0.2)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              fontSize: "14px",
-            },
+    <html lang="en" suppressHydrationWarning>
+      <Head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#3d3d3d" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="icon" href="/assets/images/home.png" />
+        <script
+          defer
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+              })();
+            `,
           }}
         />
-      </WalletProvider>
-    </ThemeProvider>
+      </Head>
+      <body className="bg-gray-900 text-white font-sans antialiased">
+        <ClientLayout>{children}</ClientLayout>
+      </body>
+    </html>
   );
 }

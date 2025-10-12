@@ -1,10 +1,7 @@
-// app/sw.js (create this file)
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.2.0/workbox-sw.js');
 
-// Precache assets using the manifest injected by Workbox
 workbox.precaching.precacheAndRoute(self.__WB_MANIFEST);
 
-// Register a route for HTTPS URLs to use StaleWhileRevalidate strategy
 workbox.routing.registerRoute(
   ({ url }) => url.protocol.startsWith('https'),
   new workbox.strategies.StaleWhileRevalidate({
@@ -17,7 +14,6 @@ workbox.routing.registerRoute(
   })
 );
 
-// Register a route for images to use CacheFirst strategy
 workbox.routing.registerRoute(
   ({ url }) => url.pathname.match(/\.(?:png|jpg|jpeg|svg|gif)$/),
   new workbox.strategies.CacheFirst({
@@ -25,18 +21,34 @@ workbox.routing.registerRoute(
     plugins: [
       new workbox.expiration.ExpirationPlugin({
         maxEntries: 100,
-        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+        maxAgeSeconds: 30 * 24 * 60 * 60,
       }),
     ],
   })
 );
 
-// Skip waiting on install to activate the service worker immediately
+workbox.routing.registerRoute(
+  ({ url }) => url.href.match(/^https:\/\/gamblegalaxy\.onrender\.com\/api\/.*/i),
+  new workbox.strategies.NetworkFirst({
+    cacheName: 'api-cache',
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 24 * 60 * 60,
+      }),
+    ],
+  })
+);
+
+workbox.routing.registerRoute(
+  ({ url }) => url.href.match(/^wss:\/\/gamblegalaxy\.onrender\.com\/ws\/aviator\/.*/i),
+  new workbox.strategies.NetworkOnly()
+);
+
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-// Claim clients on activation to take control immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
