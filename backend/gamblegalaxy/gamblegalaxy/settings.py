@@ -33,6 +33,7 @@ ALLOWED_HOSTS = [
     'https://gamblegalaxy.co.ke',
     'gamblegalaxy.co.ke',
     'https://gamble-galaxy.vercel.app',
+    'localhost:8000',
 ]
 
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app,https://gamblegalaxy.co.ke,http://localhost:3000,http://192.0.0.1:3000').split(',')

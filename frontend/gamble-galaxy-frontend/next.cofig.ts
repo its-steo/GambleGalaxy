@@ -1,44 +1,13 @@
-// next.config.ts
 import type { NextConfig } from "next";
 import type { Configuration } from "webpack";
 
 const withPWA = require("next-pwa")({
   dest: "public",
-  disable: process.env.NODE_ENV === "development", // Keep as is, or set to false for dev testing like in Grandview
+  disable: false, // Revert to process.env.NODE_ENV === "development" after testing
   register: true,
   skipWaiting: true,
-  swSrc: "app/sw.js", // Add this to use custom service worker source
-  swDest: "sw.js", // Output in public/sw.js
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
-  runtimeCaching: [
-    {
-      urlPattern: /^https?.*\.(mp3|png|jpg|jpeg|gif|svg|woff2?|ttf|eot)$/i,
-      handler: "CacheFirst",
-      options: {
-        cacheName: "static-assets",
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-        },
-      },
-    },
-    {
-      urlPattern: /^https:\/\/gamblegalaxy\.onrender\.com\/api\/.*/i,
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "api-cache",
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 24 * 60 * 60, // 1 day
-        },
-      },
-    },
-    {
-      urlPattern: /^wss:\/\/gamblegalaxy\.onrender\.com\/ws\/aviator\/.*/i,
-      handler: "NetworkOnly",
-    },
-  ],
+  swSrc: "app/sw.js",
+  swDest: "sw.js",
 });
 
 const withBundleAnalyzer = require("@next/bundle-analyzer")({
@@ -47,31 +16,16 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 
 const nextConfig: NextConfig = {
   trailingSlash: true,
-
-  // Image optimization
   images: {
     domains: ["gamblegalaxy.onrender.com", "gamble-galaxy.vercel.app"],
     formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 60 * 60 * 24 * 30, // 30 days
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    unoptimized: true, // Added from updates
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "gamblegalaxy-storage.s3.amazonaws.com", // Add if needed, similar to Grandview
-        port: "",
-        pathname: "/packages/**",
-      },
-      // Add more if necessary
-    ],
+    unoptimized: true,
   },
-
-  // Compression and optimization
   compress: true,
   poweredByHeader: false,
-
-  // Bundle optimization
   experimental: {
     optimizeCss: true,
     optimizePackageImports: [
@@ -91,45 +45,44 @@ const nextConfig: NextConfig = {
       },
     },
   },
-
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   webpack: (config: Configuration, { dev, isServer }: { dev: boolean; isServer: boolean }) => {
     if (!dev && !isServer) {
-      // Split chunks for better caching
       config.optimization = config.optimization || {};
       config.optimization.splitChunks = {
         chunks: "all",
         cacheGroups: {
           default: false,
           vendors: false,
-          // Vendor chunk for stable dependencies
           vendor: {
             name: "vendor",
             chunks: "all",
             test: /node_modules/,
             priority: 20,
           },
-          // UI components chunk
           ui: {
             name: "ui",
             chunks: "all",
             test: /[\\/]components[\\/]ui[\\/]/,
             priority: 30,
           },
-          // Lucide icons chunk (heavy dependency)
           icons: {
             name: "icons",
             chunks: "all",
             test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
             priority: 40,
           },
-          // Framer Motion chunk (heavy animation library)
           animations: {
             name: "animations",
             chunks: "all",
             test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
             priority: 40,
           },
-          // Common chunk for shared code
           common: {
             name: "common",
             chunks: "all",
@@ -139,8 +92,6 @@ const nextConfig: NextConfig = {
           },
         },
       };
-
-      // Tree shaking optimization
       config.optimization.usedExports = true;
       config.optimization.sideEffects = false;
     }
@@ -156,25 +107,14 @@ const nextConfig: NextConfig = {
 
     return config;
   },
-
-  // Headers for better caching
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
-          {
-            key: "X-XSS-Protection",
-            value: "1; mode=block",
-          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
         ],
       },
       {
@@ -187,14 +127,6 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
-  },
-
-  // Added from updates
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
   },
 };
 
