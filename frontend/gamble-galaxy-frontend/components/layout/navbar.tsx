@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "../ui/button"
 import { useAuth } from "@/lib/auth"
-import { LogOut } from "lucide-react"
+import { LogOut } from 'lucide-react'
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
@@ -39,7 +39,7 @@ export function Navbar() {
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-full"
-                      unoptimized={user.avatar.startsWith("data:")} // Handle base64 or external images
+                      unoptimized={user.avatar.startsWith("data:")}
                     />
                   ) : (
                     <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
@@ -56,14 +56,15 @@ export function Navbar() {
                 </Button>
               </>
             ) : (
-              <div className="flex space-x-2">
-                <Link href="/auth/login">
-                  <Button variant="ghost">Login</Button>
-                </Link>
-                <Link href="/auth/register">
-                  <Button className="bg-gradient-to-r from-purple-500 to-pink-500">Sign Up</Button>
-                </Link>
-              </div>
+              // <div className="flex space-x-2">
+              //   <Link href="/auth/login">
+              //     <Button variant="ghost">Login</Button>
+              //   </Link>
+              //   <Link href="/auth/register">
+              //     <Button className="bg-gradient-to-r from-purple-500 to-pink-500">Sign Up</Button>
+              //   </Link>
+              // </div>
+              null
             )}
           </div>
         </div>
