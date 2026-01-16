@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import ReactDOM from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -22,6 +22,17 @@ export interface DialogHeaderProps {
 }
 
 export interface DialogTitleProps {
+  className?: string
+  children: React.ReactNode
+}
+
+export interface DialogTriggerProps {
+  asChild?: boolean
+  className?: string
+  children: React.ReactNode
+}
+
+export interface DialogFooterProps {
   className?: string
   children: React.ReactNode
 }
@@ -72,7 +83,59 @@ export const DialogTitle: React.FC<DialogTitleProps> = ({ className, children })
   return <h2 className={cn("text-lg font-semibold leading-none tracking-tight", className)}>{children}</h2>
 }
 
-// For backward compatibility with your existing Dialog usage
+export const DialogFooter: React.FC<DialogFooterProps> = ({ className, children }) => {
+  return (
+    <div
+      className={cn(
+        "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+export const DialogTrigger: React.FC<DialogTriggerProps> = ({ asChild, className, children }) => {
+  const dialogContext = React.useContext(DialogContext)
+
+  const handleClick = () => {
+    if (dialogContext?.onOpenChange) {
+      dialogContext.onOpenChange(true)
+    }
+  }
+
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children, {
+      className: cn(children.props.className, className),
+      onClick: handleClick,
+    } as React.HTMLAttributes<HTMLElement>)
+  }
+
+  return (
+    <button
+      className={cn("px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300", className)}
+      onClick={handleClick}
+    >
+      {children}
+    </button>
+  )
+}
+
+const DialogContext = React.createContext<{
+  onOpenChange?: (open: boolean) => void
+} | null>(null)
+
+const DialogWithContext: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
+  return (
+    <DialogContext.Provider value={{ onOpenChange }}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {children}
+      </Dialog>
+    </DialogContext.Provider>
+  )
+}
+
 export interface LegacyDialogProps {
   isOpen: boolean
   title?: string
@@ -108,3 +171,5 @@ export const LegacyDialog: React.FC<LegacyDialogProps> = ({ isOpen, title, onClo
     document.body,
   )
 }
+
+export default DialogWithContext

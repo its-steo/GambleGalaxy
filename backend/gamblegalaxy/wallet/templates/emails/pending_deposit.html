@@ -1,0 +1,11 @@
+<!-- templates/emails/pending_deposit.html -->
+<p>Dear Admin,</p>
+<p>A new STK Push deposit requires verification:</p>
+<ul>
+    <li>User: {{ user.username }}</li>
+    <li>Amount: {{ amount }}</li>
+    <li>Receipt: {{ receipt }}</li>
+    <li>Phone: {{ account_details }}</li>
+    <li>Time: {{ timestamp }}</li>
+</ul>
+<p>Please verify in the M-Pesa portal and approve/reject in the admin panel.</p>

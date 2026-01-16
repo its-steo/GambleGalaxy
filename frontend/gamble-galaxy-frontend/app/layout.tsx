@@ -1,94 +1,49 @@
-"use client";
-
-import { usePathname } from "next/navigation";
-import { Navbar } from "@/components/layout/navbar";
-import { WalletProvider } from "@/context/WalletContext";
-import { useAuth } from "@/lib/auth";
-import { useEffect } from "react";
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import Head from "next/head";
+import ClientLayout from "./ClientLayout"; // New Client Component
 import "./globals.css";
-import { Toaster } from "sonner";
 
-const excludeNavbarRoutes = ["/auth/login", "/auth/register"];
+export const metadata: Metadata = {
+  title: "Gamble Galaxy - Premier Gambling Platform",
+  description: "Professional gambling platform with advanced features and analytics",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/assets/images/gamble-logo-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/assets/images/gamble-logo-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/assets/images/gamble-logo-maskable-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/assets/images/gamble-logo-maskable-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/assets/images/gamble-logo-192.png", sizes: "192x192", type: "image/png" },
+    ],
+  },
+};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const { loadUser, isLoading } = useAuth();
-
-  // Sync user session on mount
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <html lang="en">
-        <head>
-          {/* <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
-            rel="stylesheet"
-          /> */}
-          <link rel="icon" href="/assets/images/home.png" />
-        </head>
-        <body className="bg-gray-900 text-white">
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-purple-500 mx-auto mb-4"></div>
-              <p className="text-white text-lg">Loading...</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    );
-  }
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        {/* <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
-          rel="stylesheet"
-        /> */}
+    <html lang="en" suppressHydrationWarning>
+      <Head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#3d3d3d" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="icon" href="/assets/images/home.png" />
-      </head>
+        <script
+          defer
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+              })();
+            `,
+          }}
+        />
+      </Head>
       <body className="bg-gray-900 text-white font-sans antialiased">
-        <WalletProvider>
-          {/* Optional Navbar */}
-          {!excludeNavbarRoutes.includes(pathname) && <Navbar />}
-
-          {/* Main content */}
-          <main className="min-h-screen w-full overflow-x-hidden">
-            {children}
-          </main>
-
-          {/* Global Toaster */}
-          <Toaster
-            position="top-center"
-            richColors
-            expand
-            closeButton
-            duration={3500}
-            toastOptions={{
-              classNames: {
-                toast:
-                  "rounded-xl shadow-xl border border-white/20 bg-gradient-to-br from-zinc-900 via-neutral-900 to-zinc-800 text-white",
-                title: "font-semibold text-sm sm:text-base",
-                description: "text-xs sm:text-sm text-neutral-300",
-                closeButton: "text-white hover:text-red-400",
-              },
-              style: {
-                padding: "12px 16px",
-                borderRadius: "12px",
-                boxShadow: "0 0 12px rgba(0, 255, 164, 0.3)",
-                fontSize: "14px",
-              },
-            }}
-          />
-        </WalletProvider>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

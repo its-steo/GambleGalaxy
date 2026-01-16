@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deposit Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #28a745;
+            color: #ffffff;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .content p {
+            margin: 10px 0;
+        }
+        .details {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .details p {
+            margin: 5px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 12px;
+            color: #666666;
+        }
+        @media only screen and (max-width: 600px) {
+            .container {
+                margin: 10px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Deposit Confirmation</h2>
+        </div>
+        <div class="content">
+            <p>Dear {{ user.username }},</p>
+            <p>We’re pleased to confirm that your deposit to Gamble Galaxy has been successfully processed!</p>
+            <div class="details">
+                <p><strong>Amount:</strong> {{ amount }} KES</p>
+                <p><strong>Transaction ID:</strong> {{ transaction_id }}</p>
+                <p><strong>Date:</strong> {{ timestamp|date:"F d, Y H:i" }}</p>
+                <p><strong>Phone Number:</strong> {{ account_details }}</p>
+            </div>
+            <p>Your wallet balance has been updated. You can view your transaction history in your account dashboard.</p>
+            <p>Thank you for choosing Gamble Galaxy!</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 Gamble Galaxy. All rights reserved.</p>
+            <p>Contact us at <a href="mailto:support@gamblegalaxy.com">support@gamblegalaxy.com</a> for assistance.</p>
+        </div>
+    </div>
+</body>
+</html>

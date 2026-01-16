@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from decimal import Decimal, ROUND_HALF_UP
-from .models import Match, Bet, BetSelection, SureOddSlip
+from .models import Match, Bet, BetSelection, SureOddSlip, BigGameImage
 from wallet.models import Wallet
+
 
 
 # -----------------------
@@ -70,8 +71,12 @@ class BetSerializer(serializers.ModelSerializer):
         wallet.balance -= amount
         wallet.save()
 
-        # Create Bet object
-        bet = Bet.objects.create(user=user, amount=amount)
+        # Create Bet object with initial total_odds
+        bet = Bet.objects.create(
+            user=user,
+            amount=amount,
+            total_odds=Decimal('1.0')  # Initial value to satisfy NOT NULL
+        )
         total_odds = Decimal('1.0')
 
         for selection_data in selections_data:
@@ -152,3 +157,19 @@ class SureOddSlipSerializer(serializers.ModelSerializer):
             payout = Decimal(str(obj.amount_paid)) * odds
             return payout.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return Decimal("0.00")
+    
+    # -----------------------
+# BIG GAME IMAGE SERIALIZER
+# -----------------------
+class BigGameImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+    match_id = serializers.PrimaryKeyRelatedField(source='match', read_only=True)
+
+    class Meta:
+        model = BigGameImage
+        fields = ['id', 'title', 'image_url', 'match_id', 'upload_date', 'is_active']
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return self.context['request'].build_absolute_uri(obj.image.url)
+        return None

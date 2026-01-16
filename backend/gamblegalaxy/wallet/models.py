@@ -1,39 +1,93 @@
+#from django.db import models
+#from django.conf import settings
+#from django.db.models import F
+#
+#class Wallet(models.Model):
+#    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wallet')
+#    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+#
+#    def deposit(self, amount):
+#        """Atomically increase wallet balance."""
+#        self.balance = F('balance') + amount
+#        self.save()
+#        self.refresh_from_db()  # Ensure balance is updated
+#        return True
+#
+#    def withdraw(self, amount):
+#        """Atomically decrease wallet balance if sufficient funds."""
+#        if self.balance >= amount:
+#            self.balance = F('balance') - amount
+#            self.save()
+#            self.refresh_from_db()  # Ensure balance is updated
+#            return True
+#        return False
+#
+#    def __str__(self):
+#        return f"{self.user.username}'s Wallet: {self.balance}"
+#
+#class Transaction(models.Model):
+#    TRANSACTION_TYPES = (
+#        ('deposit', 'Deposit'),
+#        ('withdraw', 'Withdraw'),
+#        ('winning', 'Winning'),
+#        ('bonus', 'Bonus'),
+#        ('penalty', 'Penalty'),
+#    )
+#
+#    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transactions')
+#    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+#    amount = models.DecimalField(max_digits=10, decimal_places=2)
+#    timestamp = models.DateTimeField(auto_now_add=True)
+#    description = models.CharField(max_length=255, blank=True)
+#    payment_transaction_id = models.CharField(max_length=50, blank=True, unique=True, null=True)
+#
+#    def __str__(self):
+#        return f"{self.user.username} - {self.transaction_type} - {self.amount} - {self.timestamp}"
+
 from django.db import models
 from django.conf import settings
-from django.utils.translation import gettext_lazy as _
+from django.db.models import F
 
 class Wallet(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wallet')
-    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-
-    def __str__(self):
-        return f"{self.user.username}'s Wallet"
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     def deposit(self, amount):
-        self.balance += amount
+        """Atomically increase wallet balance."""
+        self.balance = F('balance') + amount
         self.save()
+        self.refresh_from_db()  # Ensure balance is updated
+        return True
 
     def withdraw(self, amount):
+        """Atomically decrease wallet balance if sufficient funds."""
         if self.balance >= amount:
-            self.balance -= amount
+            self.balance = F('balance') - amount
             self.save()
+            self.refresh_from_db()  # Ensure balance is updated
             return True
         return False
 
+    def __str__(self):
+        return f"{self.user.username}'s Wallet: {self.balance}"
 
 class Transaction(models.Model):
-    class TransactionType(models.TextChoices):
-        DEPOSIT = 'deposit', _('Deposit')
-        WITHDRAW = 'withdraw', _('Withdraw')
-        WINNING = 'winning', _('Winning')  # Bonus type for winnings
-        BONUS = 'bonus', _('Bonus')
-        PENALTY = 'penalty', _('Penalty')
+    TRANSACTION_TYPES = (
+        ('deposit', 'Deposit'),
+        ('withdraw', 'Withdraw'),
+        ('winning', 'Winning'),
+        ('bonus', 'Bonus'),
+        ('penalty', 'Penalty'),
+    )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transactions')
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    transaction_type = models.CharField(max_length=10, choices=TransactionType.choices)
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     timestamp = models.DateTimeField(auto_now_add=True)
-    description = models.TextField(blank=True, null=True)  # Optional, for referencing source
+    description = models.CharField(max_length=255, blank=True)
+    payment_transaction_id = models.CharField(max_length=50, blank=True, unique=True, null=True)
+    account_details = models.CharField(max_length=100, blank=True, null=True)  # Store phone number or account number
+    mpesa_code = models.CharField(max_length=20, blank=True, null=True, unique=True)  # Store M-Pesa receipt code
 
     def __str__(self):
-        return f"{self.get_transaction_type_display()} of {self.amount} by {self.user.username}"
+        return f"{self.user.username} - {self.transaction_type} - {self.amount} - {self.timestamp}"

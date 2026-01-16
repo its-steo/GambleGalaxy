@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,11 +21,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-(t0hacm!ebtpu_p=ugo0lvd9%k@h5zsoy@85+6_z^qywlikmkg')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = os.getenv('DEBUG', 'False') == 'False'
+#DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
+#ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],192.168.100.12,gamblegalaxy.onrender.com,gamble-galaxy.vercel.app').split(',')
 
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
+ALLOWED_HOSTS = [
+    'https://gamblegalaxy.onrender.com',
+    'gamblegalaxy.onrender.com',
+    'gamble-galaxy.vercel.app',
+    'https://gamblegalaxy.co.ke',
+    'gamblegalaxy.co.ke',
+    'https://gamble-galaxy.vercel.app',
+    'localhost:8000',
+]
+
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app,https://gamblegalaxy.co.ke,http://localhost:3000,http://192.0.0.1:3000').split(',')
 
 # CSRF cookie settings
 CSRF_COOKIE_SECURE = not DEBUG
@@ -42,6 +54,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'accounts',
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
     'wallet',
     'betting',
@@ -49,10 +62,12 @@ INSTALLED_APPS = [
     'core',
     'channels',
     'dashboard',
+    
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -61,6 +76,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
 
 ASGI_APPLICATION = 'gamblegalaxy.asgi.application'
 
@@ -87,23 +103,53 @@ REST_FRAMEWORK = {
     )
 }
 
+# JWT settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+#SITE_URL = 'http://localhost:8000'
+SITE_URL = 'https://gamblegalaxy.onrender.com'
+
 AUTH_USER_MODEL = 'accounts.CustomUser'
+
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_COOKIE_SAMESITE = 'Lax'  # Or 'Strict', but 'Lax' is usually sufficient
+CSRF_COOKIE_HTTPONLY = False  # Ensure JavaScript can’t access it, but browser sends it
 
 # Session and CORS settings
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_HTTPONLY = True
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://192.168.100.12,https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://192.168.100.12,https://gamblegalaxy.co.ke,https://gamblegalaxy.onrender.com,https://gamble-galaxy.vercel.app').split(',')
 
 ROOT_URLCONF = 'gamblegalaxy.urls'
+
+# Email configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'globalgrowthinvest@gmail.com'
+EMAIL_HOST_PASSWORD = 'fdvyuvtreqtoocir'  # App-specific password for Gmail
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'Gamble Galaxy <globalgrowthinvest@gmail.com>'  # Must match EMAIL_HOST_USER or a verified alias
+ADMIN_EMAIL = 'globalgrowthinvest@gmail.com'  # Admin email for deposit notifications
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            BASE_DIR / 'betting/templates',
-            BASE_DIR / 'betting/templates/frontend',
+            os.path.join(BASE_DIR, "templates"),               # project-level templates
+            BASE_DIR / 'betting' / 'templates',                # app-level templates
+            BASE_DIR / 'betting' / 'templates' / 'frontend',   # frontend templates
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -116,12 +162,21 @@ TEMPLATES = [
     },
 ]
 
+
 # Football API Key
 FOOTBALL_API_KEY = os.getenv('FOOTBALL_API_KEY', '433af63d5d2af7799890c753a53fe758')
 
 WSGI_APPLICATION = 'gamblegalaxy.wsgi.application'
 
-# Database
+
+#Database
+
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': BASE_DIR / 'db.sqlite3',
+#    }
+#}
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -156,14 +211,23 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files
-STATIC_URL = '/static/'
+STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
 
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# settings.py
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Media settings
+MEDIA_URL = '/media/'  # The URL prefix for media files
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # The filesystem path where media files are stored
 
 # Security settings for production
 if not DEBUG:
@@ -173,27 +237,36 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_REDIRECT_EXEMPT = []
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = False
     X_FRAME_OPTIONS = 'DENY'
 
 # Logging configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
-}
+#LOGGING = {
+#    'version': 1,
+#    'disable_existing_loggers': False,
+#
+#    'handlers': {
+#        'console': {
+#            'class': 'logging.StreamHandler',
+#        },
+#    },
+#
+#    'root': {
+#        'handlers': ['console'],
+#        'level': 'DEBUG' if DEBUG else 'WARNING',
+#    },
+#
+#    'loggers': {
+#        'django': {
+#            'handlers': ['console'],
+#            'level': 'DEBUG' if DEBUG else 'WARNING',
+#            'propagate': False,
+#        },
+#        'aviator': {  # custom logger for your game
+#            'handlers': ['console'],
+#            'level': 'DEBUG' if DEBUG else 'WARNING',
+#            'propagate': False,
+#        },
+#    },
+#}
+

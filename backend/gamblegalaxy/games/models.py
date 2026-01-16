@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
+from django.core.files.storage import default_storage
 import random
 
 class AviatorRound(models.Model):
@@ -47,6 +48,11 @@ class AviatorRound(models.Model):
         if self.ended_at:
             return (timezone.now() - self.ended_at).total_seconds() >= self.delay_before_next
         return False
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['is_active', 'ended_at']),
+        ]
 
 
 class AviatorBet(models.Model):
@@ -167,3 +173,52 @@ class CrashMultiplierSetting(models.Model):
 
     def __str__(self):
         return f"{self.min_value:.2f}x - {self.max_value:.2f}x ({self.weight}%)"
+    
+class PredictorPackage(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    image = models.ImageField(upload_to='predictor_images/')  # Defaults to required
+    predictions_per_day = models.PositiveIntegerField(default=1, help_text="Number of predictions allowed per day")
+    validity_days = models.PositiveIntegerField(default=7, help_text="Validity period in days")
+    price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Price of the predictor package")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.price} (Valid for {self.validity_days} days)"
+
+    def get_image_url(self):
+        """Generate the full URL for the image using default_storage"""
+        if self.image:
+            return default_storage.url(self.image.name)
+        return None
+
+    class Meta:
+        verbose_name = "Predictor Package"
+        verbose_name_plural = "Predictor Packages"
+
+class PredictorPurchase(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='predictor_purchases')
+    predictor_package = models.ForeignKey(PredictorPackage, on_delete=models.CASCADE, related_name='purchases')
+    purchase_date = models.DateTimeField(auto_now_add=True)
+    expiry_date = models.DateTimeField()
+    predictions_used_today = models.PositiveIntegerField(default=0)
+    last_reset_date = models.DateField(default=timezone.now)
+
+    def is_active(self):
+        """Check if the purchase is still valid"""
+        return timezone.now() <= self.expiry_date and self.predictor_package is not None
+
+    def can_predict(self):
+        """Check if user can make a prediction today"""
+        today = timezone.now().date()
+        if self.last_reset_date < today:
+            self.predictions_used_today = 0
+            self.last_reset_date = today
+            self.save()
+        return self.predictions_used_today < self.predictor_package.predictions_per_day and self.is_active()
+
+    def __str__(self):
+        return f"{self.user.username} - {self.predictor_package.name} (Expires: {self.expiry_date})"
+
+    class Meta:
+        verbose_name = "Predictor Purchase"
+        verbose_name_plural = "Predictor Purchases"

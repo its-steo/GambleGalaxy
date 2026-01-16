@@ -5,6 +5,8 @@ from .models import UserStats, RecentActivity, TopWinner
 from wallet.models import Transaction
 from betting.models import Bet
 from games.models import AviatorBet
+from decimal import Decimal
+
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_user_stats(sender, instance, created, **kwargs):
@@ -25,13 +27,13 @@ def create_activity_from_transaction(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Bet)
 def create_activity_from_bet(sender, instance, created, **kwargs):
+    user_stats, _ = UserStats.objects.get_or_create(user=instance.user)
+    
     if created:
-        # Check if selections exist before accessing them
         first_selection = instance.selections.first()
         if first_selection:
             description = "Bet placed on multiple matches" if instance.selections.count() > 1 else f"Bet placed on {first_selection.match}"
         else:
-            # Fallback description when selections haven't been created yet
             description = f"Sports bet placed - Amount: KES {instance.amount}"
         
         RecentActivity.objects.create(
@@ -42,8 +44,10 @@ def create_activity_from_bet(sender, instance, created, **kwargs):
             description=description,
             status='pending'
         )
+        # Update UserStats for bet
+        user_stats.total_bets += 1
+        user_stats.active_bets += 1
     
-    # Handle bet wins
     if instance.status == 'won' and instance.expected_payout:
         first_selection = instance.selections.first()
         if first_selection:
@@ -59,17 +63,37 @@ def create_activity_from_bet(sender, instance, created, **kwargs):
             description=description,
             status='completed'
         )
+        # Update UserStats for win
+        user_stats.total_winnings += instance.expected_payout
+        user_stats.active_bets = max(0, user_stats.active_bets - 1)
         
-        # Create top winner entry for big wins
         if instance.expected_payout >= 1000:
             TopWinner.objects.create(
                 user=instance.user,
                 amount=instance.expected_payout,
                 game_type='sports_betting'
             )
+    
+    if instance.status == 'lost':
+        RecentActivity.objects.create(
+            user=instance.user,
+            activity_type='lost',
+            game_type='sports_betting',
+            amount=instance.amount,
+            description=f"Lost bet - Amount: KES {instance.amount}",
+            status='completed'
+        )
+        # Update UserStats for loss
+        user_stats.total_losses += instance.amount
+        user_stats.active_bets = max(0, user_stats.active_bets - 1)
+    
+    user_stats.calculate_win_rate()
+    user_stats.save()
 
 @receiver(post_save, sender=AviatorBet)
 def create_activity_from_aviator_bet(sender, instance, created, **kwargs):
+    user_stats, _ = UserStats.objects.get_or_create(user=instance.user)
+    
     if created:
         RecentActivity.objects.create(
             user=instance.user,
@@ -79,10 +103,12 @@ def create_activity_from_aviator_bet(sender, instance, created, **kwargs):
             description=f"Aviator bet of KES {instance.amount}",
             status='pending'
         )
+        # Update UserStats for bet
+        user_stats.total_bets += 1
+        user_stats.active_bets += 1
     
-    # Handle aviator wins
     if instance.is_winner and instance.cash_out_multiplier:
-        win_amount = instance.win_amount()
+        win_amount = Decimal(str(instance.win_amount()))  # Convert to Decimal
         RecentActivity.objects.create(
             user=instance.user,
             activity_type='cashout',
@@ -92,8 +118,10 @@ def create_activity_from_aviator_bet(sender, instance, created, **kwargs):
             description=f"Aviator cashout at {instance.cash_out_multiplier}x",
             status='completed'
         )
+        # Update UserStats for cashout
+        user_stats.total_winnings += win_amount  # Now both are Decimal
+        user_stats.active_bets = max(0, user_stats.active_bets - 1)
         
-        # Create top winner entry for big wins
         if win_amount >= 1000:
             TopWinner.objects.create(
                 user=instance.user,
@@ -101,3 +129,10 @@ def create_activity_from_aviator_bet(sender, instance, created, **kwargs):
                 game_type='aviator',
                 multiplier=instance.cash_out_multiplier
             )
+    
+    user_stats.calculate_win_rate()
+    try:
+        user_stats.save()
+        print(f"Updated UserStats: {user_stats.__dict__}")
+    except Exception as e:
+        print(f"Error saving UserStats: {e}")

@@ -1,3 +1,4 @@
+// Updated Navbar component (navbar.tsx or wherever it's located)
 "use client"
 
 import { useState, useEffect } from "react"
@@ -5,7 +6,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "../ui/button"
 import { useAuth } from "@/lib/auth"
-import { LogOut, Wallet, Bell, Settings, User } from "lucide-react"
+import { LogOut, Wallet as WalletIcon, Bell, Settings, User, Menu, X } from "lucide-react"
 import { WalletBalance } from "@/components/wallet/wallet-balance"
 
 interface NavbarProps {
@@ -13,7 +14,7 @@ interface NavbarProps {
   isMobileMenuOpen?: boolean
 }
 
-export function Navbar({}: NavbarProps) {
+export function Navbar({ onMobileMenuToggle, isMobileMenuOpen }: NavbarProps) {
   const { user, isAuthenticated, logout } = useAuth()
   const [scrolled, setScrolled] = useState(false)
 
@@ -46,9 +47,21 @@ export function Navbar({}: NavbarProps) {
           {/* Mobile Menu Button & Logo */}
           <div className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-4">
             {/* Mobile Menu Toggle - Only show on mobile */}
+            <button
+              onClick={onMobileMenuToggle}
+              className="lg:hidden w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 bg-purple-600 backdrop-blur-xl border-2 xs:border-3 sm:border-4 border-white rounded-lg xs:rounded-xl sm:rounded-2xl text-white hover:bg-purple-500 hover:border-yellow-400 transition-all duration-300 hover:scale-105 xs:hover:scale-110 shadow-xl xs:shadow-2xl active:scale-95 flex items-center justify-center"
+              aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            >
+              <div className="relative z-10">
+                {isMobileMenuOpen ? <X className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 text-white" /> : <Menu className="w-5 h-5 xs:w-6 xs:h-6 sm:w-7 sm:h-7 text-white" />}
+              </div>
+              {!isMobileMenuOpen && (
+                <div className="absolute -top-1 -right-1 xs:-top-1.5 xs:-right-1.5 sm:-top-2 sm:-right-2 w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 bg-yellow-400 rounded-full animate-bounce border-1 xs:border-1.5 sm:border-2 border-white"></div>
+              )}
+            </button>
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-1.5 xs:space-x-2 sm:space-x-3 group">
-              <div className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-md xs:rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
+              <div className="w-6 h-6 xs:w-7 xs:h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-md xs:rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-105 xs:group-hover:scale-110 transition-transform duration-300 shadow-lg">
                 <span className="text-white font-bold text-xs xs:text-sm sm:text-base md:text-lg">G</span>
               </div>
               <span className="text-white font-bold text-sm xs:text-base sm:text-lg md:text-xl bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent hidden xs:block">
@@ -181,7 +194,7 @@ export function Navbar({}: NavbarProps) {
                 variant="ghost"
                 className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 rounded-md xs:rounded-lg transition-all duration-300 text-xs py-1.5 xs:py-2"
               >
-                <Wallet className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-1" />
+                <WalletIcon className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-1" />
                 Wallet
               </Button>
               <Button

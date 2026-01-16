@@ -37,7 +37,7 @@ export function generateId(length: number = 8): string {
 }
 
 /** 
- * Truncates long strings and adds ellipsis (...). 
+ * Truncates long strings and adds  (...). 
  */
 export function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str

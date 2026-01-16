@@ -1,173 +1,339 @@
-"use client";
+//"use client"
+//
+//import { useState } from "react"
+//import { Button } from "@/components/ui/button"
+//import { Input } from "@/components/ui/input"
+//import { Label } from "@/components/ui/label"
+//import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+//import { toast } from "sonner"
+//import { useWallet } from "@/context/WalletContext"
+//import { getAuthHeader } from "@/lib/auth"
+//
+//export default function WithdrawForm() {
+//  const [amount, setAmount] = useState("")
+//  const [accountDetails, setAccountDetails] = useState("")
+//  const [withdrawalMethod, setWithdrawalMethod] = useState("")
+//  const [isLoading, setIsLoading] = useState(false)
+//
+//  const { balance, refreshBalance } = useWallet()
+//
+//  const handleWithdraw = async () => {
+//    if (!amount || !accountDetails || !withdrawalMethod) {
+//      toast.error("Please fill in all fields")
+//      return
+//    }
+//
+//    const withdrawAmount = Number.parseFloat(amount)
+//    if (withdrawAmount <= 0) {
+//      toast.error("Please enter a valid amount")
+//      return
+//    }
+//
+//    if (withdrawAmount > balance) {
+//      toast.error("Insufficient balance")
+//      return
+//    }
+//
+//    setIsLoading(true)
+//    try {
+//      const response = await fetch("/api/wallet/withdraw", {
+//        method: "POST",
+//        headers: {
+//          "Content-Type": "application/json",
+//          ...getAuthHeader(),
+//        },
+//        body: JSON.stringify({
+//          amount: withdrawAmount,
+//          ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
+//          withdrawalMethod,
+//        }),
+//      })
+//
+//      if (!response.ok) {
+//        const errorData = await response.json()
+//        throw new Error(errorData.message || "Withdrawal failed")
+//      }
+//
+//     // const data = await response.json()
+//
+//      await refreshBalance()
+//
+//      toast.success("Withdrawal request submitted successfully!")
+//      setAmount("")
+//      setAccountDetails("")
+//      setWithdrawalMethod("")
+//    } catch (error) {
+//      console.error("Withdrawal error:", error)
+//      toast.error(error instanceof Error ? error.message : "Failed to process withdrawal. Please try again.")
+//    } finally {
+//      setIsLoading(false)
+//    }
+//  }
+//
+//  const getFieldConfig = () => {
+//    if (withdrawalMethod === "mpesa") {
+//      return {
+//        label: "Phone Number",
+//        placeholder: "254XXXXXXXXX",
+//        type: "tel",
+//      }
+//    } else if (withdrawalMethod === "bank") {
+//      return {
+//        label: "Account Number",
+//        placeholder: "Enter bank account number",
+//        type: "text",
+//      }
+//    }
+//    return {
+//      label: "Phone Number / Account Number",
+//      placeholder: "Select withdrawal method first",
+//      type: "text",
+//    }
+//  }
+//
+//  const fieldConfig = getFieldConfig()
+//
+//  return (
+//    <div className="space-y-4">
+//      <div>
+//        <Label htmlFor="withdraw-amount" className="text-white/90 text-sm font-medium">
+//          Amount (KES)
+//        </Label>
+//        <Input
+//          id="withdraw-amount"
+//          type="number"
+//          placeholder="Enter amount"
+//          value={amount}
+//          onChange={(e) => setAmount(e.target.value)}
+//          className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-red-400 focus:ring-red-400/20"
+//        />
+//        <p className="text-xs text-white/60 mt-1">Available balance: KES {balance.toLocaleString()}</p>
+//      </div>
+//
+//      <div>
+//        <Label htmlFor="withdrawal-method" className="text-white/90 text-sm font-medium">
+//          Withdrawal Method
+//        </Label>
+//        <Select value={withdrawalMethod} onValueChange={setWithdrawalMethod}>
+//          <SelectTrigger className="bg-white/10 border-white/20 text-white focus:border-red-400 focus:ring-red-400/20">
+//            <SelectValue placeholder="Select method" />
+//          </SelectTrigger>
+//          <SelectContent className="bg-gray-900 border-white/20">
+//            <SelectItem value="mpesa" className="text-white hover:bg-white/10">
+//              M-Pesa
+//            </SelectItem>
+//            <SelectItem value="bank" className="text-white hover:bg-white/10">
+//              Bank Transfer
+//            </SelectItem>
+//          </SelectContent>
+//        </Select>
+//      </div>
+//
+//      <div>
+//        <Label htmlFor="withdraw-account" className="text-white/90 text-sm font-medium">
+//          {fieldConfig.label}
+//        </Label>
+//        <Input
+//          id="withdraw-account"
+//          type={fieldConfig.type}
+//          placeholder={fieldConfig.placeholder}
+//          value={accountDetails}
+//          onChange={(e) => setAccountDetails(e.target.value)}
+//          className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-red-400 focus:ring-red-400/20"
+//          disabled={!withdrawalMethod}
+//        />
+//      </div>
+//
+//      <Button
+//        onClick={handleWithdraw}
+//        disabled={isLoading}
+//        className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-semibold py-3 rounded-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+//      >
+//        {isLoading ? (
+//          <div className="flex items-center">
+//            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+//            Processing...
+//          </div>
+//        ) : (
+//          "Withdraw Funds"
+//        )}
+//      </Button>
+//    </div>
+//  )
+//}
 
-import type React from "react";
-import { useState } from "react";
-import axios, { AxiosError } from "axios"; // Import AxiosError
-import { getAuthHeader } from "@/lib/auth";
-import { Banknote, Minus, Plus, Sparkles, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useWallet } from "@/context/WalletContext";
-import { toast } from "sonner";
+"use client"
 
-interface WalletApiResponse {
-  detail?: string;
-}
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "sonner"
+import { useWallet } from "@/context/WalletContext"
+import { getAuthHeader } from "@/lib/auth"
+//import { headers } from "next/dist/server/request/headers"
 
 export default function WithdrawForm() {
-  const [amount, setAmount] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { refreshBalance } = useWallet();
-  const quickAmounts = [500, 1000, 2000, 5000, 10000];
+  const [amount, setAmount] = useState("")
+  const [accountDetails, setAccountDetails] = useState("")
+  const [withdrawalMethod, setWithdrawalMethod] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleWithdraw = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const parsedAmount = Number.parseFloat(amount);
+  const { balance, refreshBalance } = useWallet()
 
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      toast.error("Invalid amount", {
-        description: "Please enter a valid positive number for withdrawal.",
-        className: "bg-red-500/90 text-white border-red-400",
-      });
-      return;
+  const handleWithdraw = async () => {
+    if (!amount || !accountDetails || !withdrawalMethod) {
+      toast.error("Please fill in all fields")
+      return
     }
 
-    setIsLoading(true);
+    const withdrawAmount = Number.parseFloat(amount)
+    if (withdrawAmount <= 0) {
+      toast.error("Please enter a valid amount")
+      return
+    }
+
+    if (withdrawAmount > balance) {
+      toast.error("Insufficient balance")
+      return
+    }
+
+    setIsLoading(true)
     try {
-      const res = await axios.post(
-        "http://127.0.0.1:8000/api/wallet/withdraw/",
-        {
-          amount: parsedAmount,
-          transaction_type: "withdraw",
-          description: "User withdrawal",
+      const response = await fetch("https://gamblegalaxy.onrender.com/api/wallet/withdraw/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
         },
-        {
-          headers: getAuthHeader(),
-        }
-      );
+        body: JSON.stringify({
+          amount: withdrawAmount,
+          ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
+          withdrawalMethod,
+        }),
+      })
 
-      if (res.status === 201 || res.status === 200) {
-        toast.success("Withdrawal Successful!", {
-          description: `✅ KES ${parsedAmount.toLocaleString()} has been processed.`,
-          className: "bg-green-500/90 text-white border-green-400",
-        });
-        setAmount("");
-        await refreshBalance();
-      } else {
-        toast.error("Withdrawal Failed", {
-          description: res.data?.detail || res.statusText || "Please try again later.",
-          className: "bg-red-500/90 text-white border-red-400",
-        });
+//const response = await fetch("http://localhost:8000/api/wallet/withdraw/", {
+//  method: "POST",
+//  headers: {
+//    "Content-Type": "application/json",
+//    ...getAuthHeader(),
+//  },
+//  body: JSON.stringify({
+//    amount: withdrawAmount,
+//    ...(withdrawalMethod === "mpesa" ? { phoneNumber: accountDetails } : { accountNumber: accountDetails }),
+//    withdrawalMethod,
+//  }),
+//})
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Withdrawal failed")
       }
-    } catch (err: unknown) {
-      const axiosError = err as AxiosError<WalletApiResponse>;
-      console.error("Withdraw error:", axiosError);
-      const errorMessage =
-        axiosError.response?.data?.detail || axiosError.message || "Withdrawal failed";
-      toast.error("Network Error", {
-        description: errorMessage,
-        className: "bg-red-500/90 text-white border-red-400",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const adjustAmount = (increment: boolean) => {
-    const current = Number.parseFloat(amount) || 0;
-    const newAmount = increment ? current + 100 : Math.max(0, current - 100);
-    setAmount(newAmount.toString());
-  };
+      await refreshBalance()
+
+      toast.success("Withdrawal request submitted successfully! Awaiting admin approval.")
+      setAmount("")
+      setAccountDetails("")
+      setWithdrawalMethod("")
+    } catch (error) {
+      console.error("Withdrawal error:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to process withdrawal. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const getFieldConfig = () => {
+    if (withdrawalMethod === "mpesa") {
+      return {
+        label: "Phone Number",
+        placeholder: "254XXXXXXXXX",
+        type: "tel",
+      }
+    } else if (withdrawalMethod === "bank") {
+      return {
+        label: "Account Number",
+        placeholder: "Enter bank account number",
+        type: "text",
+      }
+    }
+    return {
+      label: "Phone Number / Account Number",
+      placeholder: "Select withdrawal method first",
+      type: "text",
+    }
+  }
+
+  const fieldConfig = getFieldConfig()
 
   return (
-    <form onSubmit={handleWithdraw} className="space-y-4 sm:space-y-6 text-white">
-      <div className="flex items-center space-x-2 sm:space-x-3">
-        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
-          <Banknote className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-        </div>
-        <h3 className="text-lg sm:text-xl font-bold">Withdraw Funds</h3>
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="withdraw-amount" className="text-white/90 text-sm font-medium">
+          Amount (KES)
+        </Label>
+        <Input
+          id="withdraw-amount"
+          type="number"
+          placeholder="Enter amount"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-red-400 focus:ring-red-400/20"
+        />
+        <p className="text-xs text-white/60 mt-1">Available balance: KES {balance.toLocaleString()}</p>
       </div>
 
-      {/* Quick Amount Buttons */}
       <div>
-        <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5 sm:mb-2">
-          Quick Amounts (KES)
-        </label>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
-          {quickAmounts.map((val) => (
-            <Button
-              key={val}
-              type="button"
-              variant="ghost"
-              onClick={() => setAmount(val.toString())}
-              className={`text-xs sm:text-sm py-2 sm:py-2.5 rounded-lg sm:rounded-xl transition-all duration-300 ${
-                amount === val.toString()
-                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
-                  : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white"
-              }`}
-            >
-              {val.toLocaleString()}
-            </Button>
-          ))}
-        </div>
+        <Label htmlFor="withdrawal-method" className="text-white/90 text-sm font-medium">
+          Withdrawal Method
+        </Label>
+        <Select value={withdrawalMethod} onValueChange={setWithdrawalMethod}>
+          <SelectTrigger className="bg-white/10 border-white/20 text-white focus:border-red-400 focus:ring-red-400/20">
+            <SelectValue placeholder="Select method" />
+          </SelectTrigger>
+          <SelectContent className="bg-gray-900 border-white/20">
+            <SelectItem value="mpesa" className="text-white hover:bg-white/10">
+              M-Pesa
+            </SelectItem>
+            <SelectItem value="bank" className="text-white hover:bg-white/10">
+              Bank Transfer
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Amount Input with Controls */}
       <div>
-        <label
-          htmlFor="withdraw-amount"
-          className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5 sm:mb-2"
-        >
-          Enter Amount (KES)
-        </label>
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => adjustAmount(false)}
-            className="bg-white/10 hover:bg-white/20 text-white rounded-lg sm:rounded-xl p-2 sm:p-2.5"
-          >
-            <Minus className="w-4 h-4 sm:w-5 sm:h-5" />
-          </Button>
-          <Input
-            id="withdraw-amount"
-            type="number"
-            placeholder="e.g., 5000"
-            className="flex-1 bg-white/10 border-white/20 placeholder:text-gray-400 text-white text-center text-base sm:text-lg font-bold rounded-lg sm:rounded-xl h-10 sm:h-12 focus:border-purple-400 transition-all duration-300"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            min="0"
-            step="100"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => adjustAmount(true)}
-            className="bg-white/10 hover:bg-white/20 text-white rounded-lg sm:rounded-xl p-2 sm:p-2.5"
-          >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-          </Button>
-        </div>
+        <Label htmlFor="withdraw-account" className="text-white/90 text-sm font-medium">
+          {fieldConfig.label}
+        </Label>
+        <Input
+          id="withdraw-account"
+          type={fieldConfig.type}
+          placeholder={fieldConfig.placeholder}
+          value={accountDetails}
+          onChange={(e) => setAccountDetails(e.target.value)}
+          className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:border-red-400 focus:ring-red-400/20"
+          disabled={!withdrawalMethod}
+        />
       </div>
 
       <Button
-        type="submit"
+        onClick={handleWithdraw}
         disabled={isLoading}
-        className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-2.5 sm:py-3 rounded-lg sm:rounded-xl transition-all duration-300 hover:scale-[1.02] shadow-lg hover:shadow-red-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-base sm:text-lg"
+        className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-semibold py-3 rounded-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
       >
         {isLoading ? (
-          <div className="flex items-center justify-center">
-            <Loader2 className="w-5 h-5 border-2 border-white/30 border-t-white mr-2 animate-spin" />
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
             Processing...
           </div>
         ) : (
-          <div className="flex items-center justify-center">
-            <Banknote className="w-5 h-5 mr-2" />
-            Withdraw Now
-            <Sparkles className="w-4 h-4 ml-2" />
-          </div>
+          "Withdraw Funds"
         )}
       </Button>
-    </form>
-  );
+    </div>
+  )
 }

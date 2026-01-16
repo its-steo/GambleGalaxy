@@ -10,9 +10,25 @@ import type {
   TopWinner,
   SureOdd,
   SureOddSlip,
+  PredictorPackage,
+  PredictorPurchase,
+  PredictorPrediction,
+  PredictorStats,
+  GeneratePredictionResponse, // New import for GeneratePredictionResponse
 } from "@/lib/types"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+// Define BigGameImage type to match API response
+interface BigGameImage {
+  id: number
+  title: string
+  image_url: string
+  match_id?: number
+  upload_date?: string
+  is_active?: boolean
+}
+
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://gamblegalaxy.onrender.com/api"
 
 interface ApiResponse<T> {
   data?: T
@@ -258,6 +274,76 @@ class ApiClient {
     })
   }
 
+  async getBigGames() {
+    return this.request<BigGameImage[]>("/betting/big-games/")
+  }
+
+  // Predictor API endpoints
+  async getPredictorPackages() {
+    console.log("📦 Fetching predictor packages")
+    const response = await this.request<PredictorPackage[]>("/games/predictors/")
+    console.log("🔍 Predictor packages response:", response)
+    return response
+  }
+
+  async purchasePredictorPackage(packageId: number) {
+    console.log("💎 Purchasing predictor package:", packageId)
+    const response = await this.request<{
+      purchase: PredictorPurchase
+      new_balance: number
+      message: string
+    }>("/games/predictors/purchase/", {
+      method: "POST",
+      body: JSON.stringify({ predictor_package_id: packageId }),
+    })
+    console.log("🔍 Predictor purchase response:", response)
+    return response
+  }
+
+  async getMyPredictorPurchases() {
+    console.log("📜 Fetching my predictor purchases")
+    const response = await this.request<PredictorPurchase[]>("/games/predictors/my-purchases/")
+    console.log("🔍 My predictor purchases response:", response)
+    return response
+  }
+
+  async generatePrediction(purchaseId: number) {
+    console.log("🎯 Generating prediction for purchase:", purchaseId)
+    const response = await this.request<GeneratePredictionResponse>("/games/predictors/generate/", {
+      method: "POST",
+      body: JSON.stringify({ purchase_id: purchaseId }),
+    })
+    console.log("🔍 Generate prediction response:", response)
+    return response
+  }
+
+  async getCurrentPrediction() {
+    console.log("🎯 Fetching current prediction")
+    const response = await this.request<{
+      prediction: PredictorPrediction | null
+      has_active_package: boolean
+      predictions_remaining: number
+    }>("/games/predictors/my-purchases/", {
+      method: "GET",
+    })
+    console.log("🔍 Current prediction response:", response)
+    return response
+  }
+
+  async getPredictorStats() {
+    console.log("📊 Fetching predictor stats")
+    const response = await this.request<PredictorStats>("/games/aviator/predictor/stats/")
+    console.log("🔍 Predictor stats response:", response)
+    return response
+  }
+
+  async getPredictionHistory() {
+    console.log("📜 Fetching prediction history")
+    const response = await this.request<PredictorPrediction[]>("/games/aviator/predictor/history/")
+    console.log("🔍 Prediction history response:", response)
+    return response
+  }
+
   // Aviator
   async startAviatorRound() {
     console.log("🚀 Initiating new Aviator round")
@@ -438,6 +524,36 @@ class ApiClient {
     console.log(`🔍 Recent activity response:`, response)
     return response
   }
+
+  async updateProfile(data: Partial<User>) {
+    console.log("🔄 Updating profile with data:", data)
+    const response = await this.request<User>("/accounts/profile/", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    })
+    console.log("🔍 Profile update response:", response)
+    return response
+  }
+
+  async uploadAvatar(file: File) {
+    const formData = new FormData()
+    formData.append("avatar", file)
+    console.log("📸 Uploading avatar")
+    const response = await this.request<User>("/accounts/profile/", {
+      method: "PATCH",
+      body: formData,
+      headers: {},
+    })
+    console.log("🔍 Avatar upload response:", response)
+    return response
+  }
 }
 
 export const api = new ApiClient()
+
+export const setPastCrashes = async (crashes: number[]) => {
+  console.log("📊 Setting past crashes:", crashes)
+  // This function is used to set past crashes in the WebSocket state
+  // It's typically called from the aviator game component
+  return crashes
+}

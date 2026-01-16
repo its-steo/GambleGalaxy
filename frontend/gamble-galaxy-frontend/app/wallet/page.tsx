@@ -1,12 +1,14 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import type React from "react"
+import { useState, useEffect } from "react"
 import WalletCard from "@/components/wallet/walletcard"
 import { DepositForm } from "@/components/wallet/depositform"
 import WithdrawForm from "@/components/wallet/withdrawalform"
 import TransactionHistory from "@/components/wallet/transactionhistory"
 import { WalletBalance } from "@/components/wallet/wallet-balance"
-import { DollarSign, History, ArrowUpCircle, ArrowDownCircle, Zap } from "lucide-react"
+import GlassSideNav from "@/components/layout/glass-side-nav"
+import { DollarSign, History, ArrowUpCircle, ArrowDownCircle, Zap, Menu } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -14,6 +16,7 @@ import { toast } from "sonner"
 export default function WalletPage() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [particles, setParticles] = useState<React.ReactElement[]>([])
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [quickActions] = useState([
     { id: 1, name: "Deposit", icon: ArrowUpCircle, action: () => toast.info("Deposit action triggered!") },
     { id: 2, name: "Withdraw", icon: ArrowDownCircle, action: () => toast.info("Withdraw action triggered!") },
@@ -47,8 +50,44 @@ export default function WalletPage() {
     setParticles(generatedParticles)
   }, [])
 
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: "My Wallet - Gamble Galaxy",
+        text: "Check out my wallet on Gamble Galaxy!",
+        url: window.location.href,
+      })
+    } else {
+      navigator.clipboard.writeText(window.location.href)
+      toast.success("Wallet link copied to clipboard!")
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden pt-16 lg:pt-0">
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      <div className="hidden lg:block fixed left-0 top-0 h-full z-30">
+        <GlassSideNav onShare={handleShare} />
+      </div>
+
+      {isMobileSidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full">
+            <GlassSideNav onShare={handleShare} onClose={() => setIsMobileSidebarOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => setIsMobileSidebarOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-[60] p-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-md border border-white/30 rounded-xl hover:bg-gradient-to-r hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 hover:scale-110 shadow-xl hover:shadow-purple-500/50 ring-1 ring-white/10"
+      >
+        <Menu className="w-6 h-6 text-white drop-shadow-lg" />
+      </button>
+
       {/* Animated Background */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-blue-900/20" />
@@ -64,7 +103,7 @@ export default function WalletPage() {
         {particles}
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="relative z-10 lg:ml-80 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pt-20 lg:pt-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 mb-8 sm:mb-12">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white">

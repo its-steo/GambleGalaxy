@@ -9,6 +9,7 @@ urlpatterns = [
     path('history/', views.MyBetHistoryView.as_view(), name='bet-history'),
     path('sure-odds/', views.SureOddsView.as_view(), name='sure-odds'),
     path('sure-odds/pay/', views.SureOddsPaymentView.as_view(), name='sure-odds-pay'),
+    path('big-games/', views.BigGameImagesListView.as_view(), name='big-games'),
     
 
 
